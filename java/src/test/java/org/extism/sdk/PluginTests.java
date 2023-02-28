@@ -195,7 +195,6 @@ public class PluginTests {
         }
     }
 
-
     @Test
     public void shouldFailToInvokeUnknownHostFunction() {
         try (var ctx = new Context()) {
@@ -211,4 +210,85 @@ public class PluginTests {
         }
     }
 
+    @Test
+    public void shouldRunOPAPolicy() {
+        try (var ctx = new Context()) {
+            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            String functionName = "eval";
+
+            ExtismFunction opaAbortFunction = (plugin, params, returns, data) -> {};
+            ExtismFunction opaPrintlnFunction = (plugin, params, returns, data) -> {};
+            ExtismFunction opaBuiltin0Function = (plugin, params, returns, data) -> {};
+            ExtismFunction opaBuiltin1Function = (plugin, params, returns, data) -> {};
+            ExtismFunction opaBuiltin2Function = (plugin, params, returns, data) -> {};
+            ExtismFunction opaBuiltin3Function = (plugin, params, returns, data) -> {};
+            ExtismFunction opaBuiltin4Function = (plugin, params, returns, data) -> {};
+
+            var parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
+            var resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
+
+            HostFunction opa_abort = new HostFunction<>(
+                    "opa_abort",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[0],
+                    opaAbortFunction,
+                    Optional.empty()
+            );
+            HostFunction opa_println = new HostFunction<>(
+                    "opa_println",
+                    parametersTypes,
+                    resultsTypes,
+                    opaPrintlnFunction,
+                    Optional.empty()
+            );
+            HostFunction opa_builtin0 = new HostFunction<>(
+                    "opa_builtin0",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    opaBuiltin0Function,
+                    Optional.empty()
+            );
+            HostFunction opa_builtin1 = new HostFunction<>(
+                    "opa_builtin1",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    opaBuiltin1Function,
+                    Optional.empty()
+            );
+            HostFunction opa_builtin2 = new HostFunction<>(
+                    "opa_builtin2",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    opaBuiltin2Function,
+                    Optional.empty()
+            );
+            HostFunction opa_builtin3 = new HostFunction<>(
+                    "opa_builtin3",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    opaBuiltin3Function,
+                    Optional.empty()
+            );
+            HostFunction opa_builtin4 = new HostFunction<>(
+                    "opa_builtin4",
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                    new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                    opaBuiltin4Function,
+                    Optional.empty()
+            );
+
+            HostFunction[] functions = new HostFunction[]{
+                    opa_abort,
+                    opa_println,
+                    opa_builtin0,
+                    opa_builtin1,
+                    opa_builtin2,
+                    opa_builtin3,
+                    opa_builtin4,
+            };
+
+            var plugin = ctx.newPlugin(manifest, true, functions);
+            plugin.call(functionName, "this is a test");
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package org.extism.sdk;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
