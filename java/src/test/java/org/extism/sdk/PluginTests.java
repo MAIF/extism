@@ -21,7 +21,7 @@ public class PluginTests {
     @Test
     public void shouldInvokeFunctionWithMemoryOptions() {
         //FIXME check whether memory options are effective
-        var manifest = new Manifest(List.of(CODE.pathWasmSource()), new MemoryOptions(0));
+        var manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmSource())), new MemoryOptions(0));
         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
         assertThat(output).isEqualTo("{\"count\": 3}");
     }
@@ -30,7 +30,7 @@ public class PluginTests {
     public void shouldInvokeFunctionWithConfig() {
         //FIXME check if config options are available in wasm call
         var config = Map.of("key1", "value1");
-        var manifest = new Manifest(List.of(CODE.pathWasmSource()), null, config);
+        var manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmSource())), null, config);
         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
         assertThat(output).isEqualTo("{\"count\": 3}");
     }
@@ -141,7 +141,7 @@ public class PluginTests {
         HostFunction[] functions = {helloWorld};
 
         try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            Manifest manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmFunctionsSource())));
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
@@ -180,7 +180,7 @@ public class PluginTests {
         HostFunction[] functions = {helloWorld};
 
         try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            Manifest manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmFunctionsSource())));
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
@@ -194,7 +194,7 @@ public class PluginTests {
     @Test
     public void shouldFailToInvokeUnknownHostFunction() {
         try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            Manifest manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmFunctionsSource())));
             String functionName = "count_vowels";
 
             try {

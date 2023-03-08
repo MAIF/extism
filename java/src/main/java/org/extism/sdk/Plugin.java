@@ -5,6 +5,7 @@ import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Objects;
 
 /**
@@ -31,7 +32,7 @@ public class Plugin implements AutoCloseable {
      * @param functions     The Host functions for th eplugin
      * @param withWASI      Set to true to enable WASI
      */
-    public Plugin(Context context, byte[] manifestBytes, boolean withWASI, HostFunction[] functions) {
+    public Plugin(Context context, Manifest manifestBytes, boolean withWASI, HostFunction[] functions) {
 
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(manifestBytes, "manifestBytes");
@@ -43,12 +44,22 @@ public class Plugin implements AutoCloseable {
                ptrArr[i] = functions[i].pointer;
             }
 
-        Pointer contextPointer = context.getPointer();
+        long contextPointer = context.getPointer();
 
-        int index = LibExtism.INSTANCE.extism_plugin_new(contextPointer, manifestBytes, manifestBytes.length,
-                ptrArr,
-                functions == null ? 0 : functions.length,
+//        int index = LibExtism.INSTANCE.extism_plugin_new(contextPointer, manifestBytes, manifestBytes.length,
+//                ptrArr,
+//                functions == null ? 0 : functions.length,
+//                withWASI);
+        byte[] test = serialize(manifestBytes);
+        int index = JniWrapper.extismPluginNew(
+                contextPointer,
+                new String(test, StandardCharsets.UTF_8),
+                test.length,
+                // functions == null ? new HostFunction[0] : functions,
+                new ArrayList<>(),
+                0,//functions == null ? 0 : functions.length,
                 withWASI);
+
         if (index == -1) {
             String error = context.error(this);
             throw new ExtismException(error);
@@ -58,9 +69,10 @@ public class Plugin implements AutoCloseable {
         this.context = context;
     }
 
-    public Plugin(Context context, Manifest manifest, boolean withWASI, HostFunction[] functions) {
-        this(context, serialize(manifest), withWASI, functions);
-    }
+//    public Plugin(Context context, Manifest manifest, boolean withWASI, HostFunction[] functions) {
+////        this(context, serialize(manifest), withWASI, functions);
+//        this(context, manifest, withWASI, functions);
+//    }
 
     private static byte[] serialize(Manifest manifest) {
         Objects.requireNonNull(manifest, "manifest");
@@ -88,17 +100,24 @@ public class Plugin implements AutoCloseable {
 
         Objects.requireNonNull(functionName, "functionName");
 
-        Pointer contextPointer = context.getPointer();
+        long contextPointer = context.getPointer();
         int inputDataLength = inputData == null ? 0 : inputData.length;
-        int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
+        int exitCode = JniWrapper.extismPluginCall(contextPointer, index, functionName, new String(inputData, StandardCharsets.UTF_8), inputDataLength);
         if (exitCode == -1) {
             String error = context.error(this);
             throw new ExtismException(error);
         }
 
-        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
-        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
-        return output.getByteArray(0, length);
+        System.out.println(JniWrapper.extismPluginResult(contextPointer, index));
+
+//        int length = JniWrapper.extism_plugin_output_length(contextPointer, index);
+//        long output = JniWrapper.extism_plugin_output_data(contextPointer, index);
+
+//        new Pointer(output)
+//        return output.getByteArray(0, length);
+
+        this.free();
+        throw new ExtismException("NEED TO BE CHANGED");
     }
 
     /**
@@ -136,18 +155,19 @@ public class Plugin implements AutoCloseable {
      * @return {@literal true} if update was successful
      */
     public boolean update(byte[] manifestBytes, boolean withWASI, HostFunction[] functions) {
-        Objects.requireNonNull(manifestBytes, "manifestBytes");
-        Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
-
-        if (functions != null)
-            for (int i = 0; i < functions.length; i++) {
-                ptrArr[i] = functions[i].pointer;
-            }
-
-        return LibExtism.INSTANCE.extism_plugin_update(context.getPointer(), index, manifestBytes, manifestBytes.length,
-                ptrArr,
-                functions == null ? 0 : functions.length,
-                withWASI);
+//        Objects.requireNonNull(manifestBytes, "manifestBytes");
+//        Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
+//
+//        if (functions != null)
+//            for (int i = 0; i < functions.length; i++) {
+//                ptrArr[i] = functions[i].pointer;
+//            }
+//
+//        return LibExtism.INSTANCE.extism_plugin_update(context.getPointer(), index, manifestBytes, manifestBytes.length,
+//                ptrArr,
+//                functions == null ? 0 : functions.length,
+//                withWASI);
+        throw new ExtismException("NEED TO BE CHANGED");
     }
 
     /**
@@ -155,7 +175,7 @@ public class Plugin implements AutoCloseable {
      * if you free their parent Context using {@link org.extism.sdk.Context#free() free()} or {@link org.extism.sdk.Context#reset() reset()}
      */
     public void free() {
-        LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
+        JniWrapper.extismPluginFree(context.getPointer(), index);
     }
 
     /**
@@ -177,7 +197,8 @@ public class Plugin implements AutoCloseable {
      */
     public boolean updateConfig(byte[] jsonBytes) {
         Objects.requireNonNull(jsonBytes, "jsonBytes");
-        return LibExtism.INSTANCE.extism_plugin_config(context.getPointer(), index, jsonBytes, jsonBytes.length);
+//        return LibExtism.INSTANCE.extism_plugin_config(context.getPointer(), index, jsonBytes, jsonBytes.length);
+        throw new ExtismException("NEED TO BE CHANGED");
     }
 
     /**

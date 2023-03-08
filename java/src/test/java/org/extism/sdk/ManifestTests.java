@@ -5,6 +5,7 @@ import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.support.JsonSerde;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,7 +29,7 @@ public class ManifestTests {
     @Test
     public void shouldSerializeManifestWithWasmSourceAndMemoryOptionsToJson() {
 
-        var manifest = new Manifest(List.of(CODE.pathWasmSource()), new MemoryOptions(4));
+        var manifest = new Manifest(new ArrayList<>(List.of(CODE.pathWasmSource())), new MemoryOptions(4));
         var json = JsonSerde.toJson(manifest);
         assertNotNull(json);
 

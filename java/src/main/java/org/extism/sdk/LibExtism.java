@@ -89,19 +89,19 @@ public interface LibExtism extends Library {
         /**
      * Create a new context
      */
-    Pointer extism_context_new();
+        // long extism_context_new();
 
     /**
      * Free a context
      */
-    void extism_context_free(Pointer contextPointer);
+    void extism_context_free(long contextPointer);
 
     /**
      * Remove all plugins from the registry.
      *
      * @param contextPointer
      */
-    void extism_context_reset(Pointer contextPointer);
+    void extism_context_reset(long contextPointer);
 
     /**
      * Sets the logger to the given path with the given level of verbosity
@@ -119,7 +119,7 @@ public interface LibExtism extends Library {
      * @param pluginId
      * @return
      */
-    String extism_error(Pointer contextPointer, int pluginId);
+    String extism_error(long contextPointer, int pluginId);
 
     /**
      * Create a new plugin.
@@ -192,7 +192,7 @@ public interface LibExtism extends Library {
      * @param contextPointer
      * @param pluginIndex
      */
-    void extism_plugin_free(Pointer contextPointer, int pluginIndex);
+    // void extism_plugin_free(long contextPointer, int pluginIndex);
 
     /**
      * Update plugin config values, this will merge with the existing values.

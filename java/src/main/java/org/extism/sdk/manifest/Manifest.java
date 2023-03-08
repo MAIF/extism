@@ -11,39 +11,39 @@ import java.util.Map;
 public class Manifest {
 
     @SerializedName("wasm")
-    private final List<WasmSource> sources;
+    private ArrayList<WasmSource> sources;
 
     @SerializedName("memory")
-    private final MemoryOptions memoryOptions;
+    private MemoryOptions memoryOptions;
 
     // FIXME remove this and related stuff if not supported in java-sdk
     @SerializedName("allowed_hosts")
-    private final List<String> allowedHosts;
+    private ArrayList<String> allowedHosts;
 
     @SerializedName("config")
-    private final Map<String, String> config;
+    private Map<String, String> config;
 
     public Manifest() {
         this(new ArrayList<>(), null, null, null);
     }
 
     public Manifest(WasmSource source) {
-        this(List.of(source));
+        this(new ArrayList<>(List.of(source)));
     }
 
-    public Manifest(List<WasmSource> sources) {
+    public Manifest(ArrayList<WasmSource> sources) {
         this(sources, null, null, null);
     }
 
-    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions) {
+    public Manifest(ArrayList<WasmSource> sources, MemoryOptions memoryOptions) {
         this(sources, memoryOptions, null, null);
     }
 
-    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config) {
+    public Manifest(ArrayList<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config) {
         this(sources, memoryOptions, config, null);
     }
 
-    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, List<String> allowedHosts) {
+    public Manifest(ArrayList<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, ArrayList<String> allowedHosts) {
         this.sources = sources;
         this.memoryOptions = memoryOptions;
         this.config = config;

@@ -11,7 +11,7 @@ public class Context implements AutoCloseable {
     /**
      * Holds a pointer to the native ExtismContext struct.
      */
-    private final Pointer contextPointer;
+    private final long contextPointer;
 
     /**
      * Creates a new context.
@@ -20,7 +20,7 @@ public class Context implements AutoCloseable {
      * and make sure they are cleaned up when you are done with them.
      */
     public Context() {
-        this.contextPointer = LibExtism.INSTANCE.extism_context_new();
+        this.contextPointer = JniWrapper.extismContextNew();// LibExtism.INSTANCE.extism_context_new();
     }
 
     /**
@@ -68,7 +68,7 @@ public class Context implements AutoCloseable {
      * @return the error message
      */
     protected String error(Plugin plugin) {
-        return LibExtism.INSTANCE.extism_error(this.contextPointer, plugin == null ? -1 : plugin.getIndex());
+        return JniWrapper.extismError(this.contextPointer, plugin == null ? -1 : plugin.getIndex());
     }
 
     /**
@@ -76,7 +76,7 @@ public class Context implements AutoCloseable {
      *
      * @return the pointer
      */
-    public Pointer getPointer() {
+    public long getPointer() {
         return this.contextPointer;
     }
 

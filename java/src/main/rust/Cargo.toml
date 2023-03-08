@@ -1,0 +1,45 @@
+[package]
+name = "jni-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21.0"
+robusta_jni = "0.2.0"
+
+wasmtime = "6.0.0"
+wasmtime-wasi = "6.0.0"
+wasmtime-wasi-nn = {version = "6.0.0", optional=true}
+anyhow = "1"
+serde = {version = "1", features = ["derive"]}
+serde_json = "1"
+toml = "0.7"
+sha2 = "0.10"
+log = "0.4"
+log4rs = "1.1"
+url = "2"
+glob = "0.3"
+ureq = {version = "2.5", optional=true}
+extism-manifest = { version = "0.2.0", path = "../../../../manifest" }
+pretty-hex = { version = "0.3" }
+uuid = { version = "1", features = ["v4"] }
+libc = "0.2"
+
+
+[workspace]
+members = [
+  ".",
+]
+
+[features]
+default = ["http", "register-http", "register-filesystem"]
+nn = ["wasmtime-wasi-nn"]
+register-http = ["ureq"] # enables wasm to be downloaded using http
+register-filesystem = [] # enables wasm to be loaded from disk
+http = ["ureq"]          # enables extism_http_request
+
+[build-dependencies]
+cbindgen = "0.24"
