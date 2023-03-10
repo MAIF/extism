@@ -6,6 +6,7 @@ import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -214,7 +215,6 @@ public class PluginTests {
     public void shouldRunOPAPolicy() {
         try (var ctx = new Context()) {
             Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
-            String functionName = "eval";
 
             ExtismFunction opaAbortFunction = (plugin, params, returns, data) -> {};
             ExtismFunction opaPrintlnFunction = (plugin, params, returns, data) -> {};
@@ -288,7 +288,13 @@ public class PluginTests {
             };
 
             var plugin = ctx.newPlugin(manifest, true, functions);
-            plugin.call(functionName, "this is a test");
+
+            Long ctxPointer = ByteBuffer.wrap(plugin.call("opa_eval_ctx_new", new byte[0])).getLong();
+            plugin.call("opa_eval_ctx_set_input",  ctxPointer);
+            plugin.call("opa_eval_ctx_set_data", this.dataAddr);
+            plugin.call("opa_eval_ctx_set_entrypoint", entrypoint);
+
+            plugin.call("opa_eval", "{}");
         }
     }
 }
