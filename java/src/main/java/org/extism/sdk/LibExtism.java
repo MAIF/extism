@@ -1,6 +1,7 @@
 package org.extism.sdk;
 
 import com.sun.jna.*;
+import com.sun.jna.ptr.ByteByReference;
 
 /**
  * Wrapper around the Extism library.
@@ -26,6 +27,8 @@ public interface LibExtism extends Library {
 
     @Structure.FieldOrder({"t", "v"})
     class ExtismVal extends Structure {
+        public static class ByReference extends ExtismVal implements Structure.ByReference {}
+
         public int t;
         public ExtismValUnion v;
     }
@@ -151,6 +154,19 @@ public interface LibExtism extends Library {
      * @return the result code of the plugin call. {@literal -1} in case of error, {@literal 0} otherwise.
      */
     int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
+
+    Pointer extism_plugin_call_native(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal inputs, int nInputs);
+
+    int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
+
+    long extism_plugin_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
+
+     Pointer extism_plugin_memory_read_bytes(Pointer contextPointer, int pluginIndex);
+
+     Pointer opa(Pointer contextPointer, int pluginIndex);
+     Pointer opa_eval(Pointer contextPointer, int pluginIndex, String input);
+
+    Pointer extism_memory(Pointer contextPointer, int pluginIndex, String memoryName);
 
     /**
      * Returns the length of a plugin's output data.

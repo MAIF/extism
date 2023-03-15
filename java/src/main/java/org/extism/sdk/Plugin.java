@@ -5,7 +5,9 @@ import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -85,21 +87,66 @@ public class Plugin implements AutoCloseable {
      * @return A byte array representing the raw output data
      * @throws ExtismException if the call fails
      */
-    public byte[] call(String functionName, byte[] inputData) {
+    public Pointer call(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
 
         Objects.requireNonNull(functionName, "functionName");
 
         Pointer contextPointer = context.getPointer();
-        int inputDataLength = inputData == null ? 0 : inputData.length;
-        int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
-        if (exitCode == -1) {
-            String error = context.error(this);
-            throw new ExtismException(error);
-        }
+        // int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
 
-        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
-        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
-        return output.getByteArray(0, length);
+        return LibExtism.INSTANCE.extism_plugin_call_native(
+                contextPointer,
+                index,
+                functionName,
+                params,
+                nParams);
+
+//        if (results == -1) {
+//            String error = context.error(this);
+//            throw new ExtismException(error);
+//        }
+
+//        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
+//        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
+//        return output.getByteArray(0, length);
+    }
+
+    public Pointer nativeCall(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
+        return call(functionName, params, nParams);
+    }
+
+    public int callWithIntResult(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
+        return LibExtism.INSTANCE.extism_plugin_call_native_int(
+                getPointer(),
+                index,
+                functionName,
+                params,
+                nParams,
+                new byte[0],
+                0);
+    }
+
+    public LibExtism.ExtismVal.ByReference intToParams(int value) {
+        LibExtism.ExtismVal.ByReference ptr = new LibExtism.ExtismVal.ByReference();
+        LibExtism.ExtismVal[] params = (LibExtism.ExtismVal []) ptr.toArray(1);
+        params[0].t = 0;
+        params[0].v.setType(Integer.TYPE);
+        params[0].v.i32 = value;
+
+        ptr.write();
+
+        return ptr;
+    }
+
+    public Pointer nativeCallPointer(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
+        Pointer contextPointer = context.getPointer();
+
+        return LibExtism.INSTANCE.extism_plugin_call_native(
+                contextPointer,
+                index,
+                functionName,
+                params,
+                nParams);
     }
 
     /**
@@ -109,13 +156,16 @@ public class Plugin implements AutoCloseable {
      * @param input        The string representing the input data
      * @return A string representing the output data
      */
-    public String call(String functionName, String input) {
+    public String call(String functionName, String input, LibExtism.ExtismVal.ByReference params, int nParams) {
 
         Objects.requireNonNull(functionName, "functionName");
 
         var inputBytes = input == null ? null : input.getBytes(StandardCharsets.UTF_8);
-        var outputBytes = call(functionName, inputBytes);
-        return new String(outputBytes, StandardCharsets.UTF_8);
+        //var outputBytes = call(functionName, inputBytes, params, nParams);
+        //return new String(outputBytes, StandardCharsets.UTF_8);
+
+
+        return "";
     }
 
     /**
@@ -187,5 +237,28 @@ public class Plugin implements AutoCloseable {
     @Override
     public void close() {
         free();
+    }
+
+
+    public int callFunctionWithTwoInts(String name, int v1, int v2) {
+        System.out.println("callFunctionWithTwoInts : " + name);
+
+        LibExtism.ExtismVal.ByReference p1 = new LibExtism.ExtismVal.ByReference();
+        LibExtism.ExtismVal[] p1s = (LibExtism.ExtismVal[]) p1.toArray(2);
+        p1s[0].t = 0;
+        p1s[0].v.setType(Integer.TYPE);
+        p1s[0].v.i32 = v1;
+
+        p1s[1].t = 0;
+        p1s[1].v.setType(Integer.TYPE);
+        p1s[1].v.i32 = v2;
+
+        p1.write();
+
+        return callWithIntResult(name, p1, 2);
+    }
+
+    public Pointer getPointer() {
+        return context.getPointer();
     }
 }

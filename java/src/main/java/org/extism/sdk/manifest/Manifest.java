@@ -43,7 +43,8 @@ public class Manifest {
         this(sources, memoryOptions, config, null);
     }
 
-    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, List<String> allowedHosts) {
+    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config,
+                    List<String> allowedHosts) {
         this.sources = sources;
         this.memoryOptions = memoryOptions;
         this.config = config;
