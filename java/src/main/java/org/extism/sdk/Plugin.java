@@ -1,13 +1,11 @@
 package org.extism.sdk;
 
-import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
+import org.extism.sdk.parameters.Parameters;
 import org.extism.sdk.support.JsonSerde;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -43,7 +41,7 @@ public class Plugin implements AutoCloseable {
 
         if (functions != null)
             for (int i = 0; i < functions.length; i++) {
-               ptrArr[i] = functions[i].pointer;
+                ptrArr[i] = functions[i].pointer;
             }
 
         Pointer contextPointer = context.getPointer();
@@ -87,32 +85,55 @@ public class Plugin implements AutoCloseable {
      * @return A byte array representing the raw output data
      * @throws ExtismException if the call fails
      */
-    public Pointer call(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
+    public byte[] call(String functionName, byte[] inputData) {
 
         Objects.requireNonNull(functionName, "functionName");
 
         Pointer contextPointer = context.getPointer();
-        // int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
+        int inputDataLength = inputData == null ? 0 : inputData.length;
+        int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
+        if (exitCode == -1) {
+            String error = context.error(this);
+            throw new ExtismException(error);
+        }
 
-        return LibExtism.INSTANCE.extism_plugin_call_native(
+        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
+        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
+        return output.getByteArray(0, length);
+    }
+
+    /**
+     * Invoke a function with the given name and input.
+     *
+     * @param functionName The name of the exported function to invoke
+     * @param input        The string representing the input data
+     * @return A string representing the output data
+     */
+    public String call(String functionName, String input) {
+
+        Objects.requireNonNull(functionName, "functionName");
+
+        var inputBytes = input == null ? null : input.getBytes(StandardCharsets.UTF_8);
+        var outputBytes = call(functionName, inputBytes);
+        return new String(outputBytes, StandardCharsets.UTF_8);
+    }
+
+    public Parameters call(String functionName, Parameters params, int resultsLength, byte[] input) {
+        Objects.requireNonNull(functionName, "functionName");
+
+        Pointer contextPointer = context.getPointer();
+        params.getPtr().write();
+
+        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_plugin_call(
                 contextPointer,
                 index,
                 functionName,
-                params,
-                nParams);
+                params.getPtr(),
+                params.getValues().length,
+                input,
+                input.length);
 
-//        if (results == -1) {
-//            String error = context.error(this);
-//            throw new ExtismException(error);
-//        }
-
-//        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
-//        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
-//        return output.getByteArray(0, length);
-    }
-
-    public Pointer nativeCall(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
-        return call(functionName, params, nParams);
+        return new Parameters(results, resultsLength);
     }
 
     public int callWithIntResult(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
@@ -136,36 +157,6 @@ public class Plugin implements AutoCloseable {
         ptr.write();
 
         return ptr;
-    }
-
-    public Pointer nativeCallPointer(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
-        Pointer contextPointer = context.getPointer();
-
-        return LibExtism.INSTANCE.extism_plugin_call_native(
-                contextPointer,
-                index,
-                functionName,
-                params,
-                nParams);
-    }
-
-    /**
-     * Invoke a function with the given name and input.
-     *
-     * @param functionName The name of the exported function to invoke
-     * @param input        The string representing the input data
-     * @return A string representing the output data
-     */
-    public String call(String functionName, String input, LibExtism.ExtismVal.ByReference params, int nParams) {
-
-        Objects.requireNonNull(functionName, "functionName");
-
-        var inputBytes = input == null ? null : input.getBytes(StandardCharsets.UTF_8);
-        //var outputBytes = call(functionName, inputBytes, params, nParams);
-        //return new String(outputBytes, StandardCharsets.UTF_8);
-
-
-        return "";
     }
 
     /**
@@ -207,6 +198,11 @@ public class Plugin implements AutoCloseable {
      */
     public void free() {
         LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
+    }
+
+    public void free(Parameters results) {
+        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getValues().length);
+        free();
     }
 
     /**

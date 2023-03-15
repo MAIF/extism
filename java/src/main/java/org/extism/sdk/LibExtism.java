@@ -1,7 +1,6 @@
 package org.extism.sdk;
 
 import com.sun.jna.*;
-import com.sun.jna.ptr.ByteByReference;
 
 /**
  * Wrapper around the Extism library.
@@ -31,6 +30,15 @@ public interface LibExtism extends Library {
 
         public int t;
         public ExtismValUnion v;
+
+        @Override
+        public String toString() {
+            String typeAsString = new String[]{"int", "long", "float", "double"}[t];
+
+            Object unionValue = new Object[]{v.i32, v.i64, v.f32, v.f64}[t];
+
+            return String.format("ExtismVal(%s, %s)", typeAsString, unionValue);
+        }
     }
 
     class ExtismValUnion extends Union {
@@ -155,18 +163,24 @@ public interface LibExtism extends Library {
      */
     int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
 
+    LibExtism.ExtismVal.ByReference wasm_plugin_call(
+            Pointer contextPointer,
+            int pluginIndex,
+            String function_name,
+            ExtismVal.ByReference inputs,
+            int nInputs,
+            byte[] data,
+            int dataLength);
+
     Pointer extism_plugin_call_native(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal inputs, int nInputs);
 
     int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
 
     long extism_plugin_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
 
-     Pointer extism_plugin_memory_read_bytes(Pointer contextPointer, int pluginIndex);
+    void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
 
-     Pointer opa(Pointer contextPointer, int pluginIndex);
-     Pointer opa_eval(Pointer contextPointer, int pluginIndex, String input);
-
-    Pointer extism_memory(Pointer contextPointer, int pluginIndex, String memoryName);
+    Pointer extism_get_memory(Pointer contextPointer, int pluginIndex, String memoryName);
 
     /**
      * Returns the length of a plugin's output data.

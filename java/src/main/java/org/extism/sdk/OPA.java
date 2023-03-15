@@ -126,7 +126,10 @@ public class OPA {
             LibExtism.ExtismVal.ByReference raw_addr_params = new LibExtism.ExtismVal.ByReference();
             LibExtism.ExtismVal[] params = (LibExtism.ExtismVal []) raw_addr_params.toArray(1);
             params[0].t = 0;
+            params[0].v.setType(Integer.TYPE);
             params[0].v.i32 = value_buf_len;
+
+            raw_addr_params.write();
 
             int raw_addr = plugin.callWithIntResult("opa_malloc", raw_addr_params, 1);
 
@@ -214,7 +217,7 @@ public class OPA {
                 ptr,
                 7);
 //
-        Pointer memory = LibExtism.INSTANCE.extism_memory(plugin.getPointer(), plugin.getIndex(), "memory");
+        Pointer memory = LibExtism.INSTANCE.extism_get_memory(plugin.getPointer(), plugin.getIndex(), "memory");
 
         byte[] mem = memory.getByteArray(ret, 65356);
         int size = lastValidByte(mem);
@@ -236,7 +239,7 @@ public class OPA {
 
         int rawAddr = plugin.callWithIntResult("opa_json_dump", plugin.intToParams(addr), 1);
 
-        Pointer memory = LibExtism.INSTANCE.extism_memory(plugin.getPointer(), plugin.getIndex(), "memory");
+        Pointer memory = LibExtism.INSTANCE.extism_get_memory(plugin.getPointer(), plugin.getIndex(), "memory");
         byte[] mem = memory.getByteArray(rawAddr, 65356);
         int size = lastValidByte(mem);
         String result = new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);

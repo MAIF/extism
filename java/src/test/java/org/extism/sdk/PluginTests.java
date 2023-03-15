@@ -3,6 +3,8 @@ package org.extism.sdk;
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
+import org.extism.sdk.parameters.IntegerParameter;
+import org.extism.sdk.parameters.Parameters;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +16,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
+import static org.extism.sdk.TestWasmSources.resolvePathWasmSource;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PluginTests {
@@ -204,10 +207,30 @@ public class PluginTests {
 
             try {
                 var plugin = ctx.newPlugin(manifest, true, null);
-             //   plugin.call(functionName, "this is a test", new LibExtism.ExtismVal.ByReference());
+                plugin.call(functionName, "this is a test");
             }  catch (ExtismException e) {
                 assertThat(e.getMessage()).contains("unknown import: `env::hello_world` has not been defined");
             }
+        }
+    }
+
+    @Test
+    public void shouldInvokeNativeFunction() {
+        try (var ctx = new Context()) {
+            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            String functionName = "add";
+
+            Parameters params = new Parameters(2);
+            IntegerParameter builder = new IntegerParameter();
+            builder.add(params, 2, 0);
+            builder.add(params, 3, 1);
+
+            var plugin = ctx.newPlugin(manifest, true, null);
+            Parameters results = plugin.call(functionName, params, 1, "COUCOU".getBytes());
+
+            System.out.println(results.getValue(0).v.i32);
+
+            plugin.free(results);
         }
     }
 
@@ -221,24 +244,6 @@ public class PluginTests {
             );
 
             policy.evalute("{\"method\": \"GET\"}");
-
-       /*     var plugin = ctx.newPlugin(manifest, true, functions);
-
-            LibExtism.ExtismVal rawCtx = plugin.nativeCall("opa_eval_ctx_new", "", new LibExtism.ExtismValType[0]);
-            long contextPointer = ((LibExtism.ExtismVal []) rawCtx.toArray(1))[0].v.i32;
-
-            LibExtism.ExtismVal rwaBaseHeapPtr = plugin.nativeCall("opa_heap_ptr_get", "", new LibExtism.ExtismValType[0]);
-            long baseHeapPtr = ((LibExtism.ExtismVal []) rwaBaseHeapPtr.toArray(1))[0].v.i32;
-
-            System.out.println(String.format("Context pointer: %d", contextPointer));
-
-            LibExtism.ExtismVal[] opalEvalSetInputParams = (LibExtism.ExtismVal []) rawCtx.toArray(1);
-
-            plugin.nativeCall("opa_eval_ctx_set_input",  );*/
-//            plugin.call("opa_eval_ctx_set_data", this.dataAddr);
-//            plugin.call("opa_eval_ctx_set_entrypoint", entrypoint);
-
-            // plugin.call("opa_eval", "{}");
         }
     }
 }
