@@ -1,9 +1,11 @@
 package org.extism.sdk;
 
-import com.google.gson.GsonBuilder;
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
+import org.extism.sdk.parameters.IntegerParameter;
+import org.extism.sdk.parameters.Parameters;
+import org.extism.sdk.parameters.Results;
 import org.extism.sdk.wasm.WasmSource;
 
 import java.nio.charset.StandardCharsets;
@@ -104,11 +106,11 @@ public class OPA {
 
         this.plugin = ctx.newPlugin(manifest, true, functions);
 
-        String builtinsFunctions = dumpJSON();
-        System.out.println("Required builtins fuctions : " + (builtinsFunctions.isEmpty() ? "None" : builtinsFunctions));
+//        String builtinsFunctions = dumpJSON();
+//        System.out.println("Required builtins fuctions : " + (builtinsFunctions.isEmpty() ? "None" : builtinsFunctions));
 //
 //        this.plugin.evaluate();
-
+//
 //        System.out.println(LibExtism.INSTANCE
 //                .opa(this.plugin.getPointer(), this.plugin.getIndex())
 //                .getString(0));
@@ -123,35 +125,34 @@ public class OPA {
             return 0;
         } else {
             int value_buf_len = value.length;
-            LibExtism.ExtismVal.ByReference raw_addr_params = new LibExtism.ExtismVal.ByReference();
-            LibExtism.ExtismVal[] params = (LibExtism.ExtismVal []) raw_addr_params.toArray(1);
-            params[0].t = 0;
-            params[0].v.setType(Integer.TYPE);
-            params[0].v.i32 = value_buf_len;
+            Parameters parameters = new Parameters(1);
+            IntegerParameter parameter = new IntegerParameter();
+            parameter.add(parameters, value_buf_len, 0);
 
-            raw_addr_params.write();
+            Results raw_addr = plugin.call("opa_malloc", parameters, 1);
 
-            int raw_addr = plugin.callWithIntResult("opa_malloc", raw_addr_params, 1);
-
-            LibExtism.INSTANCE.extism_plugin_memory_write_bytes(
+            System.out.println(LibExtism.INSTANCE.extism_memory_write_bytes(
                 this.plugin.getPointer(),
                 this.plugin.getIndex(),
                 value,
                 value_buf_len,
-                raw_addr
-            );
+                raw_addr.getValue(0).v.i32
+            ));
 
-            int parsed_addr = this.plugin.callFunctionWithTwoInts(
+            parameters = new Parameters(2);
+            parameter.add(parameters, raw_addr.getValue(0).v.i32, 0);
+            parameter.add(parameters, value_buf_len, 1);
+            Results parsed_addr = this.plugin.call(
                     "opa_json_parse",
-                    raw_addr,
-                    value_buf_len
+                    parameters,
+                    1
             );
 
-            if (parsed_addr == 0) {
+            if (parsed_addr.getValue(0).v.i32 == 0) {
                 throw new ExtismException("failed to parse json value");
             }
 
-            return parsed_addr;
+            return parsed_addr.getValue(0).v.i32;
         }
     }
 
@@ -160,16 +161,18 @@ public class OPA {
 
         int data_addr = loadJSON("{}".getBytes(StandardCharsets.UTF_8));
 
-        int base_heap_ptr = plugin.callWithIntResult(
+        IntegerParameter parameter = new IntegerParameter();
+
+        Parameters base_heap_ptr = plugin.call(
                 "opa_heap_ptr_get",
-                new LibExtism.ExtismVal.ByReference(),
+                new Parameters(0),
                 0
         );
 
-        int data_heap_ptr = base_heap_ptr;
+        int data_heap_ptr = base_heap_ptr.getValue(0).v.i32;
 
         int input_len = input.getBytes(StandardCharsets.UTF_8).length;
-        LibExtism.INSTANCE.extism_plugin_memory_write_bytes(
+        LibExtism.INSTANCE.extism_memory_write_bytes(
                 this.plugin.getPointer(),
                 this.plugin.getIndex(),
                 input.getBytes(StandardCharsets.UTF_8),
@@ -180,46 +183,20 @@ public class OPA {
         int heap_ptr = data_heap_ptr + input_len;
         int input_addr = data_heap_ptr;
 
-        LibExtism.ExtismVal.ByReference ptr = new LibExtism.ExtismVal.ByReference();
-        LibExtism.ExtismVal[] params = (LibExtism.ExtismVal []) ptr.toArray(7);
-        params[0].t = 0;
-        params[0].v.setType(Integer.TYPE);
-        params[0].v.i32 = 0;
+        Parameters ptr = new Parameters(7);
+        parameter.add(ptr, 0, 0);
+        parameter.add(ptr, entrypoint, 1);
+        parameter.add(ptr, data_addr, 2);
+        parameter.add(ptr, input_addr, 3);
+        parameter.add(ptr, input_len, 4);
+        parameter.add(ptr, heap_ptr, 5);
+        parameter.add(ptr, 0, 6);
 
-        params[1].t = 0;
-        params[1].v.setType(Integer.TYPE);
-        params[1].v.i32 = entrypoint;
+        Parameters ret = plugin.call("opa_eval", ptr, 1);
 
-        params[2].t = 0;
-        params[2].v.setType(Integer.TYPE);
-        params[2].v.i32 = data_addr;
-
-        params[3].t = 0;
-        params[3].v.setType(Integer.TYPE);
-        params[3].v.i32 = input_addr;
-
-        params[4].t = 0;
-        params[4].v.setType(Integer.TYPE);
-        params[4].v.i32 = input_len;
-
-        params[5].t = 0;
-        params[5].v.setType(Integer.TYPE);
-        params[5].v.i32 = heap_ptr;
-
-        params[6].t = 0;
-        params[6].v.setType(Integer.TYPE);
-        params[6].v.i32 = 0;
-
-        ptr.write();
-
-        int ret = plugin.callWithIntResult(
-                "opa_eval",
-                ptr,
-                7);
-//
         Pointer memory = LibExtism.INSTANCE.extism_get_memory(plugin.getPointer(), plugin.getIndex(), "memory");
 
-        byte[] mem = memory.getByteArray(ret, 65356);
+        byte[] mem = memory.getByteArray(ret.getValue(0).v.i32, 65356);
         int size = lastValidByte(mem);
         String result = new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
         System.out.println(result);
@@ -235,15 +212,19 @@ public class OPA {
     }
 
     String dumpJSON() {
-        int addr = plugin.callWithIntResult("builtins",  new LibExtism.ExtismVal.ByReference(), 0);
+        Results addr = plugin.call("builtins",  new Parameters(0), 1);
 
-        int rawAddr = plugin.callWithIntResult("opa_json_dump", plugin.intToParams(addr), 1);
+        Parameters parameters = new Parameters(1);
+        IntegerParameter builder = new IntegerParameter();
+        builder.add(parameters, addr.getValue(0).v.i32, 0);
+
+        Results rawAddr = plugin.call("opa_json_dump", parameters, 1);
 
         Pointer memory = LibExtism.INSTANCE.extism_get_memory(plugin.getPointer(), plugin.getIndex(), "memory");
-        byte[] mem = memory.getByteArray(rawAddr, 65356);
+        byte[] mem = memory.getByteArray(rawAddr.getValue(0).v.i32, 65356);
         int size = lastValidByte(mem);
-        String result = new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
-        return result;
+
+        return new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
     }
 
     public String rawBytePtrToString(ExtismCurrentPlugin plugin, long offset, int arrSize) {

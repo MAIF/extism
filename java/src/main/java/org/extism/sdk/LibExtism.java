@@ -26,7 +26,19 @@ public interface LibExtism extends Library {
 
     @Structure.FieldOrder({"t", "v"})
     class ExtismVal extends Structure {
-        public static class ByReference extends ExtismVal implements Structure.ByReference {}
+        public static class ByReference extends ExtismVal implements Structure.ByReference {
+            public ByReference(Pointer ptr) {
+                super(ptr);
+            }
+
+            public ByReference() {}
+        }
+
+        public ExtismVal() {}
+
+        public ExtismVal(Pointer p) {
+            super(p);
+        }
 
         public int t;
         public ExtismValUnion v;
@@ -163,7 +175,7 @@ public interface LibExtism extends Library {
      */
     int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
 
-    LibExtism.ExtismVal.ByReference wasm_plugin_call(
+    Pointer wasm_plugin_call(
             Pointer contextPointer,
             int pluginIndex,
             String function_name,
@@ -176,7 +188,7 @@ public interface LibExtism extends Library {
 
     int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
 
-    long extism_plugin_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
+    long extism_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
 
     void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
 

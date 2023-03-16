@@ -3,6 +3,7 @@ package org.extism.sdk;
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.parameters.Parameters;
+import org.extism.sdk.parameters.Results;
 import org.extism.sdk.support.JsonSerde;
 
 import java.nio.charset.StandardCharsets;
@@ -118,45 +119,50 @@ public class Plugin implements AutoCloseable {
         return new String(outputBytes, StandardCharsets.UTF_8);
     }
 
-    public Parameters call(String functionName, Parameters params, int resultsLength, byte[] input) {
+    public Results call(String functionName, Parameters params, int resultsLength) {
         Objects.requireNonNull(functionName, "functionName");
 
         Pointer contextPointer = context.getPointer();
         params.getPtr().write();
 
-        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_plugin_call(
+        Pointer ptr = LibExtism.INSTANCE.wasm_plugin_call(
                 contextPointer,
                 index,
                 functionName,
                 params.getPtr(),
-                params.getValues().length,
+                params.getLength(),
+                new byte[0],
+                0);
+
+        if (resultsLength > 0) {
+            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
+            return new Results(results, resultsLength);
+        } else {
+            return new Results(0);
+        }
+    }
+
+    public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
+        Objects.requireNonNull(functionName, "functionName");
+
+        Pointer contextPointer = context.getPointer();
+        params.getPtr().write();
+
+        Pointer ptr = LibExtism.INSTANCE.wasm_plugin_call(
+                contextPointer,
+                index,
+                functionName,
+                params.getPtr(),
+                params.getLength(),
                 input,
                 input.length);
 
-        return new Parameters(results, resultsLength);
-    }
-
-    public int callWithIntResult(String functionName, LibExtism.ExtismVal.ByReference params, int nParams) {
-        return LibExtism.INSTANCE.extism_plugin_call_native_int(
-                getPointer(),
-                index,
-                functionName,
-                params,
-                nParams,
-                new byte[0],
-                0);
-    }
-
-    public LibExtism.ExtismVal.ByReference intToParams(int value) {
-        LibExtism.ExtismVal.ByReference ptr = new LibExtism.ExtismVal.ByReference();
-        LibExtism.ExtismVal[] params = (LibExtism.ExtismVal []) ptr.toArray(1);
-        params[0].t = 0;
-        params[0].v.setType(Integer.TYPE);
-        params[0].v.i32 = value;
-
-        ptr.write();
-
-        return ptr;
+        if (resultsLength > 0) {
+            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
+            return new Results(results, resultsLength);
+        } else {
+            return new Results(0);
+        }
     }
 
     /**
@@ -200,8 +206,8 @@ public class Plugin implements AutoCloseable {
         LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
     }
 
-    public void free(Parameters results) {
-        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getValues().length);
+    public void free(Results results) {
+        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getLength());
         free();
     }
 
@@ -233,25 +239,6 @@ public class Plugin implements AutoCloseable {
     @Override
     public void close() {
         free();
-    }
-
-
-    public int callFunctionWithTwoInts(String name, int v1, int v2) {
-        System.out.println("callFunctionWithTwoInts : " + name);
-
-        LibExtism.ExtismVal.ByReference p1 = new LibExtism.ExtismVal.ByReference();
-        LibExtism.ExtismVal[] p1s = (LibExtism.ExtismVal[]) p1.toArray(2);
-        p1s[0].t = 0;
-        p1s[0].v.setType(Integer.TYPE);
-        p1s[0].v.i32 = v1;
-
-        p1s[1].t = 0;
-        p1s[1].v.setType(Integer.TYPE);
-        p1s[1].v.i32 = v2;
-
-        p1.write();
-
-        return callWithIntResult(name, p1, 2);
     }
 
     public Pointer getPointer() {

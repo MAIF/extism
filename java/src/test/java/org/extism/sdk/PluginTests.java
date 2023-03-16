@@ -5,6 +5,7 @@ import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.parameters.IntegerParameter;
 import org.extism.sdk.parameters.Parameters;
+import org.extism.sdk.parameters.Results;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
@@ -226,7 +227,7 @@ public class PluginTests {
             builder.add(params, 3, 1);
 
             var plugin = ctx.newPlugin(manifest, true, null);
-            Parameters results = plugin.call(functionName, params, 1, "COUCOU".getBytes());
+            Results results = plugin.call(functionName, params, 1, "".getBytes());
 
             System.out.println(results.getValue(0).v.i32);
 
