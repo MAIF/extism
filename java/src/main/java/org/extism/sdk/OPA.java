@@ -103,8 +103,11 @@ public class OPA {
                 opa_builtin4,
         };
 
+        LinearMemory[] memories = new LinearMemory[]{
+                new LinearMemory("memory", "env", new LinearMemoryOptions(5, Optional.empty()))
+        };
 
-        this.plugin = ctx.newPlugin(manifest, true, functions);
+        this.plugin = ctx.newPlugin(manifest, true, functions, memories);
 
 //        String builtinsFunctions = dumpJSON();
 //        System.out.println("Required builtins fuctions : " + (builtinsFunctions.isEmpty() ? "None" : builtinsFunctions));
@@ -129,15 +132,17 @@ public class OPA {
             IntegerParameter parameter = new IntegerParameter();
             parameter.add(parameters, value_buf_len, 0);
 
-            Results raw_addr = plugin.call("opa_malloc", parameters, 1);
+            Results raw_addr = plugin.call("opa_malloc", parameters, 1, "".getBytes());
 
-            System.out.println(LibExtism.INSTANCE.extism_memory_write_bytes(
+            if(LibExtism.INSTANCE.extism_memory_write_bytes(
                 this.plugin.getPointer(),
                 this.plugin.getIndex(),
                 value,
                 value_buf_len,
                 raw_addr.getValue(0).v.i32
-            ));
+            ) == -1) {
+                throw new ExtismException("Cant' write in memory");
+            };
 
             parameters = new Parameters(2);
             parameter.add(parameters, raw_addr.getValue(0).v.i32, 0);
@@ -166,7 +171,7 @@ public class OPA {
         Parameters base_heap_ptr = plugin.call(
                 "opa_heap_ptr_get",
                 new Parameters(0),
-                0
+                1
         );
 
         int data_heap_ptr = base_heap_ptr.getValue(0).v.i32;
@@ -194,7 +199,10 @@ public class OPA {
 
         Parameters ret = plugin.call("opa_eval", ptr, 1);
 
-        Pointer memory = LibExtism.INSTANCE.extism_get_memory(plugin.getPointer(), plugin.getIndex(), "memory");
+        Pointer memory = LibExtism.INSTANCE.extism_get_memory(
+                plugin.getPointer(),
+                plugin.getIndex(),
+                "env::memory");
 
         byte[] mem = memory.getByteArray(ret.getValue(0).v.i32, 65356);
         int size = lastValidByte(mem);

@@ -20,8 +20,8 @@ public enum TestWasmSources {
 //            return Paths.get(WASM_LOCATION, "code-functions.wasm");
 //             return Paths.get(WASM_LOCATION, "policy.wasm");
 //            return Paths.get(WASM_LOCATION, "test.wasm");
-//            return Paths.get(WASM_LOCATION, "hello.wasm");
-            return Paths.get(WASM_LOCATION, "addition.wasm");
+            return Paths.get(WASM_LOCATION, "hello.wasm");
+//            return Paths.get(WASM_LOCATION, "addition.wasm");
         }
     };
 

@@ -78,4 +78,15 @@ public class HostFunction<T extends HostUserData> {
         } else
             throw new ExtismException(String.format("Unsupported return type: %s", original.t));
     }
+
+    public static Pointer[] arrayToPointer(HostFunction[] functions) {
+        Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
+
+        if (functions != null)
+            for (int i = 0; i < functions.length; i++) {
+                ptrArr[i] = functions[i].pointer;
+            }
+
+        return ptrArr;
+    }
 }

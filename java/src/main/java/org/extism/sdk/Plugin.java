@@ -33,24 +33,29 @@ public class Plugin implements AutoCloseable {
      * @param functions     The Host functions for th eplugin
      * @param withWASI      Set to true to enable WASI
      */
-    public Plugin(Context context, byte[] manifestBytes, boolean withWASI, HostFunction[] functions) {
+    public Plugin(Context context,
+                  byte[] manifestBytes,
+                  boolean withWASI,
+                  HostFunction[] functions,
+                  LinearMemory[] memories) {
 
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(manifestBytes, "manifestBytes");
 
-        Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
-
-        if (functions != null)
-            for (int i = 0; i < functions.length; i++) {
-                ptrArr[i] = functions[i].pointer;
-            }
+        Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
+        Pointer[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
         Pointer contextPointer = context.getPointer();
 
-        int index = LibExtism.INSTANCE.extism_plugin_new(contextPointer, manifestBytes, manifestBytes.length,
-                ptrArr,
+        int index = LibExtism.INSTANCE.extism_plugin_new(contextPointer,
+                manifestBytes,
+                manifestBytes.length,
+                functionsPtr,
                 functions == null ? 0 : functions.length,
-                withWASI);
+                withWASI,
+                memoriesPtr,
+                memories == null ? 0 : memories.length
+                );
         if (index == -1) {
             String error = context.error(this);
             throw new ExtismException(error);
@@ -60,8 +65,9 @@ public class Plugin implements AutoCloseable {
         this.context = context;
     }
 
-    public Plugin(Context context, Manifest manifest, boolean withWASI, HostFunction[] functions) {
-        this(context, serialize(manifest), withWASI, functions);
+
+    public Plugin(Context context, Manifest manifest, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
+        this(context, serialize(manifest), withWASI, functions, memories);
     }
 
     private static byte[] serialize(Manifest manifest) {
@@ -120,26 +126,7 @@ public class Plugin implements AutoCloseable {
     }
 
     public Results call(String functionName, Parameters params, int resultsLength) {
-        Objects.requireNonNull(functionName, "functionName");
-
-        Pointer contextPointer = context.getPointer();
-        params.getPtr().write();
-
-        Pointer ptr = LibExtism.INSTANCE.wasm_plugin_call(
-                contextPointer,
-                index,
-                functionName,
-                params.getPtr(),
-                params.getLength(),
-                new byte[0],
-                0);
-
-        if (resultsLength > 0) {
-            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
-            return new Results(results, resultsLength);
-        } else {
-            return new Results(0);
-        }
+        return call(functionName, params, resultsLength, new byte[0]);
     }
 
     public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
@@ -148,7 +135,7 @@ public class Plugin implements AutoCloseable {
         Pointer contextPointer = context.getPointer();
         params.getPtr().write();
 
-        Pointer ptr = LibExtism.INSTANCE.wasm_plugin_call(
+        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_plugin_call(
                 contextPointer,
                 index,
                 functionName,
@@ -157,12 +144,13 @@ public class Plugin implements AutoCloseable {
                 input,
                 input.length);
 
-        if (resultsLength > 0) {
-            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
-            return new Results(results, resultsLength);
-        } else {
-            return new Results(0);
-        }
+        return new Results(results, resultsLength);
+//        if (resultsLength > 0) {
+//            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
+//            return new Results(results, resultsLength);
+//        } else {
+//            return new Results(0);
+//        }
     }
 
     /**
@@ -172,8 +160,8 @@ public class Plugin implements AutoCloseable {
      * @param withWASI Set to true to enable WASI
      * @return {@literal true} if update was successful
      */
-    public boolean update(Manifest manifest, boolean withWASI, HostFunction[] functions) {
-        return update(serialize(manifest), withWASI, functions);
+    public boolean update(Manifest manifest, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
+        return update(serialize(manifest), withWASI, functions, memories);
     }
 
     /**
@@ -183,19 +171,20 @@ public class Plugin implements AutoCloseable {
      * @param withWASI      Set to true to enable WASI
      * @return {@literal true} if update was successful
      */
-    public boolean update(byte[] manifestBytes, boolean withWASI, HostFunction[] functions) {
+    public boolean update(byte[] manifestBytes, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
         Objects.requireNonNull(manifestBytes, "manifestBytes");
-        Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
 
-        if (functions != null)
-            for (int i = 0; i < functions.length; i++) {
-                ptrArr[i] = functions[i].pointer;
-            }
+        Pointer[] ptrArr = HostFunction.arrayToPointer(functions);
+        Pointer[] ptrMem = LinearMemory.arrayToPointer(memories);
+
 
         return LibExtism.INSTANCE.extism_plugin_update(context.getPointer(), index, manifestBytes, manifestBytes.length,
                 ptrArr,
                 functions == null ? 0 : functions.length,
-                withWASI);
+                withWASI,
+                ptrMem,
+                memories == null ? 0 : memories.length
+        );
     }
 
     /**

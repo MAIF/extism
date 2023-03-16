@@ -241,7 +241,7 @@ public class PluginTests {
             OPA policy = new OPA(
                     ctx,
                     CODE.pathWasmFunctionsSource(),
-                    new MemoryOptions(32)
+                    new MemoryOptions(10)
             );
 
             policy.evalute("{\"method\": \"GET\"}");

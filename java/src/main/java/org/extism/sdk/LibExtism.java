@@ -85,6 +85,8 @@ public interface LibExtism extends Library {
                                 Pointer userData,
                                 Pointer freeUserData);
 
+    Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
+
     /**
      * Get the length of an allocated block
      * NOTE: this should only be called from host functions.
@@ -155,7 +157,14 @@ public interface LibExtism extends Library {
      * @param withWASI       enables/disables WASI
      * @return id of the plugin or {@literal -1} in case of error
      */
-    int extism_plugin_new(Pointer contextPointer, byte[] wasm, long wasmSize, Pointer[] functions, int nFunctions, boolean withWASI);
+    int extism_plugin_new(Pointer contextPointer,
+                          byte[] wasm,
+                          long wasmSize,
+                          Pointer[] functions,
+                          int nFunctions,
+                          boolean withWASI,
+                          Pointer[] memories,
+                          int nMemories);
 
     /**
      * Returns the Extism version string
@@ -175,7 +184,7 @@ public interface LibExtism extends Library {
      */
     int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
 
-    Pointer wasm_plugin_call(
+    LibExtism.ExtismVal.ByReference wasm_plugin_call(
             Pointer contextPointer,
             int pluginIndex,
             String function_name,
@@ -188,7 +197,7 @@ public interface LibExtism extends Library {
 
     int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
 
-    long extism_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
+    int extism_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
 
     void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
 
@@ -226,7 +235,15 @@ public interface LibExtism extends Library {
      * @param withWASI
      * @return {@literal true} if update was successful
      */
-    boolean extism_plugin_update(Pointer contextPointer, int pluginIndex, byte[] wasm, int length, Pointer[] functions, int nFunctions, boolean withWASI);
+    boolean extism_plugin_update(Pointer contextPointer,
+                                 int pluginIndex,
+                                 byte[] wasm,
+                                 int length,
+                                 Pointer[] functions,
+                                 int nFunctions,
+                                 boolean withWASI,
+                                 Pointer[] memories,
+                                 int nMemories);
 
     /**
      * Remove a plugin from the registry and free associated memory.

@@ -10,8 +10,9 @@ public class Parameters {
     public Parameters(int length) {
         this.ptr = new LibExtism.ExtismVal.ByReference();
 
-        if (length > 0)
-            this.values = (LibExtism.ExtismVal []) this.ptr.toArray(length);
+        if (length > 0) {
+            this.values = (LibExtism.ExtismVal[]) this.ptr.toArray(length);
+        }
 
         this.length = length;
     }
@@ -19,7 +20,10 @@ public class Parameters {
     public Parameters(LibExtism.ExtismVal.ByReference ptr, int length) {
         this.ptr = ptr;
         this.length = length;
-        this.values = (LibExtism.ExtismVal []) this.ptr.toArray(length);
+
+        if (length > 0) {
+            this.values = (LibExtism.ExtismVal []) this.ptr.toArray(length);
+        }
     }
 
     public LibExtism.ExtismVal[] getValues() {
