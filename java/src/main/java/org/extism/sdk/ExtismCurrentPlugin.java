@@ -53,9 +53,18 @@ public class ExtismCurrentPlugin {
      * @param input - The input to read
      */
     public byte[] inputBytes(LibExtism.ExtismVal input) {
-        return this.memory()
-                .getByteArray(input.v.i64,
-                        LibExtism.INSTANCE.extism_current_plugin_memory_length(this.pointer, input.v.i64));
+        switch (input.t) {
+            case 0:
+                return this.memory()
+                        .getByteArray(input.v.i32,
+                                LibExtism.INSTANCE.extism_current_plugin_memory_length(this.pointer, input.v.i32));
+            case 1:
+                return this.memory()
+                        .getByteArray(input.v.i64,
+                                LibExtism.INSTANCE.extism_current_plugin_memory_length(this.pointer, input.v.i64));
+            default:
+                throw new ExtismException("inputBytes error: ExtismValType " + LibExtism.ExtismValType.values()[input.t] + " not implemtented");
+        }
     }
 
     /**

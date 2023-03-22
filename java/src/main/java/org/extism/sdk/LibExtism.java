@@ -86,6 +86,7 @@ public interface LibExtism extends Library {
                                 Pointer userData,
                                 Pointer freeUserData);
 
+
     Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
 
     /**
@@ -158,6 +159,7 @@ public interface LibExtism extends Library {
      * @param withWASI       enables/disables WASI
      * @return id of the plugin or {@literal -1} in case of error
      */
+
     int extism_plugin_new(Pointer contextPointer,
                           byte[] wasm,
                           long wasmSize,
@@ -264,4 +266,7 @@ public interface LibExtism extends Library {
      * @return {@literal true} if update was successful
      */
     boolean extism_plugin_config(Pointer contextPointer, int pluginIndex, byte[] json, int jsonLength);
+    Pointer extism_plugin_cancel_handle(Pointer contextPointer, int n);
+    boolean extism_plugin_cancel(Pointer contextPointer);
+    void extism_function_set_namespace(Pointer p, String name);
 }

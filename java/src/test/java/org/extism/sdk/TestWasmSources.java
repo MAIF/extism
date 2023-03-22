@@ -18,9 +18,6 @@ public enum TestWasmSources {
         }
         public Path getWasmFunctionsFilePath() {
             return Paths.get(WASM_LOCATION, "code-functions.wasm");
-//             return Paths.get(WASM_LOCATION, "policy.wasm");
-//            return Paths.get(WASM_LOCATION, "test.wasm");
-//            return Paths.get(WASM_LOCATION, "hello.wasm");
         }
         public Path getWasmWebAssemblyFunctionFilePath() {
             return Paths.get(WASM_LOCATION, "addition.wasm");
@@ -58,7 +55,7 @@ public enum TestWasmSources {
 
     public ByteArrayWasmSource byteArrayWasmSource() {
         try {
-            var wasmBytes = Files.readAllBytes(getWasmFilePath());
+            byte[] wasmBytes = Files.readAllBytes(getWasmFilePath());
             return new WasmSourceResolver().resolve("wasm@" + Arrays.hashCode(wasmBytes), wasmBytes);
         } catch (IOException ioe) {
             throw new RuntimeException(ioe);

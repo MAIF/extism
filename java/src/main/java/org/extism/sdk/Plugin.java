@@ -55,7 +55,7 @@ public class Plugin implements AutoCloseable {
                 withWASI,
                 memoriesPtr,
                 memories == null ? 0 : memories.length
-                );
+        );
         if (index == -1) {
             String error = context.error(this);
             throw new ExtismException(error);
@@ -227,5 +227,15 @@ public class Plugin implements AutoCloseable {
 
     public Pointer getPointer() {
         return context.getPointer();
+    }
+    /**
+     * Return a new `CancelHandle`, which can be used to cancel a running Plugin
+     */
+    public CancelHandle cancelHandle() {
+        if (this.context.getPointer() == null) {
+            throw new ExtismException("No Context set");
+        }
+        Pointer handle = LibExtism.INSTANCE.extism_plugin_cancel_handle(this.context.getPointer(), this.index);
+        return new CancelHandle(handle);
     }
 }

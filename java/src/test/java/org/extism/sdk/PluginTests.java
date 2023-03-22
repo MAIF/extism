@@ -10,11 +10,7 @@ import org.extism.sdk.support.JsonSerde;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
@@ -52,14 +48,12 @@ public class PluginTests {
         assertThat(output).isEqualTo("{\"count\": 3}");
     }
 
-    // TODO This test breaks on CI with error:
-    // data did not match any variant of untagged enum Wasm at line 8 column 3
-    // @Test
-    // public void shouldInvokeFunctionFromByteArrayWasmSource() {
-    //     var manifest = new Manifest(CODE.byteArrayWasmSource());
-    //     var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-    //     assertThat(output).isEqualTo("{\"count\": 3}");
-    // }
+     @Test
+     public void shouldInvokeFunctionFromByteArrayWasmSource() {
+         var manifest = new Manifest(CODE.byteArrayWasmSource());
+         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
+         assertThat(output).isEqualTo("{\"count\": 3}");
+     }
 
     @Test
     public void shouldFailToInvokeUnknownFunction() {
@@ -91,8 +85,8 @@ public class PluginTests {
 
         try (var ctx = new Context()) {
             try (var plugin = ctx.newPlugin(manifest, false, null)) {
-//                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
-//                assertThat(output).isEqualTo("{\"count\": 3}");
+                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                assertThat(output).isEqualTo("{\"count\": 3}");
             }
         }
     }
@@ -105,11 +99,11 @@ public class PluginTests {
 
         try (var ctx = new Context()) {
             try (var plugin = ctx.newPlugin(manifest, false, null)) {
-//                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
-//                assertThat(output).isEqualTo("{\"count\": 3}");
-//
-//                output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
-//                assertThat(output).isEqualTo("{\"count\": 3}");
+                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                assertThat(output).isEqualTo("{\"count\": 3}");
+
+                output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                assertThat(output).isEqualTo("{\"count\": 3}");
             }
         }
     }
@@ -157,8 +151,8 @@ public class PluginTests {
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-               // var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
-                //assertThat(output).isEqualTo("test");
+                var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
+                assertThat(output).isEqualTo("test");
             }
         }
     }
@@ -167,7 +161,6 @@ public class PluginTests {
     public void shouldAllowInvokeHostFunctionWithoutUserData() {
         var parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         var resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
-
 
         ExtismFunction helloWorldFunction = (plugin, params, returns, data) -> {
             System.out.println("Hello from Java Host Function!");
@@ -181,23 +174,32 @@ public class PluginTests {
             assertThat(data.isEmpty());
         };
 
-        HostFunction helloWorld = new HostFunction<>(
+
+        HostFunction f = new HostFunction<>(
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
                 helloWorldFunction,
                 Optional.empty()
-        );
+        ).withNamespace("env");
 
-        HostFunction[] functions = {helloWorld};
+        HostFunction g = new HostFunction<>(
+                "hello_world",
+                parametersTypes,
+                resultsTypes,
+                helloWorldFunction,
+                Optional.empty()
+        ).withNamespace("test");
+
+        HostFunction[] functions = {f,g};
 
         try (var ctx = new Context()) {
             Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-               // var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
-               // assertThat(output).isEqualTo("test");
+                var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
+                assertThat(output).isEqualTo("test");
             }
         }
     }
@@ -240,20 +242,7 @@ public class PluginTests {
 
     @Test
     public void shouldRunOPAPolicy() {
-//        try (var ctx = new Context()) {
-//            OPA policy = new OPA(
-//                    ctx,
-//                    CODE.pathWasmOPASource()
-//            );
-//
-//            String result = policy.evalute("{\"method\": \"GET\"}");
-//
-//            assertThat(result).isEqualTo("[{\"result\":true}]");
-//        }
-        for (int i = 0; i < 10; i++) {
-            System.out.println("RUN: " + i);
-            var ctx = new Context();
-
+        try (var ctx = new Context()) {
             OPA policy = new OPA(
                     ctx,
                     CODE.pathWasmOPASource()
@@ -261,36 +250,7 @@ public class PluginTests {
 
             String result = policy.evalute("{\"method\": \"GET\"}");
 
-            System.out.println(result);
-
-            policy.clean();
-            ctx.free();
-//            System.out.println("LOAD MANIFEST");
-//            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWebAssemblyFunctionSource()));
-//            String functionName = "add";
-//
-//            System.out.println("CREATE PARAMETERS");
-//            Parameters params = new Parameters(2);
-//
-//            System.out.println("CREATE INTEGERS");
-//            IntegerParameter builder = new IntegerParameter();
-//            builder.add(params, 2, 0);
-//            builder.add(params, 3, 1);
-//
-//            System.out.println("CREATE plugin");
-//            var plugin = ctx.newPlugin(manifest, true, null);
-//            System.out.println("CALL plugin");
-//            Results results = plugin.call(functionName, params, 1, "".getBytes());
-//
-//            System.out.println(results.getValue(0).v.i32);
-//
-//            params.getPtr().clear();
-//            plugin.freeResults(results);
-//
-//            System.out.println("call free");
-//            ctx.free();
-//            System.out.println("free done");
-//            assertThat(result).isEqualTo("[{\"result\":true}]");
+            assertThat(result).isEqualTo("[{\"result\":true}]");
         }
     }
 }
