@@ -85,7 +85,7 @@ public class PluginTests {
 
         try (var ctx = new Context()) {
             try (var plugin = ctx.newPlugin(manifest, false, null)) {
-                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                var output = plugin.call(functionName, input);
                 assertThat(output).isEqualTo("{\"count\": 3}");
             }
         }
@@ -99,10 +99,10 @@ public class PluginTests {
 
         try (var ctx = new Context()) {
             try (var plugin = ctx.newPlugin(manifest, false, null)) {
-                var output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                var output = plugin.call(functionName, input);
                 assertThat(output).isEqualTo("{\"count\": 3}");
 
-                output = plugin.call(functionName, input, new LibExtism.ExtismValType[0]);
+                output = plugin.call(functionName, input);
                 assertThat(output).isEqualTo("{\"count\": 3}");
             }
         }
@@ -151,7 +151,7 @@ public class PluginTests {
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-                var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
+                var output = plugin.call(functionName, "this is a test");
                 assertThat(output).isEqualTo("test");
             }
         }
@@ -198,7 +198,7 @@ public class PluginTests {
             String functionName = "count_vowels";
 
             try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-                var output = plugin.call(functionName, "this is a test", new LibExtism.ExtismValType[0]);
+                var output = plugin.call(functionName, "this is a test");
                 assertThat(output).isEqualTo("test");
             }
         }
