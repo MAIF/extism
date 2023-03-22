@@ -11,7 +11,8 @@ public interface LibExtism extends Library {
      * Holds the extism library instance.
      * Resolves the extism library based on the resolution algorithm defined in {@link com.sun.jna.NativeLibrary}.
      */
-    LibExtism INSTANCE = Native.load("dev_extism", LibExtism.class);
+//    LibExtism INSTANCE = Native.load("dev_extism", LibExtism.class);
+    LibExtism INSTANCE = Native.load("extism", LibExtism.class);
 
     interface InternalExtismFunction extends Callback {
         void invoke(

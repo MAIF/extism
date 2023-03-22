@@ -130,8 +130,6 @@ public class Plugin implements AutoCloseable {
     }
 
     public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
-        Objects.requireNonNull(functionName, "functionName");
-
         Pointer contextPointer = context.getPointer();
         params.getPtr().write();
 
@@ -144,13 +142,11 @@ public class Plugin implements AutoCloseable {
                 input,
                 input.length);
 
-        return new Results(results, resultsLength);
-//        if (resultsLength > 0) {
-//            LibExtism.ExtismVal.ByReference results = new LibExtism.ExtismVal.ByReference(ptr);
-//            return new Results(results, resultsLength);
-//        } else {
-//            return new Results(0);
-//        }
+        if (results == null) {
+            return new Results(0);
+        } else {
+            return new Results(results, resultsLength);
+        }
     }
 
     /**
@@ -195,9 +191,8 @@ public class Plugin implements AutoCloseable {
         LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
     }
 
-    public void free(Results results) {
+    public void freeResults(Results results) {
         LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getLength());
-        free();
     }
 
     /**

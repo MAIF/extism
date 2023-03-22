@@ -2,7 +2,7 @@ package org.extism.sdk.parameters;
 
 import org.extism.sdk.LibExtism;
 
-public class Parameters {
+public class Parameters implements AutoCloseable {
     protected LibExtism.ExtismVal.ByReference ptr;
     protected LibExtism.ExtismVal[] values;
     private final int length;
@@ -44,6 +44,11 @@ public class Parameters {
 
     public void set(AddFunction function, int i)  {
         this.values[i] = function.invoke(this.values[i]);
+    }
+
+    @Override
+    public void close() {
+        LibExtism.INSTANCE.deallocate_plugin_call_results(this.ptr, this.length);
     }
 
     interface AddFunction {

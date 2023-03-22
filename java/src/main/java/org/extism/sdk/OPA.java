@@ -15,7 +15,7 @@ import java.util.Optional;
 public class OPA {
     private Plugin plugin;
 
-    public OPA(Context ctx, WasmSource regoWasm, MemoryOptions memoryDescriptor) {
+    public OPA(Context ctx, WasmSource regoWasm) {
         Manifest manifest = new Manifest(Arrays.asList(regoWasm));
 
         ExtismFunction opaAbortFunction = (plugin, params, returns, data) -> {
@@ -161,7 +161,11 @@ public class OPA {
         }
     }
 
-    public void evalute(String input) {
+    public void clean() {
+        this.plugin.free();
+    }
+
+    public String evalute(String input) {
         int entrypoint = 0;
 
         int data_addr = loadJSON("{}".getBytes(StandardCharsets.UTF_8));
@@ -197,17 +201,22 @@ public class OPA {
         parameter.add(ptr, heap_ptr, 5);
         parameter.add(ptr, 0, 6);
 
-        Parameters ret = plugin.call("opa_eval", ptr, 1);
+        Results ret = plugin.call("opa_eval", ptr, 1);
 
         Pointer memory = LibExtism.INSTANCE.extism_get_memory(
                 plugin.getPointer(),
                 plugin.getIndex(),
-                "env::memory");
+                "memory");
 
         byte[] mem = memory.getByteArray(ret.getValue(0).v.i32, 65356);
         int size = lastValidByte(mem);
-        String result = new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
-        System.out.println(result);
+
+        String res = new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
+
+//        plugin.free();
+
+        plugin.freeResults(ret);
+        return res;
     }
 
     int lastValidByte(byte[] arr) {

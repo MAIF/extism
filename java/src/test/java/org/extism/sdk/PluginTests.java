@@ -6,6 +6,7 @@ import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.parameters.IntegerParameter;
 import org.extism.sdk.parameters.Parameters;
 import org.extism.sdk.parameters.Results;
+import org.extism.sdk.support.JsonSerde;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.extism.sdk.TestWasmSources.resolvePathWasmSource;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PluginTests {
@@ -218,7 +220,7 @@ public class PluginTests {
     @Test
     public void shouldInvokeNativeFunction() {
         try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWebAssemblyFunctionSource()));
             String functionName = "add";
 
             Parameters params = new Parameters(2);
@@ -229,22 +231,66 @@ public class PluginTests {
             var plugin = ctx.newPlugin(manifest, true, null);
             Results results = plugin.call(functionName, params, 1, "".getBytes());
 
-            System.out.println(results.getValue(0).v.i32);
+            assertEquals(results.getValue(0).v.i32, 5);
 
-            plugin.free(results);
+            plugin.freeResults(results);
+            plugin.free();
         }
     }
 
     @Test
     public void shouldRunOPAPolicy() {
-        try (var ctx = new Context()) {
+//        try (var ctx = new Context()) {
+//            OPA policy = new OPA(
+//                    ctx,
+//                    CODE.pathWasmOPASource()
+//            );
+//
+//            String result = policy.evalute("{\"method\": \"GET\"}");
+//
+//            assertThat(result).isEqualTo("[{\"result\":true}]");
+//        }
+        for (int i = 0; i < 10; i++) {
+            System.out.println("RUN: " + i);
+            var ctx = new Context();
+
             OPA policy = new OPA(
                     ctx,
-                    CODE.pathWasmFunctionsSource(),
-                    new MemoryOptions(10)
+                    CODE.pathWasmOPASource()
             );
 
-            policy.evalute("{\"method\": \"GET\"}");
+            String result = policy.evalute("{\"method\": \"GET\"}");
+
+            System.out.println(result);
+
+            policy.clean();
+            ctx.free();
+//            System.out.println("LOAD MANIFEST");
+//            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWebAssemblyFunctionSource()));
+//            String functionName = "add";
+//
+//            System.out.println("CREATE PARAMETERS");
+//            Parameters params = new Parameters(2);
+//
+//            System.out.println("CREATE INTEGERS");
+//            IntegerParameter builder = new IntegerParameter();
+//            builder.add(params, 2, 0);
+//            builder.add(params, 3, 1);
+//
+//            System.out.println("CREATE plugin");
+//            var plugin = ctx.newPlugin(manifest, true, null);
+//            System.out.println("CALL plugin");
+//            Results results = plugin.call(functionName, params, 1, "".getBytes());
+//
+//            System.out.println(results.getValue(0).v.i32);
+//
+//            params.getPtr().clear();
+//            plugin.freeResults(results);
+//
+//            System.out.println("call free");
+//            ctx.free();
+//            System.out.println("free done");
+//            assertThat(result).isEqualTo("[{\"result\":true}]");
         }
     }
 }
