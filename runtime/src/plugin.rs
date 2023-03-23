@@ -13,7 +13,6 @@ pub struct Plugin {
     pub vars: BTreeMap<String, Vec<u8>>,
     pub should_reinstantiate: bool,
     pub timer_id: uuid::Uuid,
-    pub(crate) cancel_handle: sdk::ExtismCancelHandle,
 }
 
 pub struct Internal {
@@ -100,14 +99,16 @@ impl Plugin {
     pub fn new<'a>(
         wasm: impl AsRef<[u8]>,
         imports: impl IntoIterator<Item = &'a Function>,
+        memories_imports: impl IntoIterator<Item = &'a WasmMemory>,
         with_wasi: bool,
     ) -> Result<Plugin, Error> {
         let engine = Engine::new(
             Config::new()
-                .epoch_interruption(true)
+                //.epoch_interruption(true)
                 .debug_info(std::env::var("EXTISM_DEBUG").is_ok()),
         )?;
         let mut imports = imports.into_iter();
+        let mut memories_imports = memories_imports.into_iter();
         let (manifest, modules) = Manifest::new(&engine, wasm.as_ref())?;
         let mut store = Store::new(&engine, Internal::new(&manifest, with_wasi)?);
 
@@ -194,9 +195,25 @@ impl Plugin {
                         });
                         linker.define(&mut memory.store, ns, &name, func)?;
                     }
+
+                    for m in &mut memories_imports {
+                        let name = m.name.to_string();
+                        let ns = m.namespace.to_string();
+                        let mem = wasmtime::Memory::new(&mut memory.store, (&m.ty).clone())?;
+                        linker.define(&mut memory.store, &ns, &name, mem)?;
+                    }
                 }
             }
         }
+
+        // let mem_type = wasmtime::MemoryType::new(5, None);
+        // let mem = wasmtime::Memory::new(&mut memory.store, mem_type)?;
+        // linker.define(
+        //     &mut memory.store,
+        //     EXPORT_MODULE_NAME,
+        //     &"memory".to_string(),
+        //     mem,
+        // )?;
 
         // Add modules to linker
         for (name, module) in modules.iter() {
@@ -207,7 +224,7 @@ impl Plugin {
         }
 
         let instance = linker.instantiate(&mut memory.store, main)?;
-        let timer_id = uuid::Uuid::new_v4();
+
         let mut plugin = Plugin {
             module: main.clone(),
             linker,
@@ -217,11 +234,7 @@ impl Plugin {
             manifest,
             vars: BTreeMap::new(),
             should_reinstantiate: false,
-            timer_id,
-            cancel_handle: sdk::ExtismCancelHandle {
-                id: timer_id,
-                epoch_timer_tx: None,
-            },
+            timer_id: uuid::Uuid::new_v4(),
         };
 
         plugin.initialize_runtime()?;
@@ -233,6 +246,12 @@ impl Plugin {
     pub fn get_func(&mut self, function: impl AsRef<str>) -> Option<Func> {
         self.instance
             .get_func(&mut self.memory.store, function.as_ref())
+    }
+
+    /// Get a memory by name
+    pub fn get_memory(&mut self, memory: impl AsRef<str>) -> Option<Memory> {
+        self.instance
+            .get_memory(&mut self.memory.store, memory.as_ref())
     }
 
     /// Set `last_error` field
@@ -307,7 +326,7 @@ impl Plugin {
                 self.memory.store.set_epoch_deadline(1);
                 self.start_timer(&timer.tx)?;
                 let x = runtime.init(self);
-                self.stop_timer()?;
+                self.stop_timer(&timer.tx)?;
                 self.memory.store.set_epoch_deadline(0);
                 return x;
             }
@@ -320,34 +339,27 @@ impl Plugin {
         &mut self,
         tx: &std::sync::mpsc::SyncSender<TimerAction>,
     ) -> Result<(), Error> {
-        let duration = self
-            .manifest
-            .as_ref()
-            .timeout_ms
-            .map(std::time::Duration::from_millis);
-        self.cancel_handle.epoch_timer_tx = Some(tx.clone());
-        self.memory.store.set_epoch_deadline(1);
-        let engine: Engine = self.memory.store.engine().clone();
-        tx.send(TimerAction::Start {
-            id: self.timer_id,
-            duration,
-            engine,
-        })?;
-
-        Ok(())
-    }
-
-    pub(crate) fn stop_timer(&mut self) -> Result<(), Error> {
-        if let Some(tx) = &self.cancel_handle.epoch_timer_tx {
-            tx.send(TimerAction::Stop { id: self.timer_id })?;
+        if let Some(duration) = self.manifest.as_ref().timeout_ms {
+            self.memory.store.set_epoch_deadline(1);
+            let engine: Engine = self.memory.store.engine().clone();
+            tx.send(TimerAction::Start {
+                id: self.timer_id,
+                duration: std::time::Duration::from_millis(duration),
+                engine,
+            })?;
+        } else {
+            self.memory.store.set_epoch_deadline(1);
         }
 
         Ok(())
     }
 
-    pub fn cancel(&self) -> Result<(), Error> {
-        if let Some(tx) = &self.cancel_handle.epoch_timer_tx {
-            tx.send(TimerAction::Cancel { id: self.timer_id })?;
+    pub(crate) fn stop_timer(
+        &mut self,
+        tx: &std::sync::mpsc::SyncSender<TimerAction>,
+    ) -> Result<(), Error> {
+        if self.manifest.as_ref().timeout_ms.is_some() {
+            tx.send(TimerAction::Stop { id: self.timer_id })?;
         }
 
         Ok(())
@@ -401,7 +413,7 @@ impl Drop for Plugin {
                         error!("Unable to cleanup runtime: {e:?}");
                     }
 
-                    if let Err(e) = self.stop_timer() {
+                    if let Err(e) = self.stop_timer(&timer.tx) {
                         error!("Unable to stop timer in Plugin::drop: {e:?}");
                     }
                 }

@@ -99,9 +99,10 @@ impl Context {
         &mut self,
         data: impl AsRef<[u8]>,
         imports: impl IntoIterator<Item = &'a Function>,
+        memories_imports: impl IntoIterator<Item = &'a WasmMemory>,
         with_wasi: bool,
     ) -> PluginIndex {
-        let plugin = match Plugin::new(data, imports, with_wasi) {
+        let plugin = match Plugin::new(data, imports, memories_imports, with_wasi) {
             Ok(x) => x,
             Err(e) => {
                 error!("Error creating Plugin: {:?}", e);

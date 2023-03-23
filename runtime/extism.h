@@ -46,17 +46,19 @@ typedef enum {
  */
 typedef struct ExtismContext ExtismContext;
 
-typedef struct ExtismCancelHandle ExtismCancelHandle;
-
 /**
  * Wraps host functions
  */
 typedef struct ExtismFunction ExtismFunction;
 
+typedef struct ExtismMemory ExtismMemory;
+
 /**
  * Plugin contains everything needed to execute a WASM function
  */
 typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
+
+typedef int32_t ExtismPlugin;
 
 typedef uint64_t ExtismSize;
 
@@ -83,8 +85,6 @@ typedef struct {
  */
 typedef void (*ExtismFunctionType)(ExtismCurrentPlugin *plugin, const ExtismVal *inputs, ExtismSize n_inputs, ExtismVal *outputs, ExtismSize n_outputs, void *data);
 
-typedef int32_t ExtismPlugin;
-
 /**
  * Create a new context
  */
@@ -94,6 +94,14 @@ ExtismContext *extism_context_new(void);
  * Free a context
  */
 void extism_context_free(ExtismContext *ctx);
+
+int8_t extism_memory_write_bytes(ExtismContext *ctx,
+                                 ExtismPlugin plugin,
+                                 const uint8_t *data,
+                                 ExtismSize data_size,
+                                 uint32_t offset);
+
+uint8_t *extism_get_memory(ExtismContext *ctx, ExtismPlugin plugin, const char *name);
 
 /**
  * Returns a pointer to the memory of the currently running plugin
@@ -145,6 +153,11 @@ ExtismFunction *extism_function_new(const char *name,
                                     void *user_data,
                                     void (*free_user_data)(void *_));
 
+ExtismMemory *extism_memory_new(const char *name,
+                                const char *namespace_,
+                                uint32_t min_pages,
+                                uint32_t max_pages);
+
 /**
  * Set the namespace of an `ExtismFunction`
  */
@@ -169,7 +182,9 @@ ExtismPlugin extism_plugin_new(ExtismContext *ctx,
                                ExtismSize wasm_size,
                                const ExtismFunction **functions,
                                ExtismSize n_functions,
-                               bool with_wasi);
+                               bool with_wasi,
+                               const ExtismMemory **memories,
+                               int8_t n_memories);
 
 /**
  * Update a plugin, keeping the existing ID
@@ -185,22 +200,14 @@ bool extism_plugin_update(ExtismContext *ctx,
                           ExtismSize wasm_size,
                           const ExtismFunction **functions,
                           ExtismSize nfunctions,
+                          const ExtismMemory **memories,
+                          ExtismSize nmemories,
                           bool with_wasi);
 
 /**
  * Remove a plugin from the registry and free associated memory
  */
 void extism_plugin_free(ExtismContext *ctx, ExtismPlugin plugin);
-
-/**
- * Get plugin ID for cancellation
- */
-const ExtismCancelHandle *extism_plugin_cancel_handle(ExtismContext *ctx, ExtismPlugin plugin);
-
-/**
- * Cancel a running plugin
- */
-bool extism_plugin_cancel(const ExtismCancelHandle *handle);
 
 /**
  * Remove all plugins from the registry
@@ -232,6 +239,16 @@ int32_t extism_plugin_call(ExtismContext *ctx,
                            const char *func_name,
                            const uint8_t *data,
                            ExtismSize data_len);
+
+ExtismVal *wasm_plugin_call(ExtismContext *ctx,
+                            ExtismPlugin plugin_id,
+                            const char *func_name,
+                            const ExtismVal *params,
+                            ExtismSize n_params,
+                            const uint8_t *data,
+                            ExtismSize data_len);
+
+void deallocate_plugin_call_results(ExtismVal *ptr, uintptr_t len);
 
 /**
  * Get the error associated with a `Context` or `Plugin`, if `plugin` is `-1` then the context

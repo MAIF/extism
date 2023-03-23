@@ -4,12 +4,9 @@ pub(crate) enum TimerAction {
     Start {
         id: uuid::Uuid,
         engine: Engine,
-        duration: Option<std::time::Duration>,
+        duration: std::time::Duration,
     },
     Stop {
-        id: uuid::Uuid,
-    },
-    Cancel {
         id: uuid::Uuid,
     },
     Shutdown,
@@ -38,23 +35,12 @@ impl Timer {
                             engine,
                             duration,
                         } => {
-                            let duration = duration.map(|x| std::time::Instant::now() + x);
-                            plugins.insert(id, (engine, duration));
+                            plugins.insert(id, (engine, std::time::Instant::now() + duration));
                         }
                         TimerAction::Stop { id } => {
                             plugins.remove(&id);
                         }
-                        TimerAction::Cancel { id } => {
-                            if let Some((engine, _)) = plugins.remove(&id) {
-                                engine.increment_epoch();
-                            }
-                        }
-                        TimerAction::Shutdown => {
-                            for (_, (engine, _)) in plugins.iter() {
-                                engine.increment_epoch();
-                            }
-                            return;
-                        }
+                        TimerAction::Shutdown => return,
                     }
                 };
             }
@@ -69,12 +55,10 @@ impl Timer {
                 plugins = plugins
                     .into_iter()
                     .filter(|(_k, (engine, end))| {
-                        if let Some(end) = end {
-                            let now = std::time::Instant::now();
-                            if end <= &now {
-                                engine.increment_epoch();
-                                return false;
-                            }
+                        let now = std::time::Instant::now();
+                        if end <= &now {
+                            engine.increment_epoch();
+                            return false;
                         }
                         true
                     })

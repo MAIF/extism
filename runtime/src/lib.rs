@@ -10,9 +10,11 @@ mod plugin;
 mod plugin_ref;
 pub mod sdk;
 mod timer;
+mod wasm_memory;
 
 pub use context::Context;
 pub use function::{Function, UserData, Val, ValType};
+pub use wasm_memory::{WasmMemory};
 pub use manifest::Manifest;
 pub use memory::{MemoryBlock, PluginMemory, ToMemoryBlock};
 pub use plugin::{Internal, Plugin, Wasi};
