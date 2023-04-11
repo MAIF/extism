@@ -17,6 +17,7 @@ pub(crate) struct Timer {
     pub thread: Option<std::thread::JoinHandle<()>>,
 }
 
+#[cfg(not(target_family = "windows"))]
 extern "C" fn cleanup_timer() {
     drop(Context::timer().take())
 }
@@ -74,6 +75,7 @@ impl Timer {
             tx: tx.clone(),
         });
 
+        #[cfg(not(target_family = "windows"))]
         unsafe {
             libc::atexit(cleanup_timer);
         }
