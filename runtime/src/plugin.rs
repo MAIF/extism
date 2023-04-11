@@ -206,15 +206,6 @@ impl Plugin {
             }
         }
 
-        // let mem_type = wasmtime::MemoryType::new(5, None);
-        // let mem = wasmtime::Memory::new(&mut memory.store, mem_type)?;
-        // linker.define(
-        //     &mut memory.store,
-        //     EXPORT_MODULE_NAME,
-        //     &"memory".to_string(),
-        //     mem,
-        // )?;
-
         // Add modules to linker
         for (name, module) in modules.iter() {
             if name != main_name {
