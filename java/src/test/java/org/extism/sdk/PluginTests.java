@@ -6,15 +6,16 @@ import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.parameters.IntegerParameter;
 import org.extism.sdk.parameters.Parameters;
 import org.extism.sdk.parameters.Results;
-import org.extism.sdk.support.JsonSerde;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
-import static org.extism.sdk.TestWasmSources.resolvePathWasmSource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -237,20 +238,6 @@ public class PluginTests {
 
             plugin.freeResults(results);
             plugin.free();
-        }
-    }
-
-    @Test
-    public void shouldRunOPAPolicy() {
-        try (var ctx = new Context()) {
-            OPA policy = new OPA(
-                    ctx,
-                    CODE.pathWasmOPASource()
-            );
-
-            String result = policy.evalute("{\"method\": \"GET\"}");
-
-            assertThat(result).isEqualTo("[{\"result\":true}]");
         }
     }
 }

@@ -49,6 +49,15 @@ public class ExtismCurrentPlugin {
     }
 
     /**
+     * Return int from a host function
+     * @param output - The output to set
+     * @param v - The int to return
+     */
+    public void returnInt(LibExtism.ExtismVal output, int v) {
+        output.v.i32 = v;
+    }
+
+    /**
      * Get bytes from host function parameter
      * @param input - The input to read
      */
