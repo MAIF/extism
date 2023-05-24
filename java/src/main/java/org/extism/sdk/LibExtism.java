@@ -107,6 +107,8 @@ public interface LibExtism extends Library {
      */
     int extism_current_plugin_memory_alloc(Pointer plugin, long n);
 
+    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, String memoryName);
+
     /**
      * Free an allocated memory block
      * NOTE: this should only be called from host functions.
@@ -122,6 +124,7 @@ public interface LibExtism extends Library {
      * Free a context
      */
     void extism_context_free(Pointer contextPointer);
+
 
     /**
      * Remove all plugins from the registry.
@@ -188,6 +191,22 @@ public interface LibExtism extends Library {
     int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
 
     LibExtism.ExtismVal.ByReference wasm_plugin_call(
+            Pointer contextPointer,
+            int pluginIndex,
+            String function_name,
+            ExtismVal.ByReference inputs,
+            int nInputs,
+            byte[] data,
+            int dataLength);
+
+    Pointer wasm_plugin_call_without_params(
+            Pointer contextPointer,
+            int pluginIndex,
+            String function_name,
+            byte[] data,
+            int dataLength);
+
+    void wasm_plugin_call_without_results(
             Pointer contextPointer,
             int pluginIndex,
             String function_name,
@@ -269,4 +288,6 @@ public interface LibExtism extends Library {
     Pointer extism_plugin_cancel_handle(Pointer contextPointer, int n);
     boolean extism_plugin_cancel(Pointer contextPointer);
     void extism_function_set_namespace(Pointer p, String name);
+
+    void extism_reset(Pointer contextPointer, int n);
 }

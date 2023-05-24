@@ -149,6 +149,55 @@ pub unsafe extern "C" fn extism_get_memory(
 }
 
 
+#[no_mangle]
+pub unsafe extern "C" fn extism_get_lineary_memory_from_host_functions(
+    plugin: *mut Plugin,
+    name: *const std::ffi::c_char,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(e) => return plugin.error(e, std::ptr::null_mut()),
+    };
+
+    let memory = match plugin.get_memory(name) {
+        Some(x) => x,
+        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
+    };
+
+    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_plugin_call_without_params(
+    ctx: *mut Context,
+    plugin_id: PluginIndex,
+    func_name: *const c_char,
+    data: *const u8,
+    data_len: Size,
+) -> *mut ExtismVal {
+
+    match extism_plugin_call_native(ctx, plugin_id, func_name, Vec::new(), data, data_len) {
+        None => std::ptr::null_mut(),
+        Some(t) => {
+           // std::ptr::null_mut()
+            let mut v = t
+                .iter()
+                .map(|x| {
+                    let t = ExtismVal::from(x);
+                    t
+                })
+                .collect::<Vec<ExtismVal>>();
+
+            let ptr = v.as_mut_ptr() as *mut _;
+            std::mem::forget(v);
+            ptr
+        }
+    }
+}
+
+
 /// Returns a pointer to the memory of the currently running plugin
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
@@ -316,12 +365,7 @@ pub unsafe extern "C" fn extism_memory_new(
         }
     };
 
-    let mem = WasmMemory::new(
-        name,
-        namespace,
-        min_pages,
-        max_pages
-    );
+    let mem = WasmMemory::new(name, namespace, min_pages, max_pages);
 
     Box::into_raw(Box::new(ExtismMemory(mem)))
 }
@@ -809,8 +853,7 @@ pub unsafe extern "C" fn wasm_plugin_call(
     data: *const u8,
     data_len: Size,
 ) -> *mut ExtismVal {
-
-    let prs = std::slice::from_raw_parts(params, n_params as usize).to_vec();
+    let prs = std::slice::from_raw_parts(params, n_params as usize);//.to_vec();
 
     // let prs = Vec::from_raw_parts(
     //     params as *mut ExtismVal,
@@ -818,23 +861,23 @@ pub unsafe extern "C" fn wasm_plugin_call(
     //     n_params as usize,
     // );
     let p: Vec<Val> = prs
-    .iter()
-    .map(|x| {
-        let t = match x.t {
-            ValType::I32 => Val::I32(x.v.i32),
-            ValType::I64 => Val::I64(x.v.i64),
-            ValType::F32 => Val::F32(x.v.f32 as u32),
-            ValType::F64 => Val::F64(x.v.f64 as u64),
-            _ => todo!(),
-        };
-        t
-    })
-    .collect();
+        .iter()
+        .map(|x| {
+            let t = match x.t {
+                ValType::I32 => Val::I32(x.v.i32),
+                ValType::I64 => Val::I64(x.v.i64),
+                ValType::F32 => Val::F32(x.v.f32 as u32),
+                ValType::F64 => Val::F64(x.v.f64 as u64),
+                _ => todo!(),
+            };
+            t
+        })
+        .collect();
 
     match extism_plugin_call_native(ctx, plugin_id, func_name, p, data, data_len) {
         None => std::ptr::null_mut(),
         Some(t) => {
-           // std::ptr::null_mut()
+            // std::ptr::null_mut()
             let mut v = t
                 .iter()
                 .map(|x| {
@@ -892,6 +935,36 @@ pub unsafe extern "C" fn extism_error(ctx: *mut Context, plugin: PluginIndex) ->
             std::ptr::null()
         }
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_plugin_call_without_results(
+    ctx: *mut Context,
+    plugin_id: PluginIndex,
+    func_name: *const c_char,
+    params: *const ExtismVal,
+    n_params: Size,
+    data: *const u8,
+    data_len: Size,
+) {
+
+    let prs = std::slice::from_raw_parts(params, n_params as usize);//.to_vec();
+
+    let p: Vec<Val> = prs
+    .iter()
+    .map(|x| {
+        let t = match x.t {
+            ValType::I32 => Val::I32(x.v.i32),
+            ValType::I64 => Val::I64(x.v.i64),
+            ValType::F32 => Val::F32(x.v.f32 as u32),
+            ValType::F64 => Val::F64(x.v.f64 as u64),
+            _ => todo!(),
+        };
+        t
+    })
+    .collect();
+
+    extism_plugin_call_native(ctx, plugin_id, func_name, p, data, data_len);
 }
 
 /// Get the length of a plugin's output data
@@ -1026,4 +1099,15 @@ const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 #[no_mangle]
 pub unsafe extern "C" fn extism_version() -> *const c_char {
     VERSION.as_ptr() as *const _
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_reset(ctx: *mut Context, plugin: PluginIndex) {
+    let ctx = &mut *ctx;
+    let mut plugin = match PluginRef::new(ctx, plugin, true) {
+        None => panic!(),
+        Some(p) => p,
+    };
+
+    plugin.as_mut().memory.reset()
 }

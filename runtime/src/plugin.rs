@@ -277,14 +277,14 @@ impl Plugin {
         self.memory.dump();
     }
 
-    pub fn reinstantiate(&mut self) -> Result<(), Error> {
-        let instance = self
-            .linker
-            .instantiate(&mut self.memory.store, &self.module)?;
-        self.instance = instance;
-        self.initialize_runtime()?;
-        Ok(())
-    }
+    // pub fn reinstantiate(&mut self) -> Result<(), Error> {
+    //     let instance = self
+    //         .linker
+    //         .instantiate(&mut self.memory.store, &self.module)?;
+    //     self.instance = instance;
+    //     self.initialize_runtime()?;
+    //     Ok(())
+    // }
 
     pub fn has_wasi(&self) -> bool {
         self.memory.store.data().wasi.is_some()

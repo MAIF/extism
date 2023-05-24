@@ -52,13 +52,13 @@ impl<'a> PluginRef<'a> {
             // Reinstantiate plugin after calling _start because according to the WASI
             // applicate ABI _start should be called "at most once":
             // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md
-            if plugin.should_reinstantiate {
-                plugin.should_reinstantiate = false;
-                if let Err(e) = plugin.reinstantiate() {
-                    error!("Failed to reinstantiate: {e:?}");
-                    return plugin.error(format!("Failed to reinstantiate: {e:?}"), None);
-                }
-            }
+            // if plugin.should_reinstantiate {
+            //     plugin.should_reinstantiate = false;
+            //     if let Err(e) = plugin.reinstantiate() {
+            //         error!("Failed to reinstantiate: {e:?}");
+            //         return plugin.error(format!("Failed to reinstantiate: {e:?}"), None);
+            //     }
+            // }
         }
 
         Some(PluginRef {

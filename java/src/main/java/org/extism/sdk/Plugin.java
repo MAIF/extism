@@ -142,11 +142,25 @@ public class Plugin implements AutoCloseable {
                 input,
                 input.length);
 
+        if (results == null && resultsLength > 0) {
+            String error = context.error(this);
+            throw new ExtismException(error);
+        }
+
         if (results == null) {
-            return new Results(0);
+            if (resultsLength > 0) {
+                String error = context.error(this);
+                throw new ExtismException(error);
+            } else {
+                return new Results(0);
+            }
         } else {
             return new Results(results, resultsLength);
         }
+    }
+
+    public Context getContext() {
+        return context;
     }
 
     /**
@@ -237,5 +251,44 @@ public class Plugin implements AutoCloseable {
         }
         Pointer handle = LibExtism.INSTANCE.extism_plugin_cancel_handle(this.context.getPointer(), this.index);
         return new CancelHandle(handle);
+    }
+
+    public void reset() {
+        LibExtism.INSTANCE.extism_reset(this.context.getPointer(), this.index);
+    }
+
+    public Pointer callWithoutParams(String functionName, int resultsLength) {
+        Pointer results = LibExtism.INSTANCE.wasm_plugin_call_without_params(
+                context.getPointer(),
+                index,
+                functionName,
+                new byte[0],
+                0);
+
+
+        if (results == null) {
+            if (resultsLength > 0) {
+                String error = context.error(this);
+                throw new ExtismException(error);
+            } else {
+                return null;
+            }
+        } else {
+            return results;
+        }
+    }
+
+    public void callWithoutResults(String functionName, Parameters params) {
+        Pointer contextPointer = context.getPointer();
+        params.getPtr().write();
+
+        LibExtism.INSTANCE.wasm_plugin_call_without_results(
+                contextPointer,
+                index,
+                functionName,
+                params.getPtr(),
+                params.getLength(),
+                new byte[0],
+                0);
     }
 }

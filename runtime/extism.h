@@ -103,6 +103,15 @@ int8_t extism_memory_write_bytes(ExtismContext *ctx,
 
 uint8_t *extism_get_memory(ExtismContext *ctx, ExtismPlugin plugin, const char *name);
 
+uint8_t *extism_get_lineary_memory_from_host_functions(ExtismCurrentPlugin *plugin,
+                                                       const char *name);
+
+ExtismVal *wasm_plugin_call_without_params(ExtismContext *ctx,
+                                           ExtismPlugin plugin_id,
+                                           const char *func_name,
+                                           const uint8_t *data,
+                                           ExtismSize data_len);
+
 /**
  * Returns a pointer to the memory of the currently running plugin
  * NOTE: this should only be called from host functions.
@@ -256,6 +265,14 @@ void deallocate_plugin_call_results(ExtismVal *ptr, uintptr_t len);
  */
 const char *extism_error(ExtismContext *ctx, ExtismPlugin plugin);
 
+void wasm_plugin_call_without_results(ExtismContext *ctx,
+                                      ExtismPlugin plugin_id,
+                                      const char *func_name,
+                                      const ExtismVal *params,
+                                      ExtismSize n_params,
+                                      const uint8_t *data,
+                                      ExtismSize data_len);
+
 /**
  * Get the length of a plugin's output data
  */
@@ -275,3 +292,5 @@ bool extism_log_file(const char *filename, const char *log_level);
  * Get the Extism version string
  */
 const char *extism_version(void);
+
+void extism_reset(ExtismContext *ctx, ExtismPlugin plugin);
