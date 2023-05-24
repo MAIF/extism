@@ -42,11 +42,6 @@ typedef enum {
 } ExtismValType;
 
 /**
- * A `Context` is used to store and manage plugins
- */
-typedef struct ExtismContext ExtismContext;
-
-/**
  * Wraps host functions
  */
 typedef struct ExtismFunction ExtismFunction;
@@ -58,7 +53,7 @@ typedef struct ExtismMemory ExtismMemory;
  */
 typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
 
-typedef int32_t ExtismPlugin;
+typedef struct PluginTemplate PluginTemplate;
 
 typedef uint64_t ExtismSize;
 
@@ -85,65 +80,20 @@ typedef struct {
  */
 typedef void (*ExtismFunctionType)(ExtismCurrentPlugin *plugin, const ExtismVal *inputs, ExtismSize n_inputs, ExtismVal *outputs, ExtismSize n_outputs, void *data);
 
-/**
- * Create a new context
- */
-ExtismContext *extism_context_new(void);
+PluginTemplate *create_template_new(Engine *engine_ptr, const uint8_t *wasm, ExtismSize wasm_size);
 
-/**
- * Free a context
- */
-void extism_context_free(ExtismContext *ctx);
+ExtismCurrentPlugin *instantiate(Engine *engine_ptr,
+                                 PluginTemplate *template_ptr,
+                                 const ExtismFunction **functions,
+                                 ExtismSize n_functions,
+                                 const ExtismMemory **memories,
+                                 int8_t n_memories,
+                                 bool with_wasi);
 
-int8_t extism_memory_write_bytes(ExtismContext *ctx,
-                                 ExtismPlugin plugin,
-                                 const uint8_t *data,
-                                 ExtismSize data_size,
-                                 uint32_t offset);
+Engine *create_wasmtime_engine(void);
 
-uint8_t *extism_get_memory(ExtismContext *ctx, ExtismPlugin plugin, const char *name);
+void free_engine(Engine *engine);
 
-/**
- * Returns a pointer to the memory of the currently running plugin
- * NOTE: this should only be called from host functions.
- */
-uint8_t *extism_current_plugin_memory(ExtismCurrentPlugin *plugin);
-
-/**
- * Allocate a memory block in the currently running plugin
- * NOTE: this should only be called from host functions.
- */
-uint64_t extism_current_plugin_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
-
-/**
- * Get the length of an allocated block
- * NOTE: this should only be called from host functions.
- */
-ExtismSize extism_current_plugin_memory_length(ExtismCurrentPlugin *plugin, ExtismSize n);
-
-/**
- * Free an allocated memory block
- * NOTE: this should only be called from host functions.
- */
-void extism_current_plugin_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);
-
-/**
- * Create a new host function
- *
- * Arguments
- * - `name`: function name, this should be valid UTF-8
- * - `inputs`: argument types
- * - `n_inputs`: number of argument types
- * - `outputs`: return types
- * - `n_outputs`: number of return types
- * - `func`: the function to call
- * - `user_data`: a pointer that will be passed to the function when it's called
- *    this value should live as long as the function exists
- * - `free_user_data`: a callback to release the `user_data` value when the resulting
- *   `ExtismFunction` is freed.
- *
- * Returns a new `ExtismFunction` or `null` if the `name` argument is invalid.
- */
 ExtismFunction *extism_function_new(const char *name,
                                     const ExtismValType *inputs,
                                     ExtismSize n_inputs,
@@ -153,14 +103,6 @@ ExtismFunction *extism_function_new(const char *name,
                                     void *user_data,
                                     void (*free_user_data)(void *_));
 
-ExtismMemory *extism_memory_new(const char *name,
-                                const char *namespace_,
-                                uint32_t min_pages,
-                                uint32_t max_pages);
-
-/**
- * Set the namespace of an `ExtismFunction`
- */
 void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
 
 /**
@@ -168,110 +110,18 @@ void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
  */
 void extism_function_free(ExtismFunction *ptr);
 
-/**
- * Create a new plugin with additional host functions
- *
- * `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
- * `wasm_size`: the length of the `wasm` parameter
- * `functions`: an array of `ExtismFunction*`
- * `n_functions`: the number of functions provided
- * `with_wasi`: enables/disables WASI
- */
-ExtismPlugin extism_plugin_new(ExtismContext *ctx,
-                               const uint8_t *wasm,
-                               ExtismSize wasm_size,
-                               const ExtismFunction **functions,
-                               ExtismSize n_functions,
-                               bool with_wasi,
-                               const ExtismMemory **memories,
-                               int8_t n_memories);
+void deallocate_results(ExtismVal *ptr, uintptr_t len);
 
-/**
- * Update a plugin, keeping the existing ID
- *
- * Similar to `extism_plugin_new` but takes an `index` argument to specify
- * which plugin to update
- *
- * Memory for this plugin will be reset upon update
- */
-bool extism_plugin_update(ExtismContext *ctx,
-                          ExtismPlugin index,
-                          const uint8_t *wasm,
-                          ExtismSize wasm_size,
-                          const ExtismFunction **functions,
-                          ExtismSize nfunctions,
-                          const ExtismMemory **memories,
-                          ExtismSize nmemories,
-                          bool with_wasi);
+void free_plugin(ExtismCurrentPlugin *ptr);
 
-/**
- * Remove a plugin from the registry and free associated memory
- */
-void extism_plugin_free(ExtismContext *ctx, ExtismPlugin plugin);
+ExtismVal *call(ExtismCurrentPlugin *instance_ptr,
+                const char *func_name,
+                const ExtismVal *params,
+                ExtismSize n_params);
 
-/**
- * Remove all plugins from the registry
- */
-void extism_context_reset(ExtismContext *ctx);
+ExtismVal *wasm_plugin_call_without_params(ExtismCurrentPlugin *plugin_ptr, const char *func_name);
 
-/**
- * Update plugin config values, this will merge with the existing values
- */
-bool extism_plugin_config(ExtismContext *ctx,
-                          ExtismPlugin plugin,
-                          const uint8_t *json,
-                          ExtismSize json_size);
-
-/**
- * Returns true if `func_name` exists
- */
-bool extism_plugin_function_exists(ExtismContext *ctx, ExtismPlugin plugin, const char *func_name);
-
-/**
- * Call a function
- *
- * `func_name`: is the function to call
- * `data`: is the input data
- * `data_len`: is the length of `data`
- */
-int32_t extism_plugin_call(ExtismContext *ctx,
-                           ExtismPlugin plugin_id,
-                           const char *func_name,
-                           const uint8_t *data,
-                           ExtismSize data_len);
-
-ExtismVal *wasm_plugin_call(ExtismContext *ctx,
-                            ExtismPlugin plugin_id,
-                            const char *func_name,
-                            const ExtismVal *params,
-                            ExtismSize n_params,
-                            const uint8_t *data,
-                            ExtismSize data_len);
-
-void deallocate_plugin_call_results(ExtismVal *ptr, uintptr_t len);
-
-/**
- * Get the error associated with a `Context` or `Plugin`, if `plugin` is `-1` then the context
- * error will be returned
- */
-const char *extism_error(ExtismContext *ctx, ExtismPlugin plugin);
-
-/**
- * Get the length of a plugin's output data
- */
-ExtismSize extism_plugin_output_length(ExtismContext *ctx, ExtismPlugin plugin);
-
-/**
- * Get the length of a plugin's output data
- */
-const uint8_t *extism_plugin_output_data(ExtismContext *ctx, ExtismPlugin plugin);
-
-/**
- * Set log file and level
- */
-bool extism_log_file(const char *filename, const char *log_level);
-
-/**
- * Get the Extism version string
- */
-const char *extism_version(void);
+void wasm_plugin_call_without_results(ExtismCurrentPlugin *plugin_ptr,
+                                      const char *func_name,
+                                      const ExtismVal *params,
+                                      ExtismSize n_params);

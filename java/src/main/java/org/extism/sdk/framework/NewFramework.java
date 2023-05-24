@@ -1,0 +1,99 @@
+package org.extism.sdk.framework;
+
+import com.sun.jna.*;
+
+
+public interface NewFramework extends Library {
+
+    NewFramework INSTANCE = Native.load("extism", NewFramework.class);
+
+    interface InternalExtismFunction extends Callback {
+        void invoke(
+                Pointer currentPlugin,
+                ExtismVal inputs,
+                int nInputs,
+                ExtismVal outputs,
+                int nOutputs,
+                Pointer data
+        );
+    }
+
+    @Structure.FieldOrder({"t", "v"})
+    class ExtismVal extends Structure {
+        public static class ByReference extends ExtismVal implements Structure.ByReference {
+            public ByReference(Pointer ptr) {
+                super(ptr);
+            }
+
+            public ByReference() {}
+        }
+
+        public ExtismVal() {}
+
+        public ExtismVal(Pointer p) {
+            super(p);
+        }
+
+        public int t;
+        public ExtismValUnion v;
+
+        @Override
+        public String toString() {
+            String typeAsString = new String[]{"int", "long", "float", "double"}[t];
+
+            Object unionValue = new Object[]{v.i32, v.i64, v.f32, v.f64}[t];
+
+            return String.format("ExtismVal(%s, %s)", typeAsString, unionValue);
+        }
+    }
+
+    class ExtismValUnion extends Union {
+        public int i32;
+        public long i64;
+        public float f32;
+        public double f64;
+    }
+
+    enum ExtismValType {
+        I32(0),
+        I64(1),
+        F32(2),
+        F64(3),
+        V128(4),
+        FuncRef(5),
+        ExternRef(6);
+
+        public final int v;
+
+        ExtismValType(int value) {
+            this.v = value;
+        }
+    }
+
+    Pointer create_wasmtime_engine();
+    Pointer create_template_new(Engine engine, byte[] wasm, int wasmLength);
+
+    Instance instantiate(Engine engine,
+                        Template template,
+                        Pointer[] functionsPtr,
+                        int functionsLength,
+                        Pointer[] memoriesPtr,
+                        int memoriesLength,
+                        boolean withWasi);
+
+    NewFramework.ExtismVal.ByReference call(Instance instance, String functionName, NewFramework.ExtismVal.ByReference inputs, int length);
+    Pointer wasm_plugin_call_without_params(Instance template, String functionName);
+
+    void wasm_plugin_call_without_results(Instance template,
+                                          String functionName,
+                                          NewFramework.ExtismVal.ByReference inputs,
+                                          int nInputs);
+
+
+    void deallocate_results(NewFramework.ExtismVal.ByReference results, int length);
+
+    void free_plugin(Instance instance);
+
+    void free_engine(Engine engine);
+    void free_template(Template template);
+}

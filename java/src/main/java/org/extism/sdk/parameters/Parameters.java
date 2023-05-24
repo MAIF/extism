@@ -1,40 +1,41 @@
 package org.extism.sdk.parameters;
 
-import org.extism.sdk.LibExtism;
+
+import org.extism.sdk.framework.NewFramework;
 
 public class Parameters implements AutoCloseable {
-    protected LibExtism.ExtismVal.ByReference ptr;
-    protected LibExtism.ExtismVal[] values;
+    protected NewFramework.ExtismVal.ByReference ptr;
+    protected NewFramework.ExtismVal[] values;
     private final int length;
 
     public Parameters(int length) {
-        this.ptr = new LibExtism.ExtismVal.ByReference();
+        this.ptr = new NewFramework.ExtismVal.ByReference();
 
         if (length > 0) {
-            this.values = (LibExtism.ExtismVal[]) this.ptr.toArray(length);
+            this.values = (NewFramework.ExtismVal[]) this.ptr.toArray(length);
         }
 
         this.length = length;
     }
 
-    public Parameters(LibExtism.ExtismVal.ByReference ptr, int length) {
+    public Parameters(NewFramework.ExtismVal.ByReference ptr, int length) {
         this.ptr = ptr;
         this.length = length;
 
         if (length > 0) {
-            this.values = (LibExtism.ExtismVal []) this.ptr.toArray(length);
+            this.values = (NewFramework.ExtismVal []) this.ptr.toArray(length);
         }
     }
 
-    public LibExtism.ExtismVal[] getValues() {
+    public NewFramework.ExtismVal[] getValues() {
         return values;
     }
 
-    public LibExtism.ExtismVal getValue(int pos) {
+    public NewFramework.ExtismVal getValue(int pos) {
         return values[pos];
     }
 
-    public LibExtism.ExtismVal.ByReference getPtr() {
+    public NewFramework.ExtismVal.ByReference getPtr() {
         return ptr;
     }
 
@@ -48,10 +49,10 @@ public class Parameters implements AutoCloseable {
 
     @Override
     public void close() {
-        LibExtism.INSTANCE.deallocate_plugin_call_results(this.ptr, this.length);
+        NewFramework.INSTANCE.deallocate_results(this.ptr, this.length);
     }
 
     interface AddFunction {
-        LibExtism.ExtismVal invoke(LibExtism.ExtismVal item);
+        NewFramework.ExtismVal invoke(NewFramework.ExtismVal item);
     }
 }

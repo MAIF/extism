@@ -1,6 +1,6 @@
 package org.extism.sdk.parameters;
 
-import org.extism.sdk.LibExtism;
+import org.extism.sdk.framework.NewFramework;
 
 public class Results extends Parameters {
 
@@ -8,7 +8,7 @@ public class Results extends Parameters {
         super(length);
     }
 
-    public Results(LibExtism.ExtismVal.ByReference ptr, int length) {
+    public Results(NewFramework.ExtismVal.ByReference ptr, int length) {
         super(ptr, length);
     }
 }

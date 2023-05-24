@@ -1,6 +1,7 @@
 package org.extism.sdk;
 
 import com.sun.jna.Pointer;
+import org.extism.sdk.framework.NewFramework;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.parameters.Parameters;
 import org.extism.sdk.parameters.Results;
@@ -124,30 +125,30 @@ public class Plugin implements AutoCloseable {
         var outputBytes = call(functionName, inputBytes);
         return new String(outputBytes, StandardCharsets.UTF_8);
     }
-
-    public Results call(String functionName, Parameters params, int resultsLength) {
-        return call(functionName, params, resultsLength, new byte[0]);
-    }
-
-    public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
-        Pointer contextPointer = context.getPointer();
-        params.getPtr().write();
-
-        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_plugin_call(
-                contextPointer,
-                index,
-                functionName,
-                params.getPtr(),
-                params.getLength(),
-                input,
-                input.length);
-
-        if (results == null) {
-            return new Results(0);
-        } else {
-            return new Results(results, resultsLength);
-        }
-    }
+//
+//    public Results call(String functionName, Parameters params, int resultsLength) {
+//        return call(functionName, params, resultsLength, new byte[0]);
+//    }
+//
+//    public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
+//        Pointer contextPointer = context.getPointer();
+//        params.getPtr().write();
+//
+//        NewFramework.ExtismVal.ByReference results = NewFramework.INSTANCE.call(
+//                contextPointer,
+//                index,
+//                functionName,
+//                params.getPtr(),
+//                params.getLength(),
+//                input,
+//                input.length);
+//
+//        if (results == null) {
+//            return new Results(0);
+//        } else {
+//            return new Results(results, resultsLength);
+//        }
+//    }
 
     /**
      * Update the plugin code given manifest changes
@@ -192,7 +193,7 @@ public class Plugin implements AutoCloseable {
     }
 
     public void freeResults(Results results) {
-        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getLength());
+//        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getLength());
     }
 
     /**

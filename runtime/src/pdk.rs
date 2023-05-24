@@ -198,20 +198,20 @@ pub(crate) fn config_get(
     input: &[Val],
     output: &mut [Val],
 ) -> Result<(), Error> {
-    let data: &mut Internal = caller.data_mut();
-    let plugin = data.plugin_mut();
+    // let data: &mut Internal = caller.data_mut();
+    // let plugin = data.plugin_mut();
 
-    let offset = args!(input, 0, i64) as usize;
-    let key = plugin.memory.get_str(offset)?;
-    let val = plugin.manifest.as_ref().config.get(key);
-    let mem = match val {
-        Some(f) => plugin.memory.alloc_bytes(f)?,
-        None => {
-            output[0] = Val::I64(0);
-            return Ok(());
-        }
-    };
-    output[0] = Val::I64(mem.offset as i64);
+    // let offset = args!(input, 0, i64) as usize;
+    // let key = plugin.memory.get_str(offset)?;
+    // let val = plugin.manifest.as_ref().config.get(key);
+    // let mem = match val {
+    //     Some(f) => plugin.memory.alloc_bytes(f)?,
+    //     None => {
+    //         output[0] = Val::I64(0);
+    //         return Ok(());
+    //     }
+    // };
+    // output[0] = Val::I64(mem.offset as i64);
     Ok(())
 }
 
@@ -290,92 +290,92 @@ pub(crate) fn http_request(
     input: &[Val],
     output: &mut [Val],
 ) -> Result<(), Error> {
-    #[cfg(not(feature = "http"))]
-    {
-        let _ = (caller, input);
+    // #[cfg(not(feature = "http"))]
+    // {
+    //     let _ = (caller, input);
 
-        output[0] = Val::I64(0);
-        error!("http_request is not enabled");
-        return Ok(());
-    }
+    //     output[0] = Val::I64(0);
+    //     error!("http_request is not enabled");
+    //     return Ok(());
+    // }
 
-    #[cfg(feature = "http")]
-    {
-        use std::io::Read;
-        let data: &mut Internal = caller.data_mut();
-        let http_req_offset = args!(input, 0, i64) as usize;
+    // #[cfg(feature = "http")]
+    // {
+    //     use std::io::Read;
+    //     let data: &mut Internal = caller.data_mut();
+    //     let http_req_offset = args!(input, 0, i64) as usize;
 
-        let req: extism_manifest::HttpRequest =
-            serde_json::from_slice(data.memory().get(http_req_offset)?)?;
+    //     let req: extism_manifest::HttpRequest =
+    //         serde_json::from_slice(data.memory().get(http_req_offset)?)?;
 
-        let body_offset = args!(input, 1, i64) as usize;
+    //     let body_offset = args!(input, 1, i64) as usize;
 
-        let url = match url::Url::parse(&req.url) {
-            Ok(u) => u,
-            Err(e) => return Err(Error::msg(format!("Invalid URL: {e:?}"))),
-        };
-        let allowed_hosts = &data.plugin().manifest.as_ref().allowed_hosts;
-        let host_str = url.host_str().unwrap_or_default();
-        if let Some(allowed_hosts) = allowed_hosts {
-            let host_matches_allowed = allowed_hosts.iter().any(|url| {
-                let pat = match glob::Pattern::new(url) {
-                    Ok(x) => x,
-                    Err(_) => return url == host_str,
-                };
+    //     let url = match url::Url::parse(&req.url) {
+    //         Ok(u) => u,
+    //         Err(e) => return Err(Error::msg(format!("Invalid URL: {e:?}"))),
+    //     };
+    //     let allowed_hosts = &data.plugin().manifest.as_ref().allowed_hosts;
+    //     let host_str = url.host_str().unwrap_or_default();
+    //     if let Some(allowed_hosts) = allowed_hosts {
+    //         let host_matches_allowed = allowed_hosts.iter().any(|url| {
+    //             let pat = match glob::Pattern::new(url) {
+    //                 Ok(x) => x,
+    //                 Err(_) => return url == host_str,
+    //             };
 
-                pat.matches(host_str)
-            });
-            if !host_matches_allowed {
-                return Err(Error::msg(format!(
-                    "HTTP request to {} is not allowed",
-                    req.url
-                )));
-            }
-        }
+    //             pat.matches(host_str)
+    //         });
+    //         if !host_matches_allowed {
+    //             return Err(Error::msg(format!(
+    //                 "HTTP request to {} is not allowed",
+    //                 req.url
+    //             )));
+    //         }
+    //     }
 
-        let mut r = ureq::request(req.method.as_deref().unwrap_or("GET"), &req.url);
+    //     let mut r = ureq::request(req.method.as_deref().unwrap_or("GET"), &req.url);
 
-        for (k, v) in req.headers.iter() {
-            r = r.set(k, v);
-        }
+    //     for (k, v) in req.headers.iter() {
+    //         r = r.set(k, v);
+    //     }
 
-        let res = if body_offset > 0 {
-            let buf = data.memory().get(body_offset)?;
-            r.send_bytes(buf)
-        } else {
-            r.call()
-        };
+    //     let res = if body_offset > 0 {
+    //         let buf = data.memory().get(body_offset)?;
+    //         r.send_bytes(buf)
+    //     } else {
+    //         r.call()
+    //     };
 
-        let reader = match res {
-            Ok(res) => {
-                data.http_status = res.status();
-                Some(res.into_reader())
-            }
-            Err(e) => {
-                if let Some(res) = e.into_response() {
-                    data.http_status = res.status();
-                    Some(res.into_reader())
-                } else {
-                    None
-                }
-            }
-        };
+    //     let reader = match res {
+    //         Ok(res) => {
+    //             data.http_status = res.status();
+    //             Some(res.into_reader())
+    //         }
+    //         Err(e) => {
+    //             if let Some(res) = e.into_response() {
+    //                 data.http_status = res.status();
+    //                 Some(res.into_reader())
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //     };
 
-        if let Some(reader) = reader {
-            let mut buf = Vec::new();
-            reader
-                .take(1024 * 1024 * 50) // TODO: make this limit configurable
-                .read_to_end(&mut buf)?;
+    //     if let Some(reader) = reader {
+    //         let mut buf = Vec::new();
+    //         reader
+    //             .take(1024 * 1024 * 50) // TODO: make this limit configurable
+    //             .read_to_end(&mut buf)?;
 
-            let mem = data.memory_mut().alloc_bytes(buf)?;
+    //         let mem = data.memory_mut().alloc_bytes(buf)?;
 
-            output[0] = Val::I64(mem.offset as i64);
-        } else {
-            output[0] = Val::I64(0);
-        }
+    //         output[0] = Val::I64(mem.offset as i64);
+    //     } else {
+    //         output[0] = Val::I64(0);
+    //     }
 
         Ok(())
-    }
+    // }
 }
 
 /// Get the status code of the last HTTP request
