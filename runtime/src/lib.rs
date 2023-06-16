@@ -2,6 +2,7 @@ pub use anyhow::Error;
 pub(crate) use wasmtime::*;
 
 mod function;
+mod internal;
 pub mod manifest;
 mod memory;
 pub(crate) mod pdk;

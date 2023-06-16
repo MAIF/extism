@@ -70,23 +70,72 @@ impl Internal {
         })
     }
 
-    pub fn plugin(&self) -> &Plugin {
-        unsafe { &*self.plugin }
-    }
-
-    pub fn plugin_mut(&mut self) -> &mut Plugin {
-        unsafe { &mut *self.plugin }
-    }
-
-    pub fn memory(&self) -> &PluginMemory {
-        &self.plugin().memory
-    }
-
-    pub fn memory_mut(&mut self) -> &mut PluginMemory {
-        &mut self.plugin_mut().memory
+    fn memory_mut(&mut self) -> &mut PluginMemory {
+        self.memory.get_mut()
     }
 }
 
+
+fn profiling_strategy() -> ProfilingStrategy {
+    match std::env::var("EXTISM_PROFILE").as_deref() {
+        Ok("perf") => ProfilingStrategy::PerfMap,
+        Ok(x) => {
+            log::warn!("Invalid value for EXTISM_PROFILE: {x}");
+            ProfilingStrategy::None
+        }
+        Err(_) => ProfilingStrategy::None,
+    }
+}
+
+fn calculate_available_memory(
+    available_pages: &mut Option<u32>,
+    modules: &BTreeMap<String, Module>,
+) -> anyhow::Result<()> {
+    let available_pages = match available_pages {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+
+    let max_pages = *available_pages;
+    let mut fail_memory_check = false;
+    let mut total_memory_needed = 0;
+    for (name, module) in modules.iter() {
+        let mut memories = 0;
+        for export in module.exports() {
+            if let Some(memory) = export.ty().memory() {
+                let memory_max = memory.maximum();
+                match memory_max {
+                    None => anyhow::bail!("Unbounded memory in module {name}, when `memory.max_pages` is set in the manifest all modules \
+                                           must have a maximum bound set on an exported memory"),
+                    Some(m) => {
+                        total_memory_needed += m;
+                        if !fail_memory_check {
+                            continue
+                        }
+
+                        *available_pages = available_pages.saturating_sub(m as u32);
+                        if *available_pages == 0 {
+                            fail_memory_check = true;
+                        }
+                    },
+                }
+                memories += 1;
+            }
+        }
+
+        if memories == 0 {
+            anyhow::bail!("No memory exported from module {name}, when `memory.max_pages` is set in the manifest all modules must \
+                           have a maximum bound set on an exported memory");
+        }
+    }
+
+    if fail_memory_check {
+        anyhow::bail!("Not enough memory configured to run the provided plugin, `memory.max_pages` is set to {max_pages} in the manifest \
+                       but {total_memory_needed} pages are needed by the plugin");
+    }
+
+    Ok(())
+}
 
 impl Plugin {
     /// Get a function by name
@@ -127,10 +176,6 @@ impl Plugin {
         internal.input = input;
         internal.input_length = len;
         internal.plugin = ptr;
-    }
-
-    pub fn dump_memory(&self) {
-        self.memory.dump();
     }
 
     pub fn has_wasi(&self) -> bool {

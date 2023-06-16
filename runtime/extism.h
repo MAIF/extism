@@ -48,10 +48,12 @@ typedef struct ExtismFunction ExtismFunction;
 
 typedef struct ExtismMemory ExtismMemory;
 
+typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
+
 /**
  * Plugin contains everything needed to execute a WASM function
  */
-typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
+typedef struct Plugin Plugin;
 
 typedef struct PluginTemplate PluginTemplate;
 
@@ -82,13 +84,13 @@ typedef void (*ExtismFunctionType)(ExtismCurrentPlugin *plugin, const ExtismVal 
 
 PluginTemplate *create_template_new(Engine *engine_ptr, const uint8_t *wasm, ExtismSize wasm_size);
 
-ExtismCurrentPlugin *instantiate(Engine *engine_ptr,
-                                 PluginTemplate *template_ptr,
-                                 const ExtismFunction **functions,
-                                 ExtismSize n_functions,
-                                 const ExtismMemory **memories,
-                                 int8_t n_memories,
-                                 bool with_wasi);
+Plugin *instantiate(Engine *engine_ptr,
+                    PluginTemplate *template_ptr,
+                    const ExtismFunction **functions,
+                    ExtismSize n_functions,
+                    const ExtismMemory **memories,
+                    int8_t n_memories,
+                    bool with_wasi);
 
 Engine *create_wasmtime_engine(void);
 
@@ -117,23 +119,23 @@ void extism_function_free(ExtismFunction *ptr);
  * `data`: is the input data
  * `data_len`: is the length of `data`
  */
-int32_t extism_plugin_call(ExtismCurrentPlugin *instance_ptr,
+int32_t extism_plugin_call(Plugin *instance_ptr,
                            const char *func_name,
                            const uint8_t *data,
                            ExtismSize data_len);
 
 void deallocate_results(ExtismVal *ptr, uintptr_t len);
 
-void free_plugin(ExtismCurrentPlugin *ptr);
+void free_plugin(Plugin *ptr);
 
-ExtismVal *call(ExtismCurrentPlugin *instance_ptr,
+ExtismVal *call(Plugin *instance_ptr,
                 const char *func_name,
                 const ExtismVal *params,
                 ExtismSize n_params);
 
-ExtismVal *wasm_plugin_call_without_params(ExtismCurrentPlugin *plugin_ptr, const char *func_name);
+ExtismVal *wasm_plugin_call_without_params(Plugin *plugin_ptr, const char *func_name);
 
-void wasm_plugin_call_without_results(ExtismCurrentPlugin *plugin_ptr,
+void wasm_plugin_call_without_results(Plugin *plugin_ptr,
                                       const char *func_name,
                                       const ExtismVal *params,
                                       ExtismSize n_params);
@@ -143,15 +145,14 @@ ExtismMemory *extism_memory_new(const char *name,
                                 uint32_t min_pages,
                                 uint32_t max_pages);
 
-uint8_t *extism_get_lineary_memory_from_host_functions(ExtismCurrentPlugin *plugin,
-                                                       const char *name);
+uint8_t *extism_get_lineary_memory_from_host_functions(Plugin *plugin, const char *name);
 
 /**
  * Get the length of a plugin's output data
  */
-ExtismSize extism_plugin_output_length(ExtismCurrentPlugin *instance_ptr);
+ExtismSize extism_plugin_output_length(Plugin *instance_ptr);
 
 /**
  * Get the length of a plugin's output data
  */
-const uint8_t *extism_plugin_output_data(ExtismCurrentPlugin *instance_ptr);
+const uint8_t *extism_plugin_output_data(Plugin *instance_ptr);

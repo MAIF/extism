@@ -36,7 +36,7 @@ impl From<Function> for ExtismFunction {
 
 /// Host function signature
 pub type ExtismFunctionType = extern "C" fn(
-    plugin: *mut Plugin,
+    plugin: *mut Internal,
     inputs: *const ExtismVal,
     n_inputs: Size,
     outputs: *mut ExtismVal,
@@ -74,10 +74,8 @@ impl From<&wasmtime::Val> for ExtismVal {
             // t => todo!("{}", t),
             t => ExtismVal {
                 t: ValType::I32,
-                v: ValUnion {
-                    i32: 1,
-                },
-            }
+                v: ValUnion { i32: 1 },
+            },
         }
     }
 }
@@ -86,7 +84,7 @@ impl From<&wasmtime::Val> for ExtismVal {
 pub unsafe extern "C" fn create_template_new(
     engine_ptr: *mut Engine,
     wasm: *const u8,
-    wasm_size: Size
+    wasm_size: Size,
 ) -> *mut PluginTemplate {
     let engine: &Engine = unsafe { &*engine_ptr };
 
@@ -102,7 +100,7 @@ pub unsafe extern "C" fn instantiate(
     n_functions: Size,
     memories: *mut *const ExtismMemory,
     n_memories: i8,
-    with_wasi: bool
+    with_wasi: bool,
 ) -> *mut Plugin {
     let engine: &Engine = unsafe { &*engine_ptr };
 
@@ -139,16 +137,18 @@ pub unsafe extern "C" fn instantiate(
     }
 
     Box::into_raw(Box::new(
-        template.instantiate(engine, funcs, mems, with_wasi).unwrap()
+        template
+            .instantiate(engine, funcs, mems, with_wasi)
+            .unwrap(),
     ))
 }
 
 #[no_mangle]
 pub extern "C" fn create_wasmtime_engine() -> *mut Engine {
     let engine = Engine::new(
-        &Config::new()
-            // .debug_info(true)
-    ).unwrap();
+        &Config::new(), // .debug_info(true)
+    )
+    .unwrap();
     Box::into_raw(Box::new(engine))
 }
 
@@ -262,7 +262,7 @@ pub unsafe extern "C" fn extism_plugin_call(
     let plugin = &mut *instance_ptr;
 
     plugin.set_input(data, data_len as usize);
-     
+
     // Find function
     let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
 
@@ -270,11 +270,7 @@ pub unsafe extern "C" fn extism_plugin_call(
 
     // Call the function
     let mut results = vec![wasmtime::Val::null(); 1];
-    let res = func.call(
-        &mut plugin.memory.store,
-        &[],
-        results.as_mut_slice()
-    );
+    let res = func.call(&mut plugin.memory.store, &[], results.as_mut_slice());
 
     match res {
         Ok(()) => (),
@@ -311,7 +307,7 @@ pub unsafe extern "C" fn extism_plugin_call(
 pub unsafe fn extism_plugin_call_native(
     instance_ptr: *mut Plugin,
     func_name: *const c_char,
-    params: Vec<Val>
+    params: Vec<Val>,
 ) -> Option<Vec<Val>> {
     let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
 
@@ -324,9 +320,9 @@ pub unsafe fn extism_plugin_call_native(
     let mut results = vec![wasmtime::Val::null(); n_results];
 
     func.call(
-        &mut instance.memory.store, 
-        &params[..], 
-        results.as_mut_slice()
+        &mut instance.memory.store,
+        &params[..],
+        results.as_mut_slice(),
     );
 
     Some(results)
@@ -350,7 +346,7 @@ pub unsafe extern "C" fn call(
     instance_ptr: *mut Plugin,
     func_name: *const c_char,
     params: *const ExtismVal,
-    n_params: Size
+    n_params: Size,
 ) -> *mut ExtismVal {
     let prs = std::slice::from_raw_parts(params, n_params as usize).to_vec();
 
@@ -390,13 +386,9 @@ pub unsafe extern "C" fn call(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_plugin_call_without_params(
     plugin_ptr: *mut Plugin,
-    func_name: *const c_char
+    func_name: *const c_char,
 ) -> *mut ExtismVal {
-    match extism_plugin_call_native(
-        plugin_ptr,
-        func_name,
-        Vec::new()
-    ) {
+    match extism_plugin_call_native(plugin_ptr, func_name, Vec::new()) {
         None => std::ptr::null_mut(),
         Some(t) => {
             // std::ptr::null_mut()
@@ -420,9 +412,9 @@ pub unsafe extern "C" fn wasm_plugin_call_without_results(
     plugin_ptr: *mut Plugin,
     func_name: *const c_char,
     params: *const ExtismVal,
-    n_params: Size
+    n_params: Size,
 ) {
-    let prs = std::slice::from_raw_parts(params, n_params as usize); 
+    let prs = std::slice::from_raw_parts(params, n_params as usize);
 
     let p: Vec<Val> = prs
         .iter()
@@ -497,7 +489,7 @@ pub unsafe extern "C" fn extism_plugin_output_length(instance_ptr: *mut Plugin) 
 
 /// Get the length of a plugin's output data
 #[no_mangle]
-pub unsafe extern "C" fn extism_plugin_output_data(instance_ptr: *mut Plugin,) -> *const u8 {
+pub unsafe extern "C" fn extism_plugin_output_data(instance_ptr: *mut Plugin) -> *const u8 {
     let plugin = &mut *instance_ptr;
 
     let data = plugin.memory.store.data();
