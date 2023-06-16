@@ -1,6 +1,4 @@
-package org.extism.sdk.parameters;
-
-import org.extism.sdk.framework.NewFramework;
+package org.extism.sdk.framework;
 
 public class Results extends Parameters {
 

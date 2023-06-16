@@ -13,7 +13,7 @@ public class ContextTests {
 //            assertThat(version).isNotNull();
 //        }
 //    }
-//
+
 //    @Test
 //    public void shouldAllowResetOnEmptyContext() {
 //        try (var ctx = new Context()) {

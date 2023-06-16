@@ -247,6 +247,66 @@ pub unsafe extern "C" fn extism_function_free(ptr: *mut ExtismFunction) {
     drop(Box::from_raw(ptr))
 }
 
+/// Call a function
+///
+/// `func_name`: is the function to call
+/// `data`: is the input data
+/// `data_len`: is the length of `data`
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_call(
+    instance_ptr: *mut Plugin,
+    func_name: *const c_char,
+    data: *const u8,
+    data_len: Size,
+) -> i32 {
+    let plugin = &mut *instance_ptr;
+
+    plugin.set_input(data, data_len as usize);
+     
+    // Find function
+    let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
+
+    let func = plugin.get_func(name).unwrap();
+
+    // Call the function
+    let mut results = vec![wasmtime::Val::null(); 1];
+    let res = func.call(
+        &mut plugin.memory.store,
+        &[],
+        results.as_mut_slice()
+    );
+
+    match res {
+        Ok(()) => (),
+        Err(e) => {
+            let plugin = plugin;
+            if let Some(exit) = e.downcast_ref::<wasmtime_wasi::I32Exit>() {
+                trace!("WASI return code: {}", exit.0);
+                if exit.0 != 0 {
+                    return plugin.error(&e, exit.0);
+                }
+                return exit.0;
+            }
+
+            if e.root_cause().to_string() == "timeout" {
+                return plugin.error("timeout", -1);
+            }
+
+            error!("Call: {e:?}");
+            return plugin.error(e.context("Call failed"), -1);
+        }
+    };
+
+    // If `results` is empty and the return value wasn't a WASI exit code then
+    // the call succeeded
+    if results.is_empty() {
+        return 0;
+    }
+
+    // Return result to caller
+    results[0].unwrap_i32()
+}
+
 #[no_mangle]
 pub unsafe fn extism_plugin_call_native(
     instance_ptr: *mut Plugin,
@@ -256,8 +316,6 @@ pub unsafe fn extism_plugin_call_native(
     let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
 
     let instance = &mut *instance_ptr;
-
-    // let instance: &mut Plugin = unsafe { &*instance_ptr };
 
     let func = instance.get_func(name).unwrap();
 
@@ -381,4 +439,72 @@ pub unsafe extern "C" fn wasm_plugin_call_without_results(
         .collect();
 
     extism_plugin_call_native(plugin_ptr, func_name, p);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_memory_new(
+    name: *const std::ffi::c_char,
+    namespace: *const std::ffi::c_char,
+    min_pages: u32,
+    max_pages: u32,
+) -> *mut ExtismMemory {
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(_) => {
+            return std::ptr::null_mut();
+        }
+    };
+
+    let namespace = match std::ffi::CStr::from_ptr(namespace).to_str() {
+        Ok(x) => x.to_string(),
+        Err(_) => {
+            return std::ptr::null_mut();
+        }
+    };
+
+    let mem = WasmMemory::new(name, namespace, min_pages, max_pages);
+
+    Box::into_raw(Box::new(ExtismMemory(mem)))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_get_lineary_memory_from_host_functions(
+    plugin: *mut Plugin,
+    name: *const std::ffi::c_char,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(e) => return plugin.error(e, std::ptr::null_mut()),
+    };
+
+    let memory = match plugin.get_memory(name) {
+        Some(x) => x,
+        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
+    };
+
+    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
+}
+
+/// Get the length of a plugin's output data
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_output_length(instance_ptr: *mut Plugin) -> Size {
+    let plugin = &mut *instance_ptr;
+
+    plugin.memory.store.data().output_length as Size
+}
+
+/// Get the length of a plugin's output data
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_output_data(instance_ptr: *mut Plugin,) -> *const u8 {
+    let plugin = &mut *instance_ptr;
+
+    let data = plugin.memory.store.data();
+
+    plugin
+        .memory
+        .ptr(MemoryBlock::new(data.output_offset, data.output_length))
+        .map(|x| x as *const _)
+        .unwrap_or(std::ptr::null())
 }

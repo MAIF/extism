@@ -110,6 +110,18 @@ void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
  */
 void extism_function_free(ExtismFunction *ptr);
 
+/**
+ * Call a function
+ *
+ * `func_name`: is the function to call
+ * `data`: is the input data
+ * `data_len`: is the length of `data`
+ */
+int32_t extism_plugin_call(ExtismCurrentPlugin *instance_ptr,
+                           const char *func_name,
+                           const uint8_t *data,
+                           ExtismSize data_len);
+
 void deallocate_results(ExtismVal *ptr, uintptr_t len);
 
 void free_plugin(ExtismCurrentPlugin *ptr);
@@ -125,3 +137,21 @@ void wasm_plugin_call_without_results(ExtismCurrentPlugin *plugin_ptr,
                                       const char *func_name,
                                       const ExtismVal *params,
                                       ExtismSize n_params);
+
+ExtismMemory *extism_memory_new(const char *name,
+                                const char *namespace_,
+                                uint32_t min_pages,
+                                uint32_t max_pages);
+
+uint8_t *extism_get_lineary_memory_from_host_functions(ExtismCurrentPlugin *plugin,
+                                                       const char *name);
+
+/**
+ * Get the length of a plugin's output data
+ */
+ExtismSize extism_plugin_output_length(ExtismCurrentPlugin *instance_ptr);
+
+/**
+ * Get the length of a plugin's output data
+ */
+const uint8_t *extism_plugin_output_data(ExtismCurrentPlugin *instance_ptr);

@@ -1,14 +1,14 @@
 package org.extism.sdk;
 
 import com.sun.jna.Pointer;
+import org.extism.sdk.framework.Parameters;
+import org.extism.sdk.framework.Results;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
-import org.extism.sdk.parameters.IntegerParameter;
-import org.extism.sdk.parameters.Parameters;
-import org.extism.sdk.parameters.Results;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -21,10 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PluginTests {
 
-    // static {
-    //     Extism.setLogFile(Paths.get("/tmp/extism.log"), Extism.LogLevel.TRACE);
-    // }
-
+//     static {
+//         Extism.setLogFile(Paths.get("/tmp/extism.log"), Extism.LogLevel.TRACE);
+//     }
+//
 //    @Test
 //    public void shouldInvokeFunctionWithMemoryOptions() {
 //        //FIXME check whether memory options are effective
@@ -226,10 +226,8 @@ public class PluginTests {
 //            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWebAssemblyFunctionSource()));
 //            String functionName = "add";
 //
-//            Parameters params = new Parameters(2);
-//            IntegerParameter builder = new IntegerParameter();
-//            builder.add(params, 2, 0);
-//            builder.add(params, 3, 1);
+//            Parameters params = new Parameters(2)
+//                    .pushInts(2, 3);
 //
 //            var plugin = ctx.newPlugin(manifest, true, null);
 //            Results results = plugin.call(functionName, params, 1, "".getBytes());

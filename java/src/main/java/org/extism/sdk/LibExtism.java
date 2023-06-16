@@ -269,4 +269,6 @@ public interface LibExtism extends Library {
     Pointer extism_plugin_cancel_handle(Pointer contextPointer, int n);
     boolean extism_plugin_cancel(Pointer contextPointer);
     void extism_function_set_namespace(Pointer p, String name);
+
+    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, int instanceIndex, String memoryName);
 }

@@ -2,10 +2,9 @@ package org.extism.sdk.framework;
 
 import com.sun.jna.*;
 
-
 public interface NewFramework extends Library {
 
-    NewFramework INSTANCE = Native.load("extism", NewFramework.class);
+    NewFramework INSTANCE = Native.load("extismdev", NewFramework.class);
 
     interface InternalExtismFunction extends Callback {
         void invoke(
@@ -89,6 +88,20 @@ public interface NewFramework extends Library {
                                           NewFramework.ExtismVal.ByReference inputs,
                                           int nInputs);
 
+    int extism_plugin_call(Instance instance, String function_name, byte[] data, int dataLength);
+    int extism_plugin_output_length(Instance instance);
+    Pointer extism_plugin_output_data(Instance instance);
+
+    Pointer extism_function_new(String name,
+                                int[] inputs,
+                                int nInputs,
+                                int[] outputs,
+                                int nOutputs,
+                                NewFramework.InternalExtismFunction func,
+                                Pointer userData,
+                                Pointer freeUserData);
+
+    void extism_function_set_namespace(Pointer p, String name);
 
     void deallocate_results(NewFramework.ExtismVal.ByReference results, int length);
 

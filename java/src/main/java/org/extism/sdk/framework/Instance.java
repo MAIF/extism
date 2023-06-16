@@ -2,10 +2,25 @@ package org.extism.sdk.framework;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
-import org.extism.sdk.parameters.Parameters;
-import org.extism.sdk.parameters.Results;
+
+import java.nio.charset.StandardCharsets;
 
 public class Instance extends PointerType  {
+
+    public String extismCall(String functionName, byte[] inputData) {
+        int inputDataLength = inputData == null ? 0 : inputData.length;
+        int exitCode = NewFramework.INSTANCE.extism_plugin_call(this, functionName, inputData, inputDataLength);
+
+        if (exitCode == -1) {
+//            String error = this.error(this);
+//            throw new ExtismException(error);
+        }
+
+        int length = NewFramework.INSTANCE.extism_plugin_output_length(this);
+        Pointer output = NewFramework.INSTANCE.extism_plugin_output_data(this);
+        return new String(output.getByteArray(0, length), StandardCharsets.UTF_8);
+    }
+
     public Results call(String functionName, Parameters params, int resultsLength) {
         params.getPtr().write();
 

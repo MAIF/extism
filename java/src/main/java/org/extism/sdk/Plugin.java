@@ -1,10 +1,8 @@
 package org.extism.sdk;
 
 import com.sun.jna.Pointer;
-import org.extism.sdk.framework.NewFramework;
 import org.extism.sdk.manifest.Manifest;
-import org.extism.sdk.parameters.Parameters;
-import org.extism.sdk.parameters.Results;
+import org.extism.sdk.framework.Results;
 import org.extism.sdk.support.JsonSerde;
 
 import java.nio.charset.StandardCharsets;
