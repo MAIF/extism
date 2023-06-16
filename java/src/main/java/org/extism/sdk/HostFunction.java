@@ -7,7 +7,7 @@ import org.extism.sdk.framework.NewFramework;
 import java.util.Arrays;
 import java.util.Optional;
 
-public class HostFunction<T extends HostUserData> {
+public class HostFunction<T extends HostUserData> implements AutoCloseable {
 
     private final NewFramework.InternalExtismFunction callback;
 
@@ -27,7 +27,7 @@ public class HostFunction<T extends HostUserData> {
         this.params = params;
         this.returns = returns;
         this.userData = userData;
-        this.callback = (Pointer currentPlugin,
+        this.callback = (Internal content,
                          NewFramework.ExtismVal inputs,
                          int nInputs,
                          NewFramework.ExtismVal outs,
@@ -37,7 +37,7 @@ public class HostFunction<T extends HostUserData> {
             NewFramework.ExtismVal[] outputs = (NewFramework.ExtismVal []) outs.toArray(nOutputs);
 
             f.invoke(
-                    new ExtismCurrentPlugin(currentPlugin),
+                    content,
                     (NewFramework.ExtismVal []) inputs.toArray(nInputs),
                     outputs,
                     userData
@@ -60,9 +60,9 @@ public class HostFunction<T extends HostUserData> {
         );
     }
 
-    void convertOutput(NewFramework.ExtismVal original, NewFramework.ExtismVal fromHostFunction) {
+    void convertOutput(NewFramework.ExtismVal original, NewFramework.ExtismVal fromHostFunction) throws Exception {
         if (fromHostFunction.t != original.t)
-            throw new ExtismException(String.format("Output type mismatch, got %d but expected %d", fromHostFunction.t, original.t));
+            throw new Exception(String.format("Output type mismatch, got %d but expected %d", fromHostFunction.t, original.t));
 
         if (fromHostFunction.t == NewFramework.ExtismValType.I32.v) {
             original.v.setType(Integer.TYPE);
@@ -77,7 +77,7 @@ public class HostFunction<T extends HostUserData> {
             original.v.setType(Double.TYPE);
             original.v.f64 = fromHostFunction.v.f64;
         } else
-            throw new ExtismException(String.format("Unsupported return type: %s", original.t));
+            throw new Exception(String.format("Unsupported return type: %s", original.t));
     }
 
 
@@ -101,5 +101,10 @@ public class HostFunction<T extends HostUserData> {
     public HostFunction withNamespace(String name) {
         this.setNamespace(name);
         return this;
+    }
+
+    @Override
+    public void close() throws Exception {
+        NewFramework.INSTANCE.free_function(this.pointer);
     }
 }

@@ -110,7 +110,7 @@ void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
 /**
  * Free an `ExtismFunction`
  */
-void extism_function_free(ExtismFunction *ptr);
+void free_function(ExtismFunction *ptr);
 
 /**
  * Call a function
@@ -140,10 +140,12 @@ void wasm_plugin_call_without_results(Plugin *plugin_ptr,
                                       const ExtismVal *params,
                                       ExtismSize n_params);
 
-ExtismMemory *extism_memory_new(const char *name,
-                                const char *namespace_,
-                                uint32_t min_pages,
-                                uint32_t max_pages);
+ExtismMemory *create_wasmtime_memory(const char *name,
+                                     const char *namespace_,
+                                     uint32_t min_pages,
+                                     uint32_t max_pages);
+
+void free_memory(ExtismMemory *mem);
 
 uint8_t *extism_get_lineary_memory_from_host_functions(Plugin *plugin, const char *name);
 
@@ -156,3 +158,27 @@ ExtismSize extism_plugin_output_length(Plugin *instance_ptr);
  * Get the length of a plugin's output data
  */
 const uint8_t *extism_plugin_output_data(Plugin *instance_ptr);
+
+/**
+ * Returns a pointer to the memory of the currently running plugin
+ * NOTE: this should only be called from host functions.
+ */
+uint8_t *extism_current_plugin_memory(ExtismCurrentPlugin *plugin);
+
+/**
+ * Allocate a memory block in the currently running plugin
+ * NOTE: this should only be called from host functions.
+ */
+uint64_t extism_current_plugin_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
+
+/**
+ * Get the length of an allocated block
+ * NOTE: this should only be called from host functions.
+ */
+ExtismSize extism_current_plugin_memory_length(ExtismCurrentPlugin *plugin, ExtismSize n);
+
+/**
+ * Free an allocated memory block
+ * NOTE: this should only be called from host functions.
+ */
+void extism_current_plugin_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);

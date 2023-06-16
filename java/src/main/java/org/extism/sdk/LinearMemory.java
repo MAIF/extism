@@ -1,21 +1,20 @@
 package org.extism.sdk;
 
-import com.sun.jna.Pointer;
-import com.sun.jna.PointerType;
+import org.extism.sdk.framework.Memory;
 
-public class LinearMemory {
+public class LinearMemory implements AutoCloseable {
 
     private final String name;
     private String namespace = "env";
     private LinearMemoryOptions memoryOptions;
 
-    private final Pointer pointer;
+    private final Memory memory;
 
     public LinearMemory(String name, LinearMemoryOptions memoryOptions) {
         this.name = name;
         this.memoryOptions = memoryOptions;
 
-        this.pointer = this.instanciate();
+        this.memory = this.instanciate();
     }
 
     public LinearMemory(String name, String namespace, LinearMemoryOptions memoryOptions) {
@@ -23,23 +22,23 @@ public class LinearMemory {
         this.namespace = namespace;
         this.memoryOptions = memoryOptions;
 
-        this.pointer = this.instanciate();
+        this.memory = this.instanciate();
     }
 
-    private Pointer instanciate() {
-        return LibExtism.INSTANCE.extism_memory_new(
+    private Memory instanciate() {
+        return new Memory(
                 this.name,
                 this.namespace,
                 this.memoryOptions.getMin(),
                 this.memoryOptions.getMax().orElse(0));
     }
 
-    public static Pointer[] arrayToPointer(LinearMemory[] memories) {
-        Pointer[] ptr = new Pointer[memories == null ? 0 : memories.length];
+    public static Memory[] arrayToPointer(LinearMemory[] memories) {
+        Memory[] ptr = new Memory[memories == null ? 0 : memories.length];
 
         if (memories != null)
             for (int i = 0; i < memories.length; i++) {
-                ptr[i] = memories[i].pointer;
+                ptr[i] = memories[i].memory;
             }
 
         return ptr;
@@ -57,7 +56,12 @@ public class LinearMemory {
         return namespace;
     }
 
-    public Pointer getPointer() {
-        return pointer;
+    public Memory getMemory() {
+        return memory;
+    }
+
+    @Override
+    public void close() throws Exception {
+
     }
 }

@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class NewFrameworkTests {
 
     @Test
-    public void shouldWorks() {
+    public void shouldWorks() throws Exception {
         Engine engine = new Engine();
 
         Manifest manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));

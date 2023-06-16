@@ -18,6 +18,8 @@ pub struct Internal {
     pub plugin: *mut Plugin,
     pub wasi: Option<Wasi>,
     pub http_status: u16,
+    pub last_error: std::cell::RefCell<Option<std::ffi::CString>>,
+    pub vars: BTreeMap<String, Vec<u8>>,
 }
 
 pub struct Wasi {
@@ -67,11 +69,35 @@ impl Internal {
             wasi,
             plugin: std::ptr::null_mut(),
             http_status: 0,
+            last_error: std::cell::RefCell::new(None),
+            vars: BTreeMap::new(),
         })
     }
 
-    fn memory_mut(&mut self) -> &mut PluginMemory {
-        self.memory.get_mut()
+    pub fn set_error(&self, e: impl std::fmt::Debug) {
+        debug!("Set error: {:?}", e);
+        *self.last_error.borrow_mut() = Some(error_string(e));
+    }
+
+    /// Unset `last_error` field
+    pub fn clear_error(&self) {
+        *self.last_error.borrow_mut() = None;
+    }
+
+    pub fn plugin(&self) -> &Plugin {
+        unsafe { &*self.plugin }
+    }
+
+    pub fn plugin_mut(&mut self) -> &mut Plugin {
+        unsafe { &mut *self.plugin }
+    }
+
+    pub fn memory(&self) -> &PluginMemory {
+        &self.plugin().memory
+    }
+
+    pub fn memory_mut(&mut self) -> &mut PluginMemory {
+        &mut self.plugin_mut().memory
     }
 }
 

@@ -4,7 +4,6 @@ import com.sun.jna.Pointer;
 import org.extism.sdk.framework.Parameters;
 import org.extism.sdk.framework.Results;
 import org.extism.sdk.manifest.Manifest;
-import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasm.WasmSourceResolver;
 import org.junit.jupiter.api.Test;
 

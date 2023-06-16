@@ -243,7 +243,7 @@ pub unsafe extern "C" fn extism_function_set_namespace(
 
 /// Free an `ExtismFunction`
 #[no_mangle]
-pub unsafe extern "C" fn extism_function_free(ptr: *mut ExtismFunction) {
+pub unsafe extern "C" fn free_function(ptr: *mut ExtismFunction) {
     drop(Box::from_raw(ptr))
 }
 
@@ -434,7 +434,7 @@ pub unsafe extern "C" fn wasm_plugin_call_without_results(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn extism_memory_new(
+pub unsafe extern "C" fn create_wasmtime_memory(
     name: *const std::ffi::c_char,
     namespace: *const std::ffi::c_char,
     min_pages: u32,
@@ -457,6 +457,13 @@ pub unsafe extern "C" fn extism_memory_new(
     let mem = WasmMemory::new(name, namespace, min_pages, max_pages);
 
     Box::into_raw(Box::new(ExtismMemory(mem)))
+}
+
+#[no_mangle]
+pub extern "C" fn free_memory(mem: *mut ExtismMemory) {
+    unsafe {
+        drop(Box::from_raw(mem));
+    }
 }
 
 #[no_mangle]
@@ -499,4 +506,70 @@ pub unsafe extern "C" fn extism_plugin_output_data(instance_ptr: *mut Plugin) ->
         .ptr(MemoryBlock::new(data.output_offset, data.output_length))
         .map(|x| x as *const _)
         .unwrap_or(std::ptr::null())
+}
+
+/// Returns a pointer to the memory of the currently running plugin
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn extism_current_plugin_memory(plugin: *mut Internal) -> *mut u8 {
+    if plugin.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let plugin = &mut *plugin;
+    plugin.memory_mut().data_mut().as_mut_ptr()
+}
+
+
+/// Allocate a memory block in the currently running plugin
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn extism_current_plugin_memory_alloc(plugin: *mut Internal, n: Size) -> u64 {
+    if plugin.is_null() {
+        return 0;
+    }
+
+    let plugin = &mut *plugin;
+
+    let mem = match plugin.memory_mut().alloc(n as usize) {
+        Ok(x) => x,
+        Err(e) => {
+            plugin.set_error(e);
+            return 0;
+        }
+    };
+
+    mem.offset as u64
+}
+
+/// Get the length of an allocated block
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn extism_current_plugin_memory_length(
+    plugin: *mut Internal,
+    n: Size,
+) -> Size {
+    if plugin.is_null() {
+        return 0;
+    }
+
+    let plugin = &mut *plugin;
+
+    match plugin.memory().block_length(n as usize) {
+        Some(x) => x as Size,
+        None => 0,
+    }
+}
+
+
+/// Free an allocated memory block
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn extism_current_plugin_memory_free(plugin: *mut Internal, ptr: u64) {
+    if plugin.is_null() {
+        return;
+    }
+
+    let plugin = &mut *plugin;
+    plugin.memory_mut().free(ptr as usize);
 }

@@ -5,7 +5,7 @@ import com.sun.jna.PointerType;
 
 import java.nio.charset.StandardCharsets;
 
-public class Instance extends PointerType  {
+public class Instance extends PointerType implements AutoCloseable {
 
     public String extismCall(String functionName, byte[] inputData) {
         int inputDataLength = inputData == null ? 0 : inputData.length;
@@ -70,5 +70,10 @@ public class Instance extends PointerType  {
 
     public void free() {
         NewFramework.INSTANCE.free_plugin(this);
+    }
+
+    @Override
+    public void close() throws Exception {
+        free();
     }
 }

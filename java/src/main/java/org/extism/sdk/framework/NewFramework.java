@@ -1,6 +1,7 @@
 package org.extism.sdk.framework;
 
 import com.sun.jna.*;
+import org.extism.sdk.Internal;
 
 public interface NewFramework extends Library {
 
@@ -8,13 +9,13 @@ public interface NewFramework extends Library {
 
     interface InternalExtismFunction extends Callback {
         void invoke(
-                Pointer currentPlugin,
+                Internal currentPlugin,
                 ExtismVal inputs,
                 int nInputs,
                 ExtismVal outputs,
                 int nOutputs,
                 Pointer data
-        );
+        ) throws Exception;
     }
 
     @Structure.FieldOrder({"t", "v"})
@@ -76,7 +77,7 @@ public interface NewFramework extends Library {
                         Template template,
                         Pointer[] functionsPtr,
                         int functionsLength,
-                        Pointer[] memoriesPtr,
+                        Memory[] memoriesPtr,
                         int memoriesLength,
                         boolean withWasi);
 
@@ -87,6 +88,15 @@ public interface NewFramework extends Library {
                                           String functionName,
                                           NewFramework.ExtismVal.ByReference inputs,
                                           int nInputs);
+
+    Pointer create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
+
+
+    int extism_current_plugin_memory_length(Internal plugin, long n);
+    Pointer extism_current_plugin_memory(Internal plugin);
+    int extism_current_plugin_memory_alloc(Internal plugin, long n);
+    void extism_current_plugin_memory_free(Internal plugin, long ptr);
+    Pointer extism_get_lineary_memory_from_host_functions(Internal plugin, int instanceIndex, String memoryName);
 
     int extism_plugin_call(Instance instance, String function_name, byte[] data, int dataLength);
     int extism_plugin_output_length(Instance instance);
@@ -106,7 +116,8 @@ public interface NewFramework extends Library {
     void deallocate_results(NewFramework.ExtismVal.ByReference results, int length);
 
     void free_plugin(Instance instance);
-
     void free_engine(Engine engine);
+    void free_memory(Memory memory);
     void free_template(Template template);
+    void free_function(Pointer function);
 }

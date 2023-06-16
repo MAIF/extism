@@ -1,8 +1,6 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use crate::*;
-
-use pretty_hex::PrettyHex;
 
 /// Handles memory for plugins
 pub struct PluginMemory {
@@ -21,8 +19,11 @@ pub struct PluginMemory {
     /// Tracks current offset in memory
     pub position: usize,
 
-    /// Extism manifest
-    pub manifest: Manifest,
+    pub manifest_config: BTreeMap<String, String>,
+    
+    pub allowed_hosts: Option<Vec<String>>,
+    
+    pub allowed_paths: Option<BTreeMap<PathBuf, PathBuf>>
 }
 
 /// `ToMemoryBlock` is used to convert from Rust values to blocks of WASM memory
@@ -62,14 +63,16 @@ const BLOCK_SIZE_THRESHOLD: usize = 32;
 
 impl PluginMemory {
     /// Create memory for a plugin
-    pub fn new(store: Store<Internal>, memory: Memory, manifest: Manifest) -> Self {
+    pub fn new(store: Store<Internal>, memory: Memory, manifest: &extism_manifest::Manifest) -> Self {
         PluginMemory {
             free: Vec::new(),
             live_blocks: BTreeMap::new(),
             store,
             memory,
             position: 1,
-            manifest,
+            manifest_config: manifest.config.clone(),
+            allowed_paths: manifest.allowed_paths.clone(),
+            allowed_hosts: manifest.allowed_hosts.clone(),
         }
     }
 

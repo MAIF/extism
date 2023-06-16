@@ -34,8 +34,15 @@ public class Template extends PointerType implements AutoCloseable {
 
     public Instance instantiate(Engine engine, HostFunction[] functions, LinearMemory[] memories, boolean withWasi) {
         Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
-        Pointer[] memoriesPtr = LinearMemory.arrayToPointer(memories);
+        Memory[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
-        return NewFramework.INSTANCE.instantiate(engine, this, functionsPtr, functionsPtr.length, memoriesPtr, memoriesPtr.length, withWasi);
+        return NewFramework.INSTANCE.instantiate(
+                engine,
+                this,
+                functionsPtr.length == 0 ? null : functionsPtr,
+                functionsPtr.length,
+                memoriesPtr.length == 0 ? null : memoriesPtr,
+                memoriesPtr.length,
+                withWasi);
     }
 }

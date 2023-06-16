@@ -131,14 +131,9 @@ impl PluginTemplate {
         
         let instance = linker.instantiate(&mut store, &self.module)?;
 
+        let manifest = self.manifest.as_ref();
         let plugin = Plugin {
-            memory: PluginMemory {
-                free: Vec::new(),
-                live_blocks: BTreeMap::new(),
-                store,
-                memory,
-                position: 1,
-            },
+            memory: PluginMemory::new(store, memory, manifest),
             instance,
             last_error: std::cell::RefCell::new(None),
             vars: BTreeMap::new(),

@@ -201,7 +201,7 @@ pub(crate) fn config_get(
 
     let offset = args!(input, 0, i64) as usize;
     let key = data.memory().get_str(offset)?;
-    let val = data.memory().manifest.as_ref().config.get(key);
+    let val = data.memory().manifest_config.get(key);
     let ptr = val.map(|x| (x.len(), x.as_ptr()));
     let mem = match ptr {
         Some((len, ptr)) => {
@@ -323,7 +323,7 @@ pub(crate) fn http_request(
             Ok(u) => u,
             Err(e) => return Err(Error::msg(format!("Invalid URL: {e:?}"))),
         };
-        let allowed_hosts = &data.memory().manifest.as_ref().allowed_hosts;
+        let allowed_hosts = &data.memory().allowed_hosts;
         let host_str = url.host_str().unwrap_or_default();
         let host_matches = if let Some(allowed_hosts) = allowed_hosts {
             allowed_hosts.iter().any(|url| {
