@@ -2,7 +2,7 @@ package org.extism.sdk;
 
 import org.extism.sdk.customized.Memory;
 
-public class LinearMemory implements AutoCloseable {
+public class LinearMemory {
 
     private final String name;
     private String namespace = "env";
@@ -60,8 +60,4 @@ public class LinearMemory implements AutoCloseable {
         return memory;
     }
 
-    @Override
-    public void close() throws Exception {
-
-    }
 }
