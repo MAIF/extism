@@ -1,4 +1,4 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
 public class Results extends Parameters implements AutoCloseable {
 
@@ -6,7 +6,7 @@ public class Results extends Parameters implements AutoCloseable {
         super(length);
     }
 
-    public Results(NewFramework.ExtismVal.ByReference ptr, int length) {
+    public Results(Bridge.ExtismVal.ByReference ptr, int length) {
         super(ptr, length);
     }
 }

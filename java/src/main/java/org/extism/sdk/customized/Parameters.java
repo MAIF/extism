@@ -1,32 +1,30 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
-
-import org.extism.sdk.framework.NewFramework;
 
 public class Parameters implements AutoCloseable {
-    protected NewFramework.ExtismVal.ByReference ptr;
-    protected NewFramework.ExtismVal[] values;
+    protected Bridge.ExtismVal.ByReference ptr;
+    protected Bridge.ExtismVal[] values;
     private final int length;
 
     private int next = 0;
 
     public Parameters(int length) {
-        this.ptr = new NewFramework.ExtismVal.ByReference();
+        this.ptr = new Bridge.ExtismVal.ByReference();
 
         if (length > 0) {
-            this.values = (NewFramework.ExtismVal[]) this.ptr.toArray(length);
+            this.values = (Bridge.ExtismVal[]) this.ptr.toArray(length);
         }
 
         this.next = 0;
         this.length = length;
     }
 
-    public Parameters(NewFramework.ExtismVal.ByReference ptr, int length) {
+    public Parameters(Bridge.ExtismVal.ByReference ptr, int length) {
         this.ptr = ptr;
         this.length = length;
 
         if (length > 0) {
-            this.values = (NewFramework.ExtismVal []) this.ptr.toArray(length);
+            this.values = (Bridge.ExtismVal []) this.ptr.toArray(length);
         }
     }
 
@@ -110,15 +108,15 @@ public class Parameters implements AutoCloseable {
         return result;
     }
 
-    public NewFramework.ExtismVal[] getValues() {
+    public Bridge.ExtismVal[] getValues() {
         return values;
     }
 
-    public NewFramework.ExtismVal getValue(int pos) {
+    public Bridge.ExtismVal getValue(int pos) {
         return values[pos];
     }
 
-    public NewFramework.ExtismVal.ByReference getPtr() {
+    public Bridge.ExtismVal.ByReference getPtr() {
         return ptr;
     }
 
@@ -132,10 +130,10 @@ public class Parameters implements AutoCloseable {
 
     @Override
     public void close() {
-        NewFramework.INSTANCE.deallocate_results(this.ptr, this.length);
+        Bridge.INSTANCE.deallocate_results(this.ptr, this.length);
     }
 
     interface AddFunction {
-        NewFramework.ExtismVal invoke(NewFramework.ExtismVal item);
+        Bridge.ExtismVal invoke(Bridge.ExtismVal item);
     }
 }

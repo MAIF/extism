@@ -1,11 +1,11 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
 import com.sun.jna.*;
 import org.extism.sdk.Internal;
 
-public interface NewFramework extends Library {
+public interface Bridge extends Library {
 
-    NewFramework INSTANCE = Native.load("extismdev", NewFramework.class);
+    Bridge INSTANCE = Native.load("extismdev", Bridge.class);
 
     interface InternalExtismFunction extends Callback {
         void invoke(
@@ -81,12 +81,12 @@ public interface NewFramework extends Library {
                         int memoriesLength,
                         boolean withWasi);
 
-    NewFramework.ExtismVal.ByReference call(Instance instance, String functionName, NewFramework.ExtismVal.ByReference inputs, int length);
+    Bridge.ExtismVal.ByReference call(Instance instance, String functionName, Bridge.ExtismVal.ByReference inputs, int length);
     Pointer wasm_plugin_call_without_params(Instance template, String functionName);
 
     void wasm_plugin_call_without_results(Instance template,
                                           String functionName,
-                                          NewFramework.ExtismVal.ByReference inputs,
+                                          Bridge.ExtismVal.ByReference inputs,
                                           int nInputs);
 
     Pointer create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
@@ -107,13 +107,13 @@ public interface NewFramework extends Library {
                                 int nInputs,
                                 int[] outputs,
                                 int nOutputs,
-                                NewFramework.InternalExtismFunction func,
+                                Bridge.InternalExtismFunction func,
                                 Pointer userData,
                                 Pointer freeUserData);
 
     void extism_function_set_namespace(Pointer p, String name);
 
-    void deallocate_results(NewFramework.ExtismVal.ByReference results, int length);
+    void deallocate_results(Bridge.ExtismVal.ByReference results, int length);
 
     void free_plugin(Instance instance);
     void free_engine(Engine engine);

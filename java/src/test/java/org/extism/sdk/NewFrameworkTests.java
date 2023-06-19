@@ -1,6 +1,6 @@
 package org.extism.sdk;
 
-import org.extism.sdk.framework.*;
+import org.extism.sdk.customized.*;
 import org.extism.sdk.manifest.Manifest;
 import org.junit.jupiter.api.Test;
 
@@ -20,8 +20,8 @@ public class NewFrameworkTests {
 
         Template template = new Template(engine, manifest);
 
-        NewFramework.ExtismValType[] parametersTypes = new NewFramework.ExtismValType[]{NewFramework.ExtismValType.I64};
-        NewFramework.ExtismValType[] resultsTypes = new NewFramework.ExtismValType[]{NewFramework.ExtismValType.I64};
+        Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
+        Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
 
         ExtismFunction helloWorldFunction = (plugin, params, returns, data) -> {
             System.out.println("Hello from Java Host Function!");

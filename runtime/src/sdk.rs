@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{os::raw::c_char, str::FromStr};
+use std::os::raw::c_char;
 
 use crate::*;
 
@@ -520,7 +520,6 @@ pub unsafe extern "C" fn extism_current_plugin_memory(plugin: *mut Internal) -> 
     plugin.memory_mut().data_mut().as_mut_ptr()
 }
 
-
 /// Allocate a memory block in the currently running plugin
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
@@ -560,7 +559,6 @@ pub unsafe extern "C" fn extism_current_plugin_memory_length(
         None => 0,
     }
 }
-
 
 /// Free an allocated memory block
 /// NOTE: this should only be called from host functions.

@@ -1,4 +1,4 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -9,22 +9,22 @@ public class Instance extends PointerType implements AutoCloseable {
 
     public String extismCall(String functionName, byte[] inputData) {
         int inputDataLength = inputData == null ? 0 : inputData.length;
-        int exitCode = NewFramework.INSTANCE.extism_plugin_call(this, functionName, inputData, inputDataLength);
+        int exitCode = Bridge.INSTANCE.extism_plugin_call(this, functionName, inputData, inputDataLength);
 
         if (exitCode == -1) {
 //            String error = this.error(this);
 //            throw new ExtismException(error);
         }
 
-        int length = NewFramework.INSTANCE.extism_plugin_output_length(this);
-        Pointer output = NewFramework.INSTANCE.extism_plugin_output_data(this);
+        int length = Bridge.INSTANCE.extism_plugin_output_length(this);
+        Pointer output = Bridge.INSTANCE.extism_plugin_output_data(this);
         return new String(output.getByteArray(0, length), StandardCharsets.UTF_8);
     }
 
     public Results call(String functionName, Parameters params, int resultsLength) {
         params.getPtr().write();
 
-        NewFramework.ExtismVal.ByReference results = NewFramework.INSTANCE.call(
+        Bridge.ExtismVal.ByReference results = Bridge.INSTANCE.call(
                 this,
                 functionName,
                 params.getPtr(),
@@ -38,7 +38,7 @@ public class Instance extends PointerType implements AutoCloseable {
     }
 
     public Pointer callWithoutParams(String functionName, int resultsLength) {
-        Pointer results = NewFramework.INSTANCE.wasm_plugin_call_without_params(
+        Pointer results = Bridge.INSTANCE.wasm_plugin_call_without_params(
                 this,
                 functionName);
 
@@ -57,7 +57,7 @@ public class Instance extends PointerType implements AutoCloseable {
     public void callWithoutResults(String functionName, Parameters params) {
         params.getPtr().write();
 
-        NewFramework.INSTANCE.wasm_plugin_call_without_results(
+        Bridge.INSTANCE.wasm_plugin_call_without_results(
                 this,
                 functionName,
                 params.getPtr(),
@@ -65,11 +65,11 @@ public class Instance extends PointerType implements AutoCloseable {
     }
 
     public void freeResults(Results results) {
-        NewFramework.INSTANCE.deallocate_results(results.getPtr(), results.getLength());
+        Bridge.INSTANCE.deallocate_results(results.getPtr(), results.getLength());
     }
 
     public void free() {
-        NewFramework.INSTANCE.free_plugin(this);
+        Bridge.INSTANCE.free_plugin(this);
     }
 
     @Override

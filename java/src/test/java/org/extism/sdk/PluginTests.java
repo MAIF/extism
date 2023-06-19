@@ -1,20 +1,6 @@
 package org.extism.sdk;
 
-import com.sun.jna.Pointer;
-import org.extism.sdk.framework.Parameters;
-import org.extism.sdk.framework.Results;
-import org.extism.sdk.manifest.Manifest;
-import org.extism.sdk.wasm.WasmSourceResolver;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

@@ -2,53 +2,53 @@ package org.extism.sdk;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
-import org.extism.sdk.framework.NewFramework;
+import org.extism.sdk.customized.Bridge;
 
 import java.util.Arrays;
 import java.util.Optional;
 
 public class HostFunction<T extends HostUserData> implements AutoCloseable {
 
-    private final NewFramework.InternalExtismFunction callback;
+    private final Bridge.InternalExtismFunction callback;
 
     public final Pointer pointer;
 
     public final String name;
 
-    public final NewFramework.ExtismValType[] params;
+    public final Bridge.ExtismValType[] params;
 
-    public final NewFramework.ExtismValType[] returns;
+    public final Bridge.ExtismValType[] returns;
 
     public final Optional<T> userData;
 
-    public HostFunction(String name, NewFramework.ExtismValType[] params, NewFramework.ExtismValType[] returns, ExtismFunction f, Optional<T> userData) {
+    public HostFunction(String name, Bridge.ExtismValType[] params, Bridge.ExtismValType[] returns, ExtismFunction f, Optional<T> userData) {
 
         this.name = name;
         this.params = params;
         this.returns = returns;
         this.userData = userData;
         this.callback = (Internal content,
-                         NewFramework.ExtismVal inputs,
+                         Bridge.ExtismVal inputs,
                          int nInputs,
-                         NewFramework.ExtismVal outs,
+                         Bridge.ExtismVal outs,
                          int nOutputs,
                          Pointer data) -> {
 
-            NewFramework.ExtismVal[] outputs = (NewFramework.ExtismVal []) outs.toArray(nOutputs);
+            Bridge.ExtismVal[] outputs = (Bridge.ExtismVal []) outs.toArray(nOutputs);
 
             f.invoke(
                     content,
-                    (NewFramework.ExtismVal []) inputs.toArray(nInputs),
+                    (Bridge.ExtismVal []) inputs.toArray(nInputs),
                     outputs,
                     userData
             );
 
-            for (NewFramework.ExtismVal output : outputs) {
+            for (Bridge.ExtismVal output : outputs) {
                 convertOutput(output, output);
             }
         };
 
-        this.pointer = NewFramework.INSTANCE.extism_function_new(
+        this.pointer = Bridge.INSTANCE.extism_function_new(
                 this.name,
                 Arrays.stream(this.params).mapToInt(r -> r.v).toArray(),
                 this.params.length,
@@ -60,20 +60,20 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
         );
     }
 
-    void convertOutput(NewFramework.ExtismVal original, NewFramework.ExtismVal fromHostFunction) throws Exception {
+    void convertOutput(Bridge.ExtismVal original, Bridge.ExtismVal fromHostFunction) throws Exception {
         if (fromHostFunction.t != original.t)
             throw new Exception(String.format("Output type mismatch, got %d but expected %d", fromHostFunction.t, original.t));
 
-        if (fromHostFunction.t == NewFramework.ExtismValType.I32.v) {
+        if (fromHostFunction.t == Bridge.ExtismValType.I32.v) {
             original.v.setType(Integer.TYPE);
             original.v.i32 = fromHostFunction.v.i32;
-        } else if (fromHostFunction.t == NewFramework.ExtismValType.I64.v) {
+        } else if (fromHostFunction.t == Bridge.ExtismValType.I64.v) {
             original.v.setType(Long.TYPE);
             original.v.i64 = fromHostFunction.v.i64;
-        } else if (fromHostFunction.t == NewFramework.ExtismValType.F32.v) {
+        } else if (fromHostFunction.t == Bridge.ExtismValType.F32.v) {
             original.v.setType(Float.TYPE);
             original.v.f32 = fromHostFunction.v.f32;
-        } else if (fromHostFunction.t == NewFramework.ExtismValType.F64.v) {
+        } else if (fromHostFunction.t == Bridge.ExtismValType.F64.v) {
             original.v.setType(Double.TYPE);
             original.v.f64 = fromHostFunction.v.f64;
         } else
@@ -94,7 +94,7 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
 
     public void setNamespace(String name) {
         if (this.pointer != null) {
-            NewFramework.INSTANCE.extism_function_set_namespace(this.pointer, name);
+            Bridge.INSTANCE.extism_function_set_namespace(this.pointer, name);
         }
     }
 
@@ -105,6 +105,6 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        NewFramework.INSTANCE.free_function(this.pointer);
+        Bridge.INSTANCE.free_function(this.pointer);
     }
 }

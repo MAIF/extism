@@ -1,4 +1,4 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
 import com.sun.jna.PointerType;
 
@@ -10,7 +10,7 @@ public class Memory extends PointerType implements AutoCloseable {
     private final int maxPages;
 
     public Memory(String name, String namespace, int minPages, int maxPages) {
-        super(NewFramework.INSTANCE.create_wasmtime_memory(
+        super(Bridge.INSTANCE.create_wasmtime_memory(
                 name,
                 namespace,
                 minPages,
@@ -24,6 +24,6 @@ public class Memory extends PointerType implements AutoCloseable {
 
     @Override
     public void close() {
-        NewFramework.INSTANCE.free_memory(this);
+        Bridge.INSTANCE.free_memory(this);
     }
 }

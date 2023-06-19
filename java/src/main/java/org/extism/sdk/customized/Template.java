@@ -1,4 +1,4 @@
-package org.extism.sdk.framework;
+package org.extism.sdk.customized;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 public class Template extends PointerType implements AutoCloseable {
 
     private Template(Engine engine,  byte[] wasm) {
-        super(NewFramework.INSTANCE.create_template_new(engine, wasm, wasm.length));
+        super(Bridge.INSTANCE.create_template_new(engine, wasm, wasm.length));
     }
 
     public Template(Engine engine, Manifest manifest) {
@@ -29,14 +29,14 @@ public class Template extends PointerType implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        NewFramework.INSTANCE.free_template(this);
+        Bridge.INSTANCE.free_template(this);
     }
 
     public Instance instantiate(Engine engine, HostFunction[] functions, LinearMemory[] memories, boolean withWasi) {
         Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
         Memory[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
-        return NewFramework.INSTANCE.instantiate(
+        return Bridge.INSTANCE.instantiate(
                 engine,
                 this,
                 functionsPtr.length == 0 ? null : functionsPtr,

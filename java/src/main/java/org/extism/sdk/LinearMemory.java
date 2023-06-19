@@ -1,6 +1,6 @@
 package org.extism.sdk;
 
-import org.extism.sdk.framework.Memory;
+import org.extism.sdk.customized.Memory;
 
 public class LinearMemory implements AutoCloseable {
 
