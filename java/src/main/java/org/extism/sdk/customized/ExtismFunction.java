@@ -1,6 +1,4 @@
-package org.extism.sdk;
-
-import org.extism.sdk.customized.Bridge;
+package org.extism.sdk.customized;
 
 import java.util.Optional;
 

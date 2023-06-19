@@ -1,4 +1,4 @@
-package org.extism.sdk.customized;
+package org.extism.sdk;
 
 import java.util.Optional;
 

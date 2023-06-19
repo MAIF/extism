@@ -8,8 +8,12 @@ public class Engine extends PointerType implements AutoCloseable {
         super(Bridge.INSTANCE.create_wasmtime_engine());
     }
 
+    public void free() {
+        Bridge.INSTANCE.free_engine(this);
+    }
+
     @Override
     public void close() {
-        Bridge.INSTANCE.free_engine(this);
+        free();
     }
 }

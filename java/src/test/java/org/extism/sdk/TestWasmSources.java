@@ -34,18 +34,14 @@ public enum TestWasmSources {
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
     public PathWasmSource pathWasmSource() {
-        try {
-            return resolvePathWasmSource(getWasmFilePath());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return resolvePathWasmSource(getWasmFilePath());
     }
 
-    public PathWasmSource pathWasmFunctionsSource() throws Exception {
+    public PathWasmSource pathWasmFunctionsSource() {
         return resolvePathWasmSource(getWasmFunctionsFilePath());
     }
 
-    public PathWasmSource pathWasmWebAssemblyFunctionSource() throws Exception {
+    public PathWasmSource pathWasmWebAssemblyFunctionSource() {
         return resolvePathWasmSource(getWasmWebAssemblyFunctionFilePath());
     }
 
@@ -58,7 +54,7 @@ public enum TestWasmSources {
         }
     }
 
-    public static PathWasmSource resolvePathWasmSource(Path path) throws Exception {
+    public static PathWasmSource resolvePathWasmSource(Path path) {
         return new WasmSourceResolver().resolve(path);
     }
 

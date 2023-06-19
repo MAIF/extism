@@ -1,5 +1,6 @@
 package org.extism.sdk.wasm;
 
+import org.extism.sdk.ExtismException;
 import org.extism.sdk.support.Hashing;
 
 import java.io.IOException;
@@ -12,11 +13,11 @@ import java.util.Objects;
  */
 public class WasmSourceResolver {
 
-    public PathWasmSource resolve(Path path) throws Exception {
+    public PathWasmSource resolve(Path path) {
         return resolve(null, path);
     }
 
-    public PathWasmSource resolve(String name, Path path) throws Exception {
+    public PathWasmSource resolve(String name, Path path) {
 
         Objects.requireNonNull(path, "path");
 
@@ -31,11 +32,11 @@ public class WasmSourceResolver {
         return new ByteArrayWasmSource(name, bytes, hash(bytes));
     }
 
-    protected String hash(Path wasmFile) throws Exception {
+    protected String hash(Path wasmFile) {
         try {
             return hash(Files.readAllBytes(wasmFile));
         } catch (IOException ioe) {
-            throw new Exception("Could not compute hash from path: " + wasmFile, ioe);
+            throw new ExtismException("Could not compute hash from path: " + wasmFile, ioe);
         }
     }
 

@@ -2,8 +2,6 @@ package org.extism.sdk.customized;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
-import org.extism.sdk.HostFunction;
-import org.extism.sdk.LinearMemory;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
 
@@ -27,9 +25,13 @@ public class Template extends PointerType implements AutoCloseable {
         return JsonSerde.toJson(manifest).getBytes(StandardCharsets.UTF_8);
     }
 
-    @Override
-    public void close() throws Exception {
+    public void free() {
         Bridge.INSTANCE.free_template(this);
+    }
+
+    @Override
+    public void close() {
+        free();
     }
 
     public Instance instantiate(Engine engine, HostFunction[] functions, LinearMemory[] memories, boolean withWasi) {

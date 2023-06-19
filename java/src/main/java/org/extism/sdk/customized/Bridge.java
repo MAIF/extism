@@ -1,7 +1,6 @@
 package org.extism.sdk.customized;
 
 import com.sun.jna.*;
-import org.extism.sdk.Internal;
 
 public interface Bridge extends Library {
 

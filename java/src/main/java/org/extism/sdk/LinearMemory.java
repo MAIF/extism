@@ -1,4 +1,7 @@
-package org.extism.sdk.customized;
+package org.extism.sdk;
+
+import com.sun.jna.Pointer;
+import com.sun.jna.PointerType;
 
 public class LinearMemory {
 
@@ -6,13 +9,13 @@ public class LinearMemory {
     private String namespace = "env";
     private LinearMemoryOptions memoryOptions;
 
-    private final Memory memory;
+    private final Pointer pointer;
 
     public LinearMemory(String name, LinearMemoryOptions memoryOptions) {
         this.name = name;
         this.memoryOptions = memoryOptions;
 
-        this.memory = this.instanciate();
+        this.pointer = this.instanciate();
     }
 
     public LinearMemory(String name, String namespace, LinearMemoryOptions memoryOptions) {
@@ -20,23 +23,23 @@ public class LinearMemory {
         this.namespace = namespace;
         this.memoryOptions = memoryOptions;
 
-        this.memory = this.instanciate();
+        this.pointer = this.instanciate();
     }
 
-    private Memory instanciate() {
-        return new Memory(
+    private Pointer instanciate() {
+        return LibExtism.INSTANCE.extism_memory_new(
                 this.name,
                 this.namespace,
                 this.memoryOptions.getMin(),
                 this.memoryOptions.getMax().orElse(0));
     }
 
-    public static Memory[] arrayToPointer(LinearMemory[] memories) {
-        Memory[] ptr = new Memory[memories == null ? 0 : memories.length];
+    public static Pointer[] arrayToPointer(LinearMemory[] memories) {
+        Pointer[] ptr = new Pointer[memories == null ? 0 : memories.length];
 
         if (memories != null)
             for (int i = 0; i < memories.length; i++) {
-                ptr[i] = memories[i].memory;
+                ptr[i] = memories[i].pointer;
             }
 
         return ptr;
@@ -54,8 +57,7 @@ public class LinearMemory {
         return namespace;
     }
 
-    public Memory getMemory() {
-        return memory;
+    public Pointer getPointer() {
+        return pointer;
     }
-
 }

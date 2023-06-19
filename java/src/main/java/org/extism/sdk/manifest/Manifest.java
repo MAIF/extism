@@ -16,6 +16,10 @@ public class Manifest {
     @SerializedName("memory")
     private final MemoryOptions memoryOptions;
 
+    // FIXME remove this and related stuff if not supported in java-sdk
+    @SerializedName("allowed_hosts")
+    private final List<String> allowedHosts;
+
     @SerializedName("allowed_paths")
     private final Map<String, String> allowedPaths;
 
@@ -23,7 +27,7 @@ public class Manifest {
     private final Map<String, String> config;
 
     public Manifest() {
-        this(new ArrayList<>(), null, null, null);
+        this(new ArrayList<>(), null, null, null, null);
     }
 
     public Manifest(WasmSource source) {
@@ -31,21 +35,26 @@ public class Manifest {
     }
 
     public Manifest(List<WasmSource> sources) {
-        this(sources, null, null, null);
+        this(sources, null, null, null, null);
     }
 
     public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions) {
-        this(sources, memoryOptions, null, null);
+        this(sources, memoryOptions, null, null, null);
     }
 
     public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config) {
-        this(sources, memoryOptions, config, null);
+        this(sources, memoryOptions, config, null, null);
     }
 
-    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, Map<String, String> allowedPaths) {
+    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, List<String> allowedHosts) {
+        this(sources, memoryOptions, config, allowedHosts, null);
+    }
+
+    public Manifest(List<WasmSource> sources, MemoryOptions memoryOptions, Map<String, String> config, List<String> allowedHosts, Map<String, String> allowedPaths) {
         this.sources = sources;
         this.memoryOptions = memoryOptions;
         this.config = config;
+        this.allowedHosts = allowedHosts;
         this.allowedPaths = allowedPaths;
     }
 
@@ -66,6 +75,13 @@ public class Manifest {
             return Collections.emptyMap();
         }
         return Collections.unmodifiableMap(config);
+    }
+
+    public List<String> getAllowedHosts() {
+        if (allowedHosts == null || allowedHosts.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(allowedHosts);
     }
 
     public Map<String, String> getAllowedPaths() {

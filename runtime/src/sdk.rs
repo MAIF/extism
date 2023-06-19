@@ -319,10 +319,17 @@ pub unsafe fn extism_plugin_call_native(
 
     let mut results = vec![wasmtime::Val::null(); n_results];
 
+<<<<<<< HEAD
     func.call(
         &mut instance.memory.store,
         &params[..],
         results.as_mut_slice(),
+=======
+    let _ = func.call(
+        &mut instance.memory.store, 
+        &params[..], 
+        results.as_mut_slice()
+>>>>>>> b8b0f57 (merge)
     );
 
     Some(results)
