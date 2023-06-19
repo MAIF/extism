@@ -97,7 +97,7 @@ public class HostFunction<T extends HostUserData> {
         }
     }
 
-    HostFunction withNamespace(String name) {
+    public HostFunction withNamespace(String name) {
         this.setNamespace(name);
         return this;
     }

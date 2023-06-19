@@ -2,8 +2,6 @@ package org.extism.sdk;
 
 import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
-import org.extism.sdk.parameters.Parameters;
-import org.extism.sdk.parameters.Results;
 import org.extism.sdk.support.JsonSerde;
 
 import java.nio.charset.StandardCharsets;
@@ -203,10 +201,6 @@ public class Plugin implements AutoCloseable {
      */
     public void free() {
         LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
-    }
-
-    public void freeResults(Results results) {
-        LibExtism.INSTANCE.deallocate_plugin_call_results(results.getPtr(), results.getLength());
     }
 
     /**

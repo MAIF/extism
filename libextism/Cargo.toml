@@ -9,7 +9,7 @@ repository = "https://github.com/extism/extism"
 description = "libextism"
 
 [lib]
-name = "extism"
+name = "extismdev"
 crate-type = ["cdylib"]
 
 [dependencies]

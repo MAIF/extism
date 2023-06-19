@@ -104,23 +104,24 @@ class TestExtism(unittest.TestCase):
         with extism.Context() as ctx:
             plugin = ctx.plugin(self._loop_manifest())
             cancel_handle = plugin.cancel_handle()
+
             def cancel(handle):
                 time.sleep(0.5)
                 handle.cancel()
+
             Thread(target=cancel, args=[cancel_handle]).run()
             self.assertRaises(extism.Error, lambda: plugin.call("infinite_loop", b""))
 
     def _manifest(self, functions=False):
         wasm = self._count_vowels_wasm(functions)
         hash = hashlib.sha256(wasm).hexdigest()
-        return {"wasm": [{"data": wasm, "hash": hash}], "memory": {"max_pages": 5}}
+        return {"wasm": [{"data": wasm, "hash": hash}]}
 
     def _loop_manifest(self):
         wasm = self._infinite_loop_wasm()
         hash = hashlib.sha256(wasm).hexdigest()
         return {
             "wasm": [{"data": wasm, "hash": hash}],
-            "memory": {"max_pages": 5},
             "timeout_ms": 1000,
         }
 

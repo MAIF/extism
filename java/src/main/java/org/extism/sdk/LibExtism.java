@@ -290,4 +290,5 @@ public interface LibExtism extends Library {
     void extism_function_set_namespace(Pointer p, String name);
 
     void extism_reset(Pointer contextPointer, int n);
+    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, int instanceIndex, String memoryName);
 }
