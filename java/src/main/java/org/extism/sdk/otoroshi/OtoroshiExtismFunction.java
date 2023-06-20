@@ -1,10 +1,10 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
 import java.util.Optional;
 
-public interface ExtismFunction<T extends HostUserData> {
+public interface OtoroshiExtismFunction<T extends OtoroshiHostUserData> {
     void invoke(
-            Internal plugin,
+            OtoroshiInternal plugin,
             Bridge.ExtismVal[] params,
             Bridge.ExtismVal[] returns,
             Optional<T> data

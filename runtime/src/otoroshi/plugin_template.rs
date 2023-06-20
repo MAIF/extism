@@ -1,6 +1,8 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap};
 
-use crate::*;
+use wasmtime::{Module, Engine, Error, Store, Linker, MemoryType, Memory, FuncType};
+
+use crate::otoroshi::*;
 
 pub struct PluginTemplate {
     pub module: Module,
@@ -30,22 +32,28 @@ impl PluginTemplate {
         })
     }
 
+    pub fn create_memory(store: &mut Store<Internal>, max_pages: Option<u32>) -> Result<Memory, Error> {
+        Memory::new(
+            store,
+            MemoryType::new(4, max_pages)
+        )
+    }
+
     pub fn instantiate<'a>(
         &self,
         engine: &Engine,
         imports: impl IntoIterator<Item = &'a Function>,
         memories_imports: impl IntoIterator<Item = &'a WasmMemory>,
         with_wasi: bool,
-    ) -> Result<Plugin, Error> {
+    ) -> Result<WasmPlugin, Error> {
         let mut imports = imports.into_iter();
         let mut memories_imports = memories_imports.into_iter();
         
         let mut store = Store::new(&engine, Internal::new(&self.manifest, with_wasi)?);
 
-        let memory = Memory::new(
-            &mut store,
-            MemoryType::new(4, self.manifest.as_ref().memory.max_pages),
-        )?;
+        let memory = plugin_template::PluginTemplate::create_memory(
+            &mut store, 
+            self.manifest.as_ref().memory.max_pages)?;
 
         let mut linker = Linker::new(&engine);
         // linker.allow_shadowing(true);
@@ -70,6 +78,8 @@ impl PluginTemplate {
                 }
             };
         }
+
+        let s = &mut store;
 
         // Add builtins
         for (_name, module) in self.modules.clone().iter() {
@@ -111,12 +121,14 @@ impl PluginTemplate {
                         })?;
                     }
 
-                    // for m in &mut memories_imports {
-                    //     let name = m.name.to_string();
-                    //     let ns = m.namespace.to_string();
-                    //     let mem = wasmtime::Memory::new(&mut store, (&m.ty).clone())?;
-                    //     linker.define(store, &ns, &name, mem)?;
-                    // }
+                    for m in &mut memories_imports {
+                        let name = m.name.to_string();
+                        let ns = m.namespace.to_string();
+
+
+                        let mem = wasmtime::Memory::new(&mut *s, (&m.ty).clone())?;
+                        linker.define(&mut *s, &ns, &name, mem)?;
+                    }
                 }
             }
         }
@@ -132,7 +144,7 @@ impl PluginTemplate {
         let instance = linker.instantiate(&mut store, &self.module)?;
 
         let manifest = self.manifest.as_ref();
-        let plugin = Plugin {
+        let plugin = WasmPlugin {
             memory: PluginMemory::new(store, memory, manifest),
             instance,
             last_error: std::cell::RefCell::new(None),

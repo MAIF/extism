@@ -1,23 +1,27 @@
 pub use anyhow::Error;
 pub(crate) use wasmtime::*;
 
+mod context;
 mod function;
+mod internal;
 pub mod manifest;
 mod memory;
 pub(crate) mod pdk;
 mod plugin;
-mod plugin_template;
+mod plugin_ref;
 pub mod sdk;
-mod wasm_memory;
+mod timer;
+pub(crate) mod otoroshi;
 
+pub use context::Context;
 pub use function::{Function, UserData, Val, ValType};
-pub use wasm_memory::{WasmMemory};
+pub use internal::{Internal, InternalExt, Wasi};
 pub use manifest::Manifest;
 pub use memory::{MemoryBlock, PluginMemory, ToMemoryBlock};
-pub use plugin::{Internal, Plugin, Wasi};
-pub use plugin_template::PluginTemplate;
+pub use plugin::Plugin;
+pub use plugin_ref::PluginRef;
+pub(crate) use timer::{Timer, TimerAction};
 
-pub const EXPORT_MODULE_NAME: &str = "env";
 pub type Size = u64;
 pub type PluginIndex = i32;
 

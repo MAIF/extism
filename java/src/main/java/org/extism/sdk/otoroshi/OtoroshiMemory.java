@@ -1,16 +1,16 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
 import com.sun.jna.PointerType;
 
-public class Memory extends PointerType implements AutoCloseable {
+public class OtoroshiMemory extends PointerType implements AutoCloseable {
 
     private final String name;
     private final String namespace;
     private final int minPages;
     private final int maxPages;
 
-    public Memory(String name, String namespace, int minPages, int maxPages) {
-        super(Bridge.INSTANCE.create_wasmtime_memory(
+    public OtoroshiMemory(String name, String namespace, int minPages, int maxPages) {
+        super(Bridge.INSTANCE.otoroshi_create_wasmtime_memory(
                 name,
                 namespace,
                 minPages,
@@ -24,6 +24,6 @@ public class Memory extends PointerType implements AutoCloseable {
 
     @Override
     public void close() {
-        Bridge.INSTANCE.free_memory(this);
+        Bridge.INSTANCE.otoroshi_free_memory(this);
     }
 }

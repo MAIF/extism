@@ -21,7 +21,10 @@ public enum TestWasmSources {
         }
         public Path getWasmWebAssemblyFunctionFilePath() {
             return Paths.get(WASM_LOCATION, "functions.wasm");
-            // return Paths.get(WASM_LOCATION, "addition.wasm");
+        }
+
+        public Path getRawAdditionFilePath() {
+            return Paths.get(WASM_LOCATION, "addition.wasm");
         }
     };
 
@@ -31,6 +34,8 @@ public enum TestWasmSources {
 
     public abstract Path getWasmFunctionsFilePath();
 
+    public abstract Path getRawAdditionFilePath();
+
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
     public PathWasmSource pathWasmSource() {
@@ -39,6 +44,10 @@ public enum TestWasmSources {
 
     public PathWasmSource pathWasmFunctionsSource() {
         return resolvePathWasmSource(getWasmFunctionsFilePath());
+    }
+
+    public PathWasmSource getRawAdditionPath() {
+        return resolvePathWasmSource(getRawAdditionFilePath());
     }
 
     public PathWasmSource pathWasmWebAssemblyFunctionSource() {

@@ -1,13 +1,11 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
-use crate::*;
-
-use pretty_hex::PrettyHex;
+use crate::otoroshi::*;
 
 /// Handles memory for plugins
 pub struct PluginMemory {
     /// wasmtime Store
-    pub store: Option<Store<Internal>>,
+    pub store: Store<Internal>,
 
     /// WASM memory
     pub memory: Memory,
@@ -21,8 +19,11 @@ pub struct PluginMemory {
     /// Tracks current offset in memory
     pub position: usize,
 
-    /// Extism manifest
-    pub manifest: Manifest,
+    pub manifest_config: BTreeMap<String, String>,
+    
+    pub allowed_hosts: Option<Vec<String>>,
+    
+    pub allowed_paths: Option<BTreeMap<PathBuf, PathBuf>>
 }
 
 /// `ToMemoryBlock` is used to convert from Rust values to blocks of WASM memory
@@ -62,40 +63,25 @@ const BLOCK_SIZE_THRESHOLD: usize = 32;
 
 impl PluginMemory {
     /// Create memory for a plugin
-    pub fn new(store: Store<Internal>, memory: Memory, manifest: Manifest) -> Self {
+    pub fn new(store: Store<Internal>, memory: Memory, manifest: &extism_manifest::Manifest) -> Self {
         PluginMemory {
             free: Vec::new(),
             live_blocks: BTreeMap::new(),
-            store: Some(store),
+            store,
             memory,
             position: 1,
-            manifest,
+            manifest_config: manifest.config.clone(),
+            allowed_paths: manifest.allowed_paths.clone(),
+            allowed_hosts: manifest.allowed_hosts.clone(),
         }
     }
 
     pub fn store(&self) -> &Store<Internal> {
-        self.store.as_ref().unwrap()
+        &self.store
     }
 
     pub fn store_mut(&mut self) -> &mut Store<Internal> {
-        self.store.as_mut().unwrap()
-    }
-
-    /// Moves module to a new store
-    pub fn reinstantiate(&mut self) -> Result<(), Error> {
-        if let Some(store) = self.store.take() {
-            let engine = store.engine().clone();
-            let internal = store.into_data();
-            let pages = internal.available_pages;
-            let mut store = Store::new(&engine, internal);
-            store.epoch_deadline_callback(|_internal| Err(Error::msg("timeout")));
-            self.memory = Memory::new(&mut store, MemoryType::new(2, pages))?;
-            self.store = Some(store);
-        }
-
-        self.reset();
-
-        Ok(())
+        &mut self.store
     }
 
     /// Write byte to memory
@@ -104,10 +90,10 @@ impl PluginMemory {
         if offs >= self.size() {
             // This should raise MemoryAccessError
             let buf = &mut [0];
-            self.memory.read(&self.store.as_ref().unwrap(), offs, buf)?;
+            self.memory.read(&self.store, offs, buf)?;
             return Ok(());
         }
-        self.memory.data_mut(&mut self.store.as_mut().unwrap())[offs] = data;
+        self.memory.data_mut(&mut self.store)[offs] = data;
         Ok(())
     }
 
@@ -117,10 +103,10 @@ impl PluginMemory {
         if offs >= self.size() {
             // This should raise MemoryAccessError
             let buf = &mut [0];
-            self.memory.read(&self.store.as_ref().unwrap(), offs, buf)?;
+            self.memory.read(&self.store, offs, buf)?;
             return Ok(0);
         }
-        Ok(self.memory.data(&self.store.as_ref().unwrap())[offs])
+        Ok(self.memory.data(&self.store)[offs])
     }
 
     /// Write u64 to memory
@@ -151,7 +137,7 @@ impl PluginMemory {
         let pos = pos.to_memory_block(self)?;
         assert!(data.as_ref().len() <= pos.length);
         self.memory
-            .write(&mut self.store.as_mut().unwrap(), pos.offset, data.as_ref())?;
+            .write(&mut self.store, pos.offset, data.as_ref())?;
         Ok(())
     }
 
@@ -160,18 +146,18 @@ impl PluginMemory {
         let pos = pos.to_memory_block(self)?;
         assert!(data.as_mut().len() <= pos.length);
         self.memory
-            .read(&self.store.as_ref().unwrap(), pos.offset, data.as_mut())?;
+            .read(&self.store, pos.offset, data.as_mut())?;
         Ok(())
     }
 
     /// Size of memory in bytes
     pub fn size(&self) -> usize {
-        self.memory.data_size(&self.store.as_ref().unwrap())
+        self.memory.data_size(&self.store)
     }
 
     /// Size of memory in pages
     pub fn pages(&self) -> u32 {
-        self.memory.size(&self.store.as_ref().unwrap()) as u32
+        self.memory.size(&self.store) as u32
     }
 
     /// Reserve `n` bytes of memory
@@ -216,7 +202,7 @@ impl PluginMemory {
             debug!("Requesting {pages_needed} more pages");
             // This will fail if we've already allocated the maximum amount of memory allowed
             self.memory
-                .grow(&mut self.store.as_mut().unwrap(), pages_needed)?;
+                .grow(&mut self.store, pages_needed)?;
         }
 
         let mem = MemoryBlock {
@@ -276,13 +262,6 @@ impl PluginMemory {
         }
     }
 
-    /// Log entire memory as hexdump using the `trace` log level
-    pub fn dump(&self) {
-        let data = self.memory.data(self.store.as_ref().unwrap());
-
-        trace!("{:?}", data[..self.position].hex_dump());
-    }
-
     /// Reset memory - clears free-list and live blocks and resets position
     pub fn reset(&mut self) {
         self.free.clear();
@@ -292,25 +271,25 @@ impl PluginMemory {
 
     /// Get memory as a slice of bytes
     pub fn data(&self) -> &[u8] {
-        self.memory.data(self.store.as_ref().unwrap())
+        self.memory.data(&self.store)
     }
 
     /// Get memory as a mutable slice of bytes
     pub fn data_mut(&mut self) -> &mut [u8] {
-        self.memory.data_mut(self.store.as_mut().unwrap())
+        self.memory.data_mut(&mut self.store)
     }
 
     /// Get bytes occupied by the provided memory handle
     pub fn get(&self, handle: impl ToMemoryBlock) -> Result<&[u8], Error> {
         let handle = handle.to_memory_block(self)?;
-        Ok(&self.memory.data(self.store.as_ref().unwrap())
+        Ok(&self.memory.data(&self.store)
             [handle.offset..handle.offset + handle.length])
     }
 
     /// Get mutable bytes occupied by the provided memory handle
     pub fn get_mut(&mut self, handle: impl ToMemoryBlock) -> Result<&mut [u8], Error> {
         let handle = handle.to_memory_block(self)?;
-        Ok(&mut self.memory.data_mut(self.store.as_mut().unwrap())
+        Ok(&mut self.memory.data_mut(&mut self.store)
             [handle.offset..handle.offset + handle.length])
     }
 
@@ -318,7 +297,7 @@ impl PluginMemory {
     pub fn get_str(&self, handle: impl ToMemoryBlock) -> Result<&str, Error> {
         let handle = handle.to_memory_block(self)?;
         Ok(std::str::from_utf8(
-            &self.memory.data(self.store.as_ref().unwrap())
+            &self.memory.data(&self.store)
                 [handle.offset..handle.offset + handle.length],
         )?)
     }
@@ -327,7 +306,7 @@ impl PluginMemory {
     pub fn get_mut_str(&mut self, handle: impl ToMemoryBlock) -> Result<&mut str, Error> {
         let handle = handle.to_memory_block(self)?;
         Ok(std::str::from_utf8_mut(
-            &mut self.memory.data_mut(self.store.as_mut().unwrap())
+            &mut self.memory.data_mut(&mut self.store)
                 [handle.offset..handle.offset + handle.length],
         )?)
     }
@@ -337,7 +316,7 @@ impl PluginMemory {
         let handle = handle.to_memory_block(self)?;
         Ok(unsafe {
             self.memory
-                .data_ptr(&self.store.as_ref().unwrap())
+                .data_ptr(&self.store)
                 .add(handle.offset)
         })
     }

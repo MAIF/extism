@@ -4,6 +4,9 @@ import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
 
+import org.extism.sdk.Parameters;
+import org.extism.sdk.Results;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 

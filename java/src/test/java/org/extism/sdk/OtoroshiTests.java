@@ -1,10 +1,12 @@
 package org.extism.sdk;
 
-import org.extism.sdk.customized.*;
-import org.extism.sdk.customized.ExtismFunction;
-import org.extism.sdk.customized.HostFunction;
+import org.extism.sdk.otoroshi.*;
+import org.extism.sdk.otoroshi.OtoroshiExtismFunction;
+import org.extism.sdk.otoroshi.OtoroshiHostFunction;
+import org.extism.sdk.otoroshi.OtoroshiResults;
+import org.extism.sdk.otoroshi.OtoroshiParameters;
 import org.extism.sdk.manifest.Manifest;
-import org.extism.sdk.customized.LinearMemory;
+import org.extism.sdk.otoroshi.OtoroshiLinearMemory;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -13,24 +15,24 @@ import java.util.*;
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class CustomizedTests {
+public class OtoroshiTests {
 
     @Test
     public void shouldWorks() {
-        Engine engine = new Engine();
+        OtoroshiEngine engine = new OtoroshiEngine();
 
-        Manifest manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
+        Manifest manifest = new Manifest(Collections.singletonList(CODE.getRawAdditionPath()));
 
-        Template template = new Template(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
 
         Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
         Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
 
-        ExtismFunction helloWorldFunction = (plugin, params, returns, data) -> {
+        OtoroshiExtismFunction helloWorldFunction = (plugin, params, returns, data) -> {
             System.out.println("Hello from Java Host Function!");
         };
 
-        HostFunction f = new HostFunction<>(
+        OtoroshiHostFunction f = new OtoroshiHostFunction<>(
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
@@ -38,7 +40,7 @@ public class CustomizedTests {
                 Optional.empty()
         ).withNamespace("env");
 
-        HostFunction[] functions = {f};
+        OtoroshiHostFunction[] functions = {f};
 
         List<Integer> test = new ArrayList<>(500);
         for (int i = 0; i < 500; i++) {
@@ -46,12 +48,12 @@ public class CustomizedTests {
         }
 
         test.parallelStream().forEach(number -> {
-            Instance instance = template.instantiate(engine, functions, new LinearMemory[0], true);
+            OtoroshiInstance instance = template.instantiate(engine, functions, new OtoroshiLinearMemory[0], true);
 
-            Parameters params = new Parameters(2)
+            OtoroshiParameters params = new OtoroshiParameters(2)
                 .pushInts(2, 3);
 
-            Results result = instance.call("add", params, 1);
+            OtoroshiResults result = instance.call("add", params, 1);
             assertEquals(result.getValue(0).v.i32, 5);
 
             instance.freeResults(result);
@@ -64,17 +66,17 @@ public class CustomizedTests {
 
     @Test
     public void shouldExistmCallWorks() {
-        Engine engine = new Engine();
+        OtoroshiEngine engine = new OtoroshiEngine();
 
         Manifest manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
 
-        Template template = new Template(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
 
         Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
         Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
 
-        HostFunction[] functions = {
-                new HostFunction<>(
+        OtoroshiHostFunction[] functions = {
+                new OtoroshiHostFunction<>(
                         "hello_world",
                         parametersTypes,
                         resultsTypes,
@@ -85,7 +87,7 @@ public class CustomizedTests {
                 ).withNamespace("env")
         };
 
-        Instance instance = template.instantiate(engine, functions, new LinearMemory[0], true);
+        OtoroshiInstance instance = template.instantiate(engine, functions, new OtoroshiLinearMemory[0], true);
 
         instance.extismCall("execute", "".getBytes(StandardCharsets.UTF_8));
 
@@ -96,18 +98,18 @@ public class CustomizedTests {
 
     @Test
     public void shouldInvokeNativeFunction() {
-        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWebAssemblyFunctionSource()));
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getRawAdditionPath()));
         String functionName = "add";
 
-        Engine engine = new Engine();
+        OtoroshiEngine engine = new OtoroshiEngine();
 
-        Template template = new Template(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
 
-        Parameters params = new Parameters(2)
+        OtoroshiParameters params = new OtoroshiParameters(2)
                 .pushInts(2, 3);
 
-        Instance plugin = template.instantiate(engine, null, null, true);
-        Results result = plugin.call(functionName, params, 1);
+        OtoroshiInstance plugin = template.instantiate(engine, null, null, true);
+        OtoroshiResults result = plugin.call(functionName, params, 1);
 
         assertEquals(result.getValues()[0].v.i32, 5);
 

@@ -1,21 +1,21 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
-public class LinearMemory {
+public class OtoroshiLinearMemory {
 
     private final String name;
     private String namespace = "env";
-    private LinearMemoryOptions memoryOptions;
+    private OtoroshiLinearMemoryOptions memoryOptions;
 
-    private final Memory memory;
+    private final OtoroshiMemory memory;
 
-    public LinearMemory(String name, LinearMemoryOptions memoryOptions) {
+    public OtoroshiLinearMemory(String name, OtoroshiLinearMemoryOptions memoryOptions) {
         this.name = name;
         this.memoryOptions = memoryOptions;
 
         this.memory = this.instanciate();
     }
 
-    public LinearMemory(String name, String namespace, LinearMemoryOptions memoryOptions) {
+    public OtoroshiLinearMemory(String name, String namespace, OtoroshiLinearMemoryOptions memoryOptions) {
         this.name = name;
         this.namespace = namespace;
         this.memoryOptions = memoryOptions;
@@ -23,16 +23,16 @@ public class LinearMemory {
         this.memory = this.instanciate();
     }
 
-    private Memory instanciate() {
-        return new Memory(
+    private OtoroshiMemory instanciate() {
+        return new OtoroshiMemory(
                 this.name,
                 this.namespace,
                 this.memoryOptions.getMin(),
                 this.memoryOptions.getMax().orElse(0));
     }
 
-    public static Memory[] arrayToPointer(LinearMemory[] memories) {
-        Memory[] ptr = new Memory[memories == null ? 0 : memories.length];
+    public static OtoroshiMemory[] arrayToPointer(OtoroshiLinearMemory[] memories) {
+        OtoroshiMemory[] ptr = new OtoroshiMemory[memories == null ? 0 : memories.length];
 
         if (memories != null)
             for (int i = 0; i < memories.length; i++) {
@@ -46,7 +46,7 @@ public class LinearMemory {
         return name;
     }
 
-    public LinearMemoryOptions getMemoryOptions() {
+    public OtoroshiLinearMemoryOptions getMemoryOptions() {
         return memoryOptions;
     }
 
@@ -54,7 +54,7 @@ public class LinearMemory {
         return namespace;
     }
 
-    public Memory getMemory() {
+    public OtoroshiMemory getMemory() {
         return memory;
     }
 

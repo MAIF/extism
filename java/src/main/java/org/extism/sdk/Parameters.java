@@ -1,30 +1,29 @@
-package org.extism.sdk.customized;
-
+package org.extism.sdk;
 
 public class Parameters implements AutoCloseable {
-    protected Bridge.ExtismVal.ByReference ptr;
-    protected Bridge.ExtismVal[] values;
+    protected LibExtism.ExtismVal.ByReference ptr;
+    protected LibExtism.ExtismVal[] values;
     private final int length;
 
     private int next = 0;
 
     public Parameters(int length) {
-        this.ptr = new Bridge.ExtismVal.ByReference();
+        this.ptr = new LibExtism.ExtismVal.ByReference();
 
         if (length > 0) {
-            this.values = (Bridge.ExtismVal[]) this.ptr.toArray(length);
+            this.values = (LibExtism.ExtismVal[]) this.ptr.toArray(length);
         }
 
         this.next = 0;
         this.length = length;
     }
 
-    public Parameters(Bridge.ExtismVal.ByReference ptr, int length) {
+    public Parameters(LibExtism.ExtismVal.ByReference ptr, int length) {
         this.ptr = ptr;
         this.length = length;
 
         if (length > 0) {
-            this.values = (Bridge.ExtismVal []) this.ptr.toArray(length);
+            this.values = (LibExtism.ExtismVal []) this.ptr.toArray(length);
         }
     }
 
@@ -108,15 +107,15 @@ public class Parameters implements AutoCloseable {
         return result;
     }
 
-    public Bridge.ExtismVal[] getValues() {
+    public LibExtism.ExtismVal[] getValues() {
         return values;
     }
 
-    public Bridge.ExtismVal getValue(int pos) {
+    public LibExtism.ExtismVal getValue(int pos) {
         return values[pos];
     }
 
-    public Bridge.ExtismVal.ByReference getPtr() {
+    public LibExtism.ExtismVal.ByReference getPtr() {
         return ptr;
     }
 
@@ -124,16 +123,17 @@ public class Parameters implements AutoCloseable {
         return length;
     }
 
-    public void set(AddFunction function, int i)  {
+    public void set(Parameters.AddFunction function, int i)  {
         this.values[i] = function.invoke(this.values[i]);
     }
 
     @Override
     public void close() {
-        Bridge.INSTANCE.deallocate_results(this.ptr, this.length);
+        LibExtism.INSTANCE.deallocate_results(this.ptr, this.length);
     }
 
     interface AddFunction {
-        Bridge.ExtismVal invoke(Bridge.ExtismVal item);
+        LibExtism.ExtismVal invoke(LibExtism.ExtismVal item);
     }
 }
+

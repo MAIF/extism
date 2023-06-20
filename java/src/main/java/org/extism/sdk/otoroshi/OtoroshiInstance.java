@@ -1,44 +1,44 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
 
 import java.nio.charset.StandardCharsets;
 
-public class Instance extends PointerType implements AutoCloseable {
+public class OtoroshiInstance extends PointerType implements AutoCloseable {
 
     public String extismCall(String functionName, byte[] inputData) {
         int inputDataLength = inputData == null ? 0 : inputData.length;
-        int exitCode = Bridge.INSTANCE.extism_plugin_call(this, functionName, inputData, inputDataLength);
+        int exitCode = Bridge.INSTANCE.otoroshi_bridge_extism_plugin_call(this, functionName, inputData, inputDataLength);
 
         if (exitCode == -1) {
 //            String error = this.error(this);
 //            throw new ExtismException(error);
         }
 
-        int length = Bridge.INSTANCE.extism_plugin_output_length(this);
-        Pointer output = Bridge.INSTANCE.extism_plugin_output_data(this);
+        int length = Bridge.INSTANCE.otoroshi_bridge_extism_plugin_output_length(this);
+        Pointer output = Bridge.INSTANCE.otoroshi_bridge_extism_plugin_output_data(this);
         return new String(output.getByteArray(0, length), StandardCharsets.UTF_8);
     }
 
-    public Results call(String functionName, Parameters params, int resultsLength) {
+    public OtoroshiResults call(String functionName, OtoroshiParameters params, int resultsLength) {
         params.getPtr().write();
 
-        Bridge.ExtismVal.ByReference results = Bridge.INSTANCE.call(
+        Bridge.ExtismVal.ByReference results = Bridge.INSTANCE.otoroshi_call(
                 this,
                 functionName,
                 params.getPtr(),
                 params.getLength());
 
         if (results == null) {
-            return new Results(0);
+            return new OtoroshiResults(0);
         } else {
-            return new Results(results, resultsLength);
+            return new OtoroshiResults(results, resultsLength);
         }
     }
 
     public Pointer callWithoutParams(String functionName, int resultsLength) {
-        Pointer results = Bridge.INSTANCE.wasm_plugin_call_without_params(
+        Pointer results = Bridge.INSTANCE.otoroshi_wasm_plugin_call_without_params(
                 this,
                 functionName);
 
@@ -54,22 +54,22 @@ public class Instance extends PointerType implements AutoCloseable {
         }
     }
 
-    public void callWithoutResults(String functionName, Parameters params) {
+    public void callWithoutResults(String functionName, OtoroshiParameters params) {
         params.getPtr().write();
 
-        Bridge.INSTANCE.wasm_plugin_call_without_results(
+        Bridge.INSTANCE.otoroshi_wasm_plugin_call_without_results(
                 this,
                 functionName,
                 params.getPtr(),
                 params.getLength());
     }
 
-    public void freeResults(Results results) {
-        Bridge.INSTANCE.deallocate_results(results.getPtr(), results.getLength());
+    public void freeResults(OtoroshiResults results) {
+        Bridge.INSTANCE.otoroshi_deallocate_results(results.getPtr(), results.getLength());
     }
 
     public void free() {
-        Bridge.INSTANCE.free_plugin(this);
+        Bridge.INSTANCE.otoroshi_free_plugin(this);
     }
 
     @Override

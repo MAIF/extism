@@ -1,12 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
 
 use std::os::raw::c_char;
+use std::str::FromStr;
 
 use crate::*;
 
 /// A union type for host function argument/return values
 #[repr(C)]
-#[derive(Copy, Clone)]
 pub union ValUnion {
     i32: i32,
     i64: i64,
@@ -17,16 +17,13 @@ pub union ValUnion {
 
 /// `ExtismVal` holds the type and value of a function argument/return
 #[repr(C)]
-#[derive(Clone)]
 pub struct ExtismVal {
     t: ValType,
     v: ValUnion,
 }
 
 /// Wraps host functions
-pub struct ExtismFunction(Function);
-
-pub struct ExtismMemory(WasmMemory);
+pub struct ExtismFunction(pub Function);
 
 impl From<Function> for ExtismFunction {
     fn from(x: Function) -> Self {
@@ -71,196 +68,56 @@ impl From<&wasmtime::Val> for ExtismVal {
                     f64: value.unwrap_f64(),
                 },
             },
-            // t => todo!("{}", t),
-            t => ExtismVal {
-                t: ValType::I32,
-                v: ValUnion { i32: 1 },
-            },
+            t => todo!("{}", t),
         }
     }
 }
 
+/// Create a new context
 #[no_mangle]
-pub unsafe extern "C" fn create_template_new(
-    engine_ptr: *mut Engine,
-    wasm: *const u8,
-    wasm_size: Size,
-) -> *mut PluginTemplate {
-    let engine: &Engine = unsafe { &*engine_ptr };
-
-    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
-    Box::into_raw(Box::new(PluginTemplate::new(engine, data).unwrap()))
+pub unsafe extern "C" fn extism_context_new() -> *mut Context {
+    trace!("Creating new Context");
+    Box::into_raw(Box::new(Context::new()))
 }
 
+/// Free a context
 #[no_mangle]
-pub unsafe extern "C" fn instantiate(
-    engine_ptr: *mut Engine,
-    template_ptr: *mut PluginTemplate,
-    functions: *mut *const ExtismFunction,
-    n_functions: Size,
-    memories: *mut *const ExtismMemory,
-    n_memories: i8,
-    with_wasi: bool,
-) -> *mut Plugin {
-    let engine: &Engine = unsafe { &*engine_ptr };
-
-    let template: &PluginTemplate = unsafe { &*template_ptr };
-
-    let mut funcs = vec![];
-
-    if !functions.is_null() {
-        for i in 0..n_functions {
-            unsafe {
-                let f = *functions.add(i as usize);
-                if f.is_null() {
-                    continue;
-                }
-                let f = &*f;
-                funcs.push(&f.0);
-            }
-        }
+pub unsafe extern "C" fn extism_context_free(ctx: *mut Context) {
+    trace!("Freeing context");
+    if ctx.is_null() {
+        return;
     }
-
-    let mut mems: Vec<&WasmMemory> = vec![];
-
-    if !memories.is_null() {
-        for i in 0..n_memories {
-            unsafe {
-                let f = *memories.add(i as usize);
-                if f.is_null() {
-                    continue;
-                }
-                let f = &*f;
-                mems.push(&f.0);
-            }
-        }
-    }
-
-    Box::into_raw(Box::new(
-        template
-            .instantiate(engine, funcs, mems, with_wasi)
-            .unwrap(),
-    ))
+    drop(Box::from_raw(ctx))
 }
-
-#[no_mangle]
-pub extern "C" fn create_wasmtime_engine() -> *mut Engine {
-    let engine = Engine::new(
-        &Config::new(), // .debug_info(true)
-    )
-    .unwrap();
-    Box::into_raw(Box::new(engine))
-}
-
-#[no_mangle]
-pub extern "C" fn free_engine(engine: *mut Engine) {
-    unsafe {
-        drop(Box::from_raw(engine));
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn extism_get_memory(
-    ctx: *mut Context,
-    plugin: PluginIndex,
-    name: *const std::ffi::c_char,
-) -> *mut u8 {
-    let ctx = &mut *ctx;
-    let mut plugin = match PluginRef::new(ctx, plugin, true) {
-        None => return std::ptr::null_mut(),
-        Some(p) => p,
-    };
-
-    let plugin = plugin.as_mut();
-
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x.to_string(),
-        Err(e) => return plugin.error(e, std::ptr::null_mut()),
-    };
-
-    let memory = match plugin.get_memory(name) {
-        Some(x) => x,
-        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
-    };
-
-    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
-}
-
-
-#[no_mangle]
-pub unsafe extern "C" fn extism_get_lineary_memory_from_host_functions(
-    plugin: *mut Plugin,
-    name: *const std::ffi::c_char,
-) -> *mut u8 {
-    let plugin = &mut *plugin;
-
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x.to_string(),
-        Err(e) => return plugin.error(e, std::ptr::null_mut()),
-    };
-
-    let memory = match plugin.get_memory(name) {
-        Some(x) => x,
-        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
-    };
-
-    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_plugin_call_without_params(
-    ctx: *mut Context,
-    plugin_id: PluginIndex,
-    func_name: *const c_char,
-    data: *const u8,
-    data_len: Size,
-) -> *mut ExtismVal {
-
-    match extism_plugin_call_native(ctx, plugin_id, func_name, Vec::new(), data, data_len) {
-        None => std::ptr::null_mut(),
-        Some(t) => {
-           // std::ptr::null_mut()
-            let mut v = t
-                .iter()
-                .map(|x| {
-                    let t = ExtismVal::from(x);
-                    t
-                })
-                .collect::<Vec<ExtismVal>>();
-
-            let ptr = v.as_mut_ptr() as *mut _;
-            std::mem::forget(v);
-            ptr
-        }
-    }
-}
-
 
 /// Returns a pointer to the memory of the currently running plugin
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory(plugin: *mut Plugin) -> *mut u8 {
+pub unsafe extern "C" fn extism_current_plugin_memory(plugin: *mut Internal) -> *mut u8 {
     if plugin.is_null() {
         return std::ptr::null_mut();
     }
 
     let plugin = &mut *plugin;
-    plugin.memory.data_mut().as_mut_ptr()
+    plugin.memory_mut().data_mut().as_mut_ptr()
 }
 
 /// Allocate a memory block in the currently running plugin
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_alloc(plugin: *mut Plugin, n: Size) -> u64 {
+pub unsafe extern "C" fn extism_current_plugin_memory_alloc(plugin: *mut Internal, n: Size) -> u64 {
     if plugin.is_null() {
         return 0;
     }
 
     let plugin = &mut *plugin;
 
-    let mem = match plugin.memory.alloc(n as usize) {
+    let mem = match plugin.memory_mut().alloc(n as usize) {
         Ok(x) => x,
-        Err(e) => return plugin.error(e, 0),
+        Err(e) => {
+            plugin.set_error(e);
+            return 0;
+        }
     };
 
     mem.offset as u64
@@ -269,14 +126,17 @@ pub unsafe extern "C" fn extism_current_plugin_memory_alloc(plugin: *mut Plugin,
 /// Get the length of an allocated block
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_length(plugin: *mut Plugin, n: Size) -> Size {
+pub unsafe extern "C" fn extism_current_plugin_memory_length(
+    plugin: *mut Internal,
+    n: Size,
+) -> Size {
     if plugin.is_null() {
         return 0;
     }
 
     let plugin = &mut *plugin;
 
-    match plugin.memory.block_length(n as usize) {
+    match plugin.memory().block_length(n as usize) {
         Some(x) => x as Size,
         None => 0,
     }
@@ -285,14 +145,13 @@ pub unsafe extern "C" fn extism_current_plugin_memory_length(plugin: *mut Plugin
 /// Free an allocated memory block
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_free(plugin: *mut Plugin, ptr: u64) {
+pub unsafe extern "C" fn extism_current_plugin_memory_free(plugin: *mut Internal, ptr: u64) {
     if plugin.is_null() {
         return;
     }
 
     let plugin = &mut *plugin;
-
-    plugin.memory.free(ptr as usize);
+    plugin.memory_mut().free(ptr as usize);
 }
 
 /// Create a new host function
@@ -382,32 +241,6 @@ pub unsafe extern "C" fn extism_function_new(
     Box::into_raw(Box::new(ExtismFunction(f)))
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn extism_memory_new(
-    name: *const std::ffi::c_char,
-    namespace: *const std::ffi::c_char,
-    min_pages: u32,
-    max_pages: u32,
-) -> *mut ExtismMemory {
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x.to_string(),
-        Err(_) => {
-            return std::ptr::null_mut();
-        }
-    };
-
-    let namespace = match std::ffi::CStr::from_ptr(namespace).to_str() {
-        Ok(x) => x.to_string(),
-        Err(_) => {
-            return std::ptr::null_mut();
-        }
-    };
-
-    let mem = WasmMemory::new(name, namespace, min_pages, max_pages);
-
-    Box::into_raw(Box::new(ExtismMemory(mem)))
-}
-
 /// Set the namespace of an `ExtismFunction`
 #[no_mangle]
 pub unsafe extern "C" fn extism_function_set_namespace(
@@ -421,8 +254,243 @@ pub unsafe extern "C" fn extism_function_set_namespace(
 
 /// Free an `ExtismFunction`
 #[no_mangle]
-pub unsafe extern "C" fn free_function(ptr: *mut ExtismFunction) {
+pub unsafe extern "C" fn extism_function_free(ptr: *mut ExtismFunction) {
     drop(Box::from_raw(ptr))
+}
+
+/// Create a new plugin with additional host functions
+///
+/// `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
+/// `wasm_size`: the length of the `wasm` parameter
+/// `functions`: an array of `ExtismFunction*`
+/// `n_functions`: the number of functions provided
+/// `with_wasi`: enables/disables WASI
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_new(
+    ctx: *mut Context,
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *mut *const ExtismFunction,
+    n_functions: Size,
+    with_wasi: bool,
+) -> PluginIndex {
+    trace!("Call to extism_plugin_new with wasm pointer {:?}", wasm);
+    let ctx = &mut *ctx;
+    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
+    let mut funcs = vec![];
+
+    if !functions.is_null() {
+        for i in 0..n_functions {
+            unsafe {
+                let f = *functions.add(i as usize);
+                if f.is_null() {
+                    continue;
+                }
+                let f = &*f;
+                funcs.push(&f.0);
+            }
+        }
+    }
+    ctx.new_plugin(data, funcs, with_wasi)
+}
+
+/// Update a plugin, keeping the existing ID
+///
+/// Similar to `extism_plugin_new` but takes an `index` argument to specify
+/// which plugin to update
+///
+/// Memory for this plugin will be reset upon update
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_update(
+    ctx: *mut Context,
+    index: PluginIndex,
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *mut *const ExtismFunction,
+    nfunctions: Size,
+    with_wasi: bool,
+) -> bool {
+    trace!("Call to extism_plugin_update with wasm pointer {:?}", wasm);
+    let ctx = &mut *ctx;
+
+    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
+
+    let mut funcs = vec![];
+
+    if !functions.is_null() {
+        for i in 0..nfunctions {
+            unsafe {
+                let f = *functions.add(i as usize);
+                if f.is_null() {
+                    continue;
+                }
+                let f = &*f;
+                funcs.push(&f.0);
+            }
+        }
+    }
+
+    let plugin = match Plugin::new(data, funcs, with_wasi) {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Error creating Plugin: {:?}", e);
+            ctx.set_error(e);
+            return false;
+        }
+    };
+
+    if !ctx.plugins.contains_key(&index) {
+        ctx.set_error("Plugin index does not exist");
+        return false;
+    }
+
+    ctx.plugins.insert(index, plugin);
+
+    debug!("Plugin updated: {index}");
+    true
+}
+
+/// Remove a plugin from the registry and free associated memory
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_free(ctx: *mut Context, plugin: PluginIndex) {
+    if plugin < 0 || ctx.is_null() {
+        return;
+    }
+
+    trace!("Freeing plugin {plugin}");
+
+    let ctx = &mut *ctx;
+    ctx.remove(plugin);
+}
+
+pub struct ExtismCancelHandle {
+    pub(crate) epoch_timer_tx: Option<std::sync::mpsc::SyncSender<TimerAction>>,
+    pub id: uuid::Uuid,
+}
+
+/// Get plugin ID for cancellation
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_cancel_handle(
+    ctx: *mut Context,
+    plugin: PluginIndex,
+) -> *const ExtismCancelHandle {
+    let ctx = &mut *ctx;
+    let mut plugin = match PluginRef::new(ctx, plugin, true) {
+        None => return std::ptr::null_mut(),
+        Some(p) => p,
+    };
+    let plugin = plugin.as_mut();
+    &plugin.cancel_handle as *const _
+}
+
+/// Cancel a running plugin
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_cancel(handle: *const ExtismCancelHandle) -> bool {
+    let handle = &*handle;
+    if let Some(tx) = &handle.epoch_timer_tx {
+        return tx.send(TimerAction::Cancel { id: handle.id }).is_ok();
+    }
+
+    false
+}
+
+/// Remove all plugins from the registry
+#[no_mangle]
+pub unsafe extern "C" fn extism_context_reset(ctx: *mut Context) {
+    let ctx = &mut *ctx;
+
+    trace!(
+        "Resetting context, plugins cleared: {:?}",
+        ctx.plugins.keys().collect::<Vec<&i32>>()
+    );
+
+    ctx.plugins.clear();
+}
+
+/// Update plugin config values, this will merge with the existing values
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_config(
+    ctx: *mut Context,
+    plugin: PluginIndex,
+    json: *const u8,
+    json_size: Size,
+) -> bool {
+    let ctx = &mut *ctx;
+    let mut plugin_ref = match PluginRef::new(ctx, plugin, true) {
+        None => return false,
+        Some(p) => p,
+    };
+    trace!(
+        "Call to extism_plugin_config for {} with json pointer {:?}",
+        plugin_ref.id,
+        json
+    );
+    let plugin = plugin_ref.as_mut();
+
+    let data = std::slice::from_raw_parts(json, json_size as usize);
+    let json: std::collections::BTreeMap<String, Option<String>> =
+        match serde_json::from_slice(data) {
+            Ok(x) => x,
+            Err(e) => {
+                return plugin.error(e, false);
+            }
+        };
+
+    let wasi = &mut plugin.memory.get_mut().store_mut().data_mut().wasi;
+    if let Some(Wasi { ctx, .. }) = wasi {
+        for (k, v) in json.iter() {
+            match v {
+                Some(v) => {
+                    let _ = ctx.push_env(&k, &v);
+                }
+                None => {
+                    let _ = ctx.push_env(&k, "");
+                }
+            }
+        }
+    }
+
+    let config = &mut plugin.memory.get_mut().manifest.as_mut().config;
+    for (k, v) in json.into_iter() {
+        match v {
+            Some(v) => {
+                trace!("Config, adding {k}");
+                config.insert(k, v);
+            }
+            None => {
+                trace!("Config, removing {k}");
+                config.remove(&k);
+            }
+        }
+    }
+
+    true
+}
+
+/// Returns true if `func_name` exists
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_function_exists(
+    ctx: *mut Context,
+    plugin: PluginIndex,
+    func_name: *const c_char,
+) -> bool {
+    let ctx = &mut *ctx;
+    let mut plugin = match PluginRef::new(ctx, plugin, true) {
+        None => return false,
+        Some(p) => p,
+    };
+
+    let name = std::ffi::CStr::from_ptr(func_name);
+    trace!("Call to extism_plugin_function_exists for: {:?}", name);
+
+    let name = match name.to_str() {
+        Ok(x) => x,
+        Err(e) => {
+            return plugin.as_mut().error(e, false);
+        }
+    };
+
+    plugin.as_mut().get_func(name).is_some()
 }
 
 /// Call a function
@@ -432,28 +500,92 @@ pub unsafe extern "C" fn free_function(ptr: *mut ExtismFunction) {
 /// `data_len`: is the length of `data`
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_call(
-    instance_ptr: *mut Plugin,
+    ctx: *mut Context,
+    plugin_id: PluginIndex,
     func_name: *const c_char,
     data: *const u8,
     data_len: Size,
 ) -> i32 {
-    let plugin = &mut *instance_ptr;
+    let ctx = &mut *ctx;
 
-    plugin.set_input(data, data_len as usize);
+    // Get a `PluginRef` and call `init` to set up the plugin input and memory, this is only
+    // needed before a new call
+    let mut plugin_ref = match PluginRef::new(ctx, plugin_id, true) {
+        None => return -1,
+        Some(p) => p.init(data, data_len as usize),
+    };
+    let tx = plugin_ref.epoch_timer_tx.clone();
+    let plugin = plugin_ref.as_mut();
+
+    if plugin.internal().last_error.borrow().is_some() {
+        return -1;
+    }
 
     // Find function
-    let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
+    let name = std::ffi::CStr::from_ptr(func_name);
+    let name = match name.to_str() {
+        Ok(name) => name,
+        Err(e) => return plugin.error(e, -1),
+    };
+    let is_start = name == "_start";
 
-    let func = plugin.get_func(name).unwrap();
+    let func = match plugin.get_func(name) {
+        Some(x) => x,
+        None => return plugin.error(format!("Function not found: {name}"), -1),
+    };
+
+    // Start timer
+    if let Err(e) = plugin.start_timer(&tx) {
+        let id = plugin.timer_id;
+        return plugin.error(
+            format!("Unable to start timeout manager for {id}: {e:?}"),
+            -1,
+        );
+    }
+
+    // Check the number of results, reject functions with more than 1 result
+    let n_results = func.ty(plugin.store()).results().len();
+    if n_results > 1 {
+        return plugin.error(
+            format!("Function {name} has {n_results} results, expected 0 or 1"),
+            -1,
+        );
+    }
+
+    // Initialize runtime
+    if !is_start {
+        if let Err(e) = plugin.initialize_runtime() {
+            return plugin.error(format!("Failed to initialize runtime: {e:?}"), -1);
+        }
+    }
+
+    debug!("Calling function: {name} in plugin {plugin_id}");
 
     // Call the function
-    let mut results = vec![wasmtime::Val::null(); 1];
-    let res = func.call(&mut plugin.memory.store, &[], results.as_mut_slice());
+    let mut results = vec![wasmtime::Val::null(); n_results];
+    let res = func.call(&mut plugin.store_mut(), &[], results.as_mut_slice());
+
+    plugin.dump_memory();
+
+    // Cleanup runtime
+    if !is_start {
+        if let Err(e) = plugin.cleanup_runtime() {
+            return plugin.error(format!("Failed to cleanup runtime: {e:?}"), -1);
+        }
+    }
+
+    // Stop timer
+    if let Err(e) = plugin.stop_timer() {
+        let id = plugin.timer_id;
+        return plugin.error(
+            format!("Failed to stop timeout manager for {id}: {e:?}"),
+            -1,
+        );
+    }
 
     match res {
         Ok(()) => (),
         Err(e) => {
-            let plugin = plugin;
             if let Some(exit) = e.downcast_ref::<wasmtime_wasi::I32Exit>() {
                 trace!("WASI return code: {}", exit.0);
                 if exit.0 != 0 {
@@ -481,313 +613,177 @@ pub unsafe extern "C" fn extism_plugin_call(
     results[0].unwrap_i32()
 }
 
-#[no_mangle]
-pub unsafe fn extism_plugin_call_native(
-    instance_ptr: *mut Plugin,
-    func_name: *const c_char,
-    params: Vec<Val>,
-) -> Option<Vec<Val>> {
-    let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
-
-    let instance = &mut *instance_ptr;
-
-    let func = instance.get_func(name).unwrap();
-
-    let n_results = func.ty(&instance.memory.store).results().len();
-
-    let mut results = vec![wasmtime::Val::null(); n_results];
-
-    let _ = func.call(
-        &mut instance.memory.store, 
-        &params[..], 
-        results.as_mut_slice()
-    );
-
-    Some(results)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn deallocate_results(ptr: *mut ExtismVal, len: usize) {
-    let len = len as usize;
-    drop(Vec::from_raw_parts(ptr, len, len));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn free_plugin(ptr: *mut Plugin) {
-    unsafe {
-        drop(Box::from_raw(ptr));
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn call(
-    instance_ptr: *mut Plugin,
-    func_name: *const c_char,
-    params: *const ExtismVal,
-    n_params: Size,
-) -> *mut ExtismVal {
-    let prs = std::slice::from_raw_parts(params, n_params as usize);//.to_vec();
-
-    let p: Vec<Val> = prs
-        .iter()
-        .map(|x| {
-            let t = match x.t {
-                ValType::I32 => Val::I32(x.v.i32),
-                ValType::I64 => Val::I64(x.v.i64),
-                ValType::F32 => Val::F32(x.v.f32 as u32),
-                ValType::F64 => Val::F64(x.v.f64 as u64),
-                _ => todo!(),
-            };
-            t
-        })
-        .collect();
-
-    match extism_plugin_call_native(instance_ptr, func_name, p) {
-        None => std::ptr::null_mut(),
-        Some(t) => {
-            // std::ptr::null_mut()
-            let mut v = t
-                .iter()
-                .map(|x| {
-                    let t = ExtismVal::from(x);
-                    t
-                })
-                .collect::<Vec<ExtismVal>>();
-
-            let ptr = v.as_mut_ptr() as *mut _;
-            std::mem::forget(v);
-            ptr
+pub fn get_context_error(ctx: &Context) -> *const c_char {
+    match &ctx.error {
+        Some(e) => e.as_ptr() as *const _,
+        None => {
+            trace!("Context error is NULL");
+            std::ptr::null()
         }
     }
 }
 
+/// Get the error associated with a `Context` or `Plugin`, if `plugin` is `-1` then the context
+/// error will be returned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_plugin_call_without_params(
-    plugin_ptr: *mut Plugin,
-    func_name: *const c_char,
-) -> *mut ExtismVal {
-    match extism_plugin_call_native(plugin_ptr, func_name, Vec::new()) {
-        None => std::ptr::null_mut(),
-        Some(t) => {
-            // std::ptr::null_mut()
-            let mut v = t
-                .iter()
-                .map(|x| {
-                    let t = ExtismVal::from(x);
-                    t
-                })
-                .collect::<Vec<ExtismVal>>();
+pub unsafe extern "C" fn extism_error(ctx: *mut Context, plugin: PluginIndex) -> *const c_char {
+    trace!("Call to extism_error for plugin {plugin}");
 
-            let ptr = v.as_mut_ptr() as *mut _;
-            std::mem::forget(v);
-            ptr
-        }
+    let ctx = &mut *ctx;
+
+    if !ctx.plugin_exists(plugin) {
+        return get_context_error(ctx);
     }
-}
 
-#[no_mangle]
-pub unsafe extern "C" fn wasm_plugin_call_without_results(
-    plugin_ptr: *mut Plugin,
-    func_name: *const c_char,
-    params: *const ExtismVal,
-    n_params: Size,
-) {
-    let prs = std::slice::from_raw_parts(params, n_params as usize);
-
-    let p: Vec<Val> = prs
-        .iter()
-        .map(|x| {
-            let t = match x.t {
-                ValType::I32 => Val::I32(x.v.i32),
-                ValType::I64 => Val::I64(x.v.i64),
-                ValType::F32 => Val::F32(x.v.f32 as u32),
-                ValType::F64 => Val::F64(x.v.f64 as u64),
-                _ => todo!(),
-            };
-            t
-        })
-        .collect();
-
-    extism_plugin_call_native(plugin_ptr, func_name, p);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn create_wasmtime_memory(
-    name: *const std::ffi::c_char,
-    namespace: *const std::ffi::c_char,
-    min_pages: u32,
-    max_pages: u32,
-) -> *mut ExtismMemory {
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x.to_string(),
-        Err(_) => {
-            return std::ptr::null_mut();
-        }
+    let plugin_ref = match PluginRef::new(ctx, plugin, false) {
+        None => return std::ptr::null(),
+        Some(p) => p,
     };
+    let plugin = plugin_ref.as_ref();
 
-    let namespace = match std::ffi::CStr::from_ptr(namespace).to_str() {
-        Ok(x) => x.to_string(),
-        Err(_) => {
-            return std::ptr::null_mut();
+    let err = plugin.internal().last_error.borrow();
+    match err.as_ref() {
+        Some(e) => e.as_ptr() as *const _,
+        None => {
+            trace!("Error is NULL");
+            std::ptr::null()
         }
-    };
-
-    let mem = WasmMemory::new(name, namespace, min_pages, max_pages);
-
-    Box::into_raw(Box::new(ExtismMemory(mem)))
-}
-
-#[no_mangle]
-pub extern "C" fn free_memory(mem: *mut ExtismMemory) {
-    unsafe {
-        drop(Box::from_raw(mem));
     }
 }
 
+/// Get the length of a plugin's output data
 #[no_mangle]
-pub unsafe extern "C" fn wasm_plugin_call_without_results(
+pub unsafe extern "C" fn extism_plugin_output_length(
     ctx: *mut Context,
-    plugin_id: PluginIndex,
-    func_name: *const c_char,
-    params: *const ExtismVal,
-    n_params: Size,
-    data: *const u8,
-    data_len: Size,
-) {
+    plugin: PluginIndex,
+) -> Size {
+    trace!("Call to extism_plugin_output_length for plugin {plugin}");
 
-    let prs = std::slice::from_raw_parts(params, n_params as usize);//.to_vec();
-
-    let p: Vec<Val> = prs
-    .iter()
-    .map(|x| {
-        let t = match x.t {
-            ValType::I32 => Val::I32(x.v.i32),
-            ValType::I64 => Val::I64(x.v.i64),
-            ValType::F32 => Val::F32(x.v.f32 as u32),
-            ValType::F64 => Val::F64(x.v.f64 as u64),
-            _ => todo!(),
-        };
-        t
-    })
-    .collect();
-
-    extism_plugin_call_native(ctx, plugin_id, func_name, p, data, data_len);
-}
-
-/// Get the length of a plugin's output data
-#[no_mangle]
-pub unsafe extern "C" fn extism_get_lineary_memory_from_host_functions(
-    plugin: *mut Plugin,
-    name: *const std::ffi::c_char,
-) -> *mut u8 {
-    let plugin = &mut *plugin;
-
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x.to_string(),
-        Err(e) => return plugin.error(e, std::ptr::null_mut()),
+    let ctx = &mut *ctx;
+    let plugin_ref = match PluginRef::new(ctx, plugin, true) {
+        None => return 0,
+        Some(p) => p,
     };
+    let plugin = plugin_ref.as_ref();
 
-    let memory = match plugin.get_memory(name) {
-        Some(x) => x,
-        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
+    let len = plugin.internal().output_length as Size;
+    trace!("Output length: {len}");
+    len
+}
+
+/// Get the length of a plugin's output data
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_output_data(
+    ctx: *mut Context,
+    plugin: PluginIndex,
+) -> *const u8 {
+    trace!("Call to extism_plugin_output_data for plugin {plugin}");
+
+    let ctx = &mut *ctx;
+    let plugin_ref = match PluginRef::new(ctx, plugin, true) {
+        None => return std::ptr::null(),
+        Some(p) => p,
     };
-
-    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
-}
-
-/// Get the length of a plugin's output data
-#[no_mangle]
-pub unsafe extern "C" fn extism_plugin_output_length(instance_ptr: *mut Plugin) -> Size {
-    let plugin = &mut *instance_ptr;
-
-    plugin.memory.store.data().output_length as Size
-}
-
-/// Get the length of a plugin's output data
-#[no_mangle]
-pub unsafe extern "C" fn extism_plugin_output_data(instance_ptr: *mut Plugin) -> *const u8 {
-    let plugin = &mut *instance_ptr;
-
-    let data = plugin.memory.store.data();
-
+    let plugin = plugin_ref.as_ref();
+    let internal = plugin.internal();
     plugin
-        .memory
-        .ptr(MemoryBlock::new(data.output_offset, data.output_length))
+        .memory()
+        .ptr(MemoryBlock::new(
+            internal.output_offset,
+            internal.output_length,
+        ))
         .map(|x| x as *const _)
         .unwrap_or(std::ptr::null())
 }
 
-/// Returns a pointer to the memory of the currently running plugin
-/// NOTE: this should only be called from host functions.
+/// Set log file and level
 #[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory(plugin: *mut Internal) -> *mut u8 {
-    if plugin.is_null() {
-        return std::ptr::null_mut();
-    }
+pub unsafe extern "C" fn extism_log_file(
+    filename: *const c_char,
+    log_level: *const c_char,
+) -> bool {
+    use log::LevelFilter;
+    use log4rs::append::console::ConsoleAppender;
+    use log4rs::append::file::FileAppender;
+    use log4rs::config::{Appender, Config, Logger, Root};
+    use log4rs::encode::pattern::PatternEncoder;
 
-    let plugin = &mut *plugin;
-    plugin.memory_mut().data_mut().as_mut_ptr()
-}
+    let file = if !filename.is_null() {
+        let file = std::ffi::CStr::from_ptr(filename);
+        match file.to_str() {
+            Ok(x) => x,
+            Err(_) => {
+                return false;
+            }
+        }
+    } else {
+        "stderr"
+    };
 
-/// Allocate a memory block in the currently running plugin
-/// NOTE: this should only be called from host functions.
-#[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_alloc(plugin: *mut Internal, n: Size) -> u64 {
-    if plugin.is_null() {
-        return 0;
-    }
+    let level = if !log_level.is_null() {
+        let level = std::ffi::CStr::from_ptr(log_level);
+        match level.to_str() {
+            Ok(x) => x,
+            Err(_) => {
+                return false;
+            }
+        }
+    } else {
+        "error"
+    };
 
-    let plugin = &mut *plugin;
-
-    let mem = match plugin.memory_mut().alloc(n as usize) {
+    let level = match LevelFilter::from_str(level) {
         Ok(x) => x,
-        Err(e) => {
-            plugin.set_error(e);
-            return 0;
+        Err(_) => {
+            return false;
         }
     };
 
-    mem.offset as u64
-}
+    let encoder = Box::new(PatternEncoder::new("{t} {l} {d} - {m}\n"));
 
-/// Get the length of an allocated block
-/// NOTE: this should only be called from host functions.
-#[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_length(
-    plugin: *mut Internal,
-    n: Size,
-) -> Size {
-    if plugin.is_null() {
-        return 0;
-    }
+    let logfile: Box<dyn log4rs::append::Append> =
+        if file == "-" || file == "stdout" || file == "stderr" {
+            let target = if file == "-" || file == "stdout" {
+                log4rs::append::console::Target::Stdout
+            } else {
+                log4rs::append::console::Target::Stderr
+            };
+            let console = ConsoleAppender::builder().target(target).encoder(encoder);
+            Box::new(console.build())
+        } else {
+            match FileAppender::builder().encoder(encoder).build(file) {
+                Ok(x) => Box::new(x),
+                Err(_) => {
+                    return false;
+                }
+            }
+        };
 
-    let plugin = &mut *plugin;
-
-    match plugin.memory().block_length(n as usize) {
-        Some(x) => x as Size,
-        None => 0,
-    }
-}
-
-/// Free an allocated memory block
-/// NOTE: this should only be called from host functions.
-#[no_mangle]
-pub unsafe extern "C" fn extism_current_plugin_memory_free(plugin: *mut Internal, ptr: u64) {
-    if plugin.is_null() {
-        return;
-    }
-
-    let plugin = &mut *plugin;
-    plugin.memory_mut().free(ptr as usize);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn extism_reset(ctx: *mut Context, plugin: PluginIndex) {
-    let ctx = &mut *ctx;
-    let mut plugin = match PluginRef::new(ctx, plugin, true) {
-        None => panic!(),
-        Some(p) => p,
+    let config = match Config::builder()
+        .appender(Appender::builder().build("logfile", logfile))
+        .logger(
+            Logger::builder()
+                .appender("logfile")
+                .build("extism_runtime", level),
+        )
+        .build(Root::builder().build(LevelFilter::Off))
+    {
+        Ok(x) => x,
+        Err(_) => {
+            return false;
+        }
     };
 
-    plugin.as_mut().memory.reset()
+    if log4rs::init_config(config).is_err() {
+        return false;
+    }
+    true
+}
+
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
+
+/// Get the Extism version string
+#[no_mangle]
+pub unsafe extern "C" fn extism_version() -> *const c_char {
+    VERSION.as_ptr() as *const _
 }

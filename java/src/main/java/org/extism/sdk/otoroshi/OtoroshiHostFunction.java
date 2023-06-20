@@ -1,4 +1,4 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -6,7 +6,7 @@ import com.sun.jna.PointerType;
 import java.util.Arrays;
 import java.util.Optional;
 
-public class HostFunction<T extends HostUserData> implements AutoCloseable {
+public class OtoroshiHostFunction<T extends OtoroshiHostUserData> implements AutoCloseable {
 
     private final Bridge.InternalExtismFunction callback;
 
@@ -20,13 +20,13 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
 
     public final Optional<T> userData;
 
-    public HostFunction(String name, Bridge.ExtismValType[] params, Bridge.ExtismValType[] returns, ExtismFunction f, Optional<T> userData) {
+    public OtoroshiHostFunction(String name, Bridge.ExtismValType[] params, Bridge.ExtismValType[] returns, OtoroshiExtismFunction f, Optional<T> userData) {
 
         this.name = name;
         this.params = params;
         this.returns = returns;
         this.userData = userData;
-        this.callback = (Internal content,
+        this.callback = (OtoroshiInternal content,
                          Bridge.ExtismVal inputs,
                          int nInputs,
                          Bridge.ExtismVal outs,
@@ -80,7 +80,7 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
     }
 
 
-    public static Pointer[] arrayToPointer(HostFunction[] functions) {
+    public static Pointer[] arrayToPointer(OtoroshiHostFunction[] functions) {
         Pointer[] ptrArr = new Pointer[functions == null ? 0 : functions.length];
 
         if (functions != null)
@@ -97,13 +97,13 @@ public class HostFunction<T extends HostUserData> implements AutoCloseable {
         }
     }
 
-    public HostFunction withNamespace(String name) {
+    public OtoroshiHostFunction withNamespace(String name) {
         this.setNamespace(name);
         return this;
     }
 
     @Override
     public void close() throws Exception {
-        Bridge.INSTANCE.free_function(this.pointer);
+        Bridge.INSTANCE.otoroshi_free_function(this.pointer);
     }
 }

@@ -1,31 +1,30 @@
-package org.extism.sdk.customized;
+package org.extism.sdk.otoroshi;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
-import org.extism.sdk.customized.Bridge;
 
 import java.nio.charset.StandardCharsets;
 
-public class Internal extends PointerType {
+public class OtoroshiInternal extends PointerType {
 
     public Pointer memory() {
-        return Bridge.INSTANCE.extism_current_plugin_memory(this);
+        return Bridge.INSTANCE.otoroshi_extism_current_plugin_memory(this);
     }
 
     public int alloc(int n) {
-        return Bridge.INSTANCE.extism_current_plugin_memory_alloc(this, n);
+        return Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_alloc(this, n);
     }
 
     public Pointer getLinearMemory(int instanceIndex, String memoryName) {
-        return Bridge.INSTANCE.extism_get_lineary_memory_from_host_functions(this, instanceIndex, memoryName);
+        return Bridge.INSTANCE.otoroshi_extism_get_lineary_memory_from_host_functions(this, instanceIndex, memoryName);
     }
 
     public void free(long offset) {
-        Bridge.INSTANCE.extism_current_plugin_memory_free(this, offset);
+        Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_free(this, offset);
     }
 
     public long memoryLength(long offset) {
-        return Bridge.INSTANCE.extism_current_plugin_memory_length(this, offset);
+        return Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_length(this, offset);
     }
 
     // Return a string from a host function
@@ -52,11 +51,11 @@ public class Internal extends PointerType {
             case 0:
                 return this.memory()
                         .getByteArray(input.v.i32,
-                                Bridge.INSTANCE.extism_current_plugin_memory_length(this, input.v.i32));
+                                Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_length(this, input.v.i32));
             case 1:
                 return this.memory()
                         .getByteArray(input.v.i64,
-                                Bridge.INSTANCE.extism_current_plugin_memory_length(this, input.v.i64));
+                                Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_length(this, input.v.i64));
             default:
                 throw new Exception("inputBytes error: ExtismValType " + Bridge.ExtismValType.values()[input.t] + " not implemtented");
         }
