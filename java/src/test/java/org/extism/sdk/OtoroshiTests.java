@@ -118,4 +118,23 @@ public class OtoroshiTests {
         template.free();
         engine.free();
     }
+
+    @Test
+    public void shouldInvokeUnknownFunction() {
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getRawAdditionPath()));
+
+        OtoroshiEngine engine = new OtoroshiEngine();
+
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
+
+        OtoroshiInstance plugin = template.instantiate(engine, null, null, true);
+        String result = plugin.extismCall("foo", "".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(result, "-1");
+        assertEquals(plugin.getError(), "Function not found: foo");
+
+        plugin.free();
+        template.free();
+        engine.free();
+    }
 }

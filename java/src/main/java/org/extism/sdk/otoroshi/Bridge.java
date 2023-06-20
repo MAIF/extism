@@ -90,7 +90,6 @@ public interface Bridge extends Library {
 
     Pointer otoroshi_create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
 
-
     int otoroshi_extism_current_plugin_memory_length(OtoroshiInternal plugin, long n);
     Pointer otoroshi_extism_current_plugin_memory(OtoroshiInternal plugin);
     int otoroshi_extism_current_plugin_memory_alloc(OtoroshiInternal plugin, long n);
@@ -111,6 +110,8 @@ public interface Bridge extends Library {
                                 Pointer freeUserData);
 
     void extism_function_set_namespace(Pointer p, String name);
+
+    String otoroshi_instance_error(OtoroshiInstance instance);
 
     void otoroshi_deallocate_results(Bridge.ExtismVal.ByReference results, int length);
 

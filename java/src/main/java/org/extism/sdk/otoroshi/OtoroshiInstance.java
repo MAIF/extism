@@ -12,8 +12,7 @@ public class OtoroshiInstance extends PointerType implements AutoCloseable {
         int exitCode = Bridge.INSTANCE.otoroshi_bridge_extism_plugin_call(this, functionName, inputData, inputDataLength);
 
         if (exitCode == -1) {
-//            String error = this.error(this);
-//            throw new ExtismException(error);
+            return String.valueOf(exitCode);
         }
 
         int length = Bridge.INSTANCE.otoroshi_bridge_extism_plugin_output_length(this);
@@ -66,6 +65,10 @@ public class OtoroshiInstance extends PointerType implements AutoCloseable {
 
     public void freeResults(OtoroshiResults results) {
         Bridge.INSTANCE.otoroshi_deallocate_results(results.getPtr(), results.getLength());
+    }
+
+    public String getError() {
+        return Bridge.INSTANCE.otoroshi_instance_error(this);
     }
 
     public void free() {

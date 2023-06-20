@@ -115,7 +115,10 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_call(
     // Find function
     let name = std::ffi::CStr::from_ptr(func_name).to_str().unwrap();
 
-    let func = plugin.get_func(name).unwrap();
+    let func = match plugin.get_func(name) {
+        Some(str) => str,
+        None => return plugin.error(format!("Function not found: {name}"), -1)
+    };
 
     // Call the function
     let mut results = vec![wasmtime::Val::null(); 1];
@@ -162,7 +165,10 @@ pub(crate) unsafe fn otoroshi_plugin_call_native(
 
     let instance = &mut *instance_ptr;
 
-    let func = instance.get_func(name).unwrap();
+    let func = match instance.get_func(name) {
+        Some(str) => str,
+        None => return instance.error(format!("Function not found: {name}"), None)
+    };
 
     let n_results = func.ty(&instance.memory.store).results().len();
 
@@ -355,4 +361,13 @@ pub(crate) unsafe extern "C" fn otoroshi_extism_get_lineary_memory_from_host_fun
     };
 
     memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn otoroshi_instance_error(
+    instance_ptr: *mut WasmPlugin
+) -> *mut i8 {
+    let plugin = &mut *instance_ptr;
+
+    plugin.last_error.borrow().as_ref().unwrap().as_ptr() as *mut c_char
 }
