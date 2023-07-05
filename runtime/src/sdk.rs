@@ -787,3 +787,15 @@ const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 pub unsafe extern "C" fn extism_version() -> *const c_char {
     VERSION.as_ptr() as *const _
 }
+
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_reset(ctx: *mut Context, plugin: PluginIndex) {
+    let ctx = &mut *ctx;
+    let mut plugin = match PluginRef::new(ctx, plugin, true) {
+        None => panic!(),
+        Some(p) => p,
+    };
+
+    plugin.as_mut().memory.get_mut().reset()
+}

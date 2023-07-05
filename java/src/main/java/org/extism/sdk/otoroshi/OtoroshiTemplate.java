@@ -9,16 +9,19 @@ import java.nio.charset.StandardCharsets;
 
 public class OtoroshiTemplate extends PointerType implements AutoCloseable {
 
-    private OtoroshiTemplate(OtoroshiEngine engine, byte[] wasm) {
+    private final String id;
+
+    private OtoroshiTemplate(OtoroshiEngine engine, String id, byte[] wasm) {
         super(Bridge.INSTANCE.otoroshi_create_template_new(engine, wasm, wasm.length));
+        this.id = id;
     }
 
-    public OtoroshiTemplate(OtoroshiEngine engine, Manifest manifest) {
-        this(engine, serialize(manifest));
+    public OtoroshiTemplate(OtoroshiEngine engine, String id, Manifest manifest) {
+        this(engine, id, serialize(manifest));
     }
 
     public OtoroshiTemplate() {
-
+        id = "unknown";
     }
 
     private static byte[] serialize(Manifest manifest) {
@@ -27,6 +30,10 @@ public class OtoroshiTemplate extends PointerType implements AutoCloseable {
 
     public void free() {
         Bridge.INSTANCE.otoroshi_free_template(this);
+    }
+
+    public String getId() {
+        return id;
     }
 
     @Override

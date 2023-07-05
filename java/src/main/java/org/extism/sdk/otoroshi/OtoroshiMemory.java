@@ -4,10 +4,12 @@ import com.sun.jna.PointerType;
 
 public class OtoroshiMemory extends PointerType implements AutoCloseable {
 
-    private final String name;
-    private final String namespace;
-    private final int minPages;
-    private final int maxPages;
+    private String name;
+    private String namespace;
+    private int minPages;
+    private int maxPages;
+
+    public OtoroshiMemory() {}
 
     public OtoroshiMemory(String name, String namespace, int minPages, int maxPages) {
         super(Bridge.INSTANCE.otoroshi_create_wasmtime_memory(

@@ -1,5 +1,6 @@
 package org.extism.sdk;
 
+import com.sun.jna.Pointer;
 import org.extism.sdk.otoroshi.*;
 import org.extism.sdk.otoroshi.OtoroshiExtismFunction;
 import org.extism.sdk.otoroshi.OtoroshiHostFunction;
@@ -23,7 +24,7 @@ public class OtoroshiTests {
 
         Manifest manifest = new Manifest(Collections.singletonList(CODE.getRawAdditionPath()));
 
-        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, "template-id", manifest);
 
         Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
         Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
@@ -70,7 +71,7 @@ public class OtoroshiTests {
 
         Manifest manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
 
-        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, "template-id", manifest);
 
         Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
         Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
@@ -103,7 +104,7 @@ public class OtoroshiTests {
 
         OtoroshiEngine engine = new OtoroshiEngine();
 
-        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, "template-id", manifest);
 
         OtoroshiParameters params = new OtoroshiParameters(2)
                 .pushInts(2, 3);
@@ -119,21 +120,42 @@ public class OtoroshiTests {
         engine.free();
     }
 
-    @Test
-    public void shouldInvokeUnknownFunction() {
-        Manifest manifest = new Manifest(Arrays.asList(CODE.getRawAdditionPath()));
 
+    void display(OtoroshiInternal plugin) {
+        Pointer p = plugin.getLinearMemory("memory");
+
+        System.out.println(p);
+    }
+
+    @Test
+    public void shouldTestWorks() {
         OtoroshiEngine engine = new OtoroshiEngine();
 
-        OtoroshiTemplate template = new OtoroshiTemplate(engine, manifest);
+        Manifest manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
 
-        OtoroshiInstance plugin = template.instantiate(engine, null, null, true);
-        String result = plugin.extismCall("foo", "".getBytes(StandardCharsets.UTF_8));
+        OtoroshiTemplate template = new OtoroshiTemplate(engine, "template-id", manifest);
 
-        assertEquals(result, "-1");
-        assertEquals(plugin.getError(), "Function not found: foo");
+        Bridge.ExtismValType[] parametersTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
+        Bridge.ExtismValType[] resultsTypes = new Bridge.ExtismValType[]{Bridge.ExtismValType.I64};
 
-        plugin.free();
+        OtoroshiHostFunction[] functions = {
+                new OtoroshiHostFunction<>(
+                        "hello_world",
+                        parametersTypes,
+                        resultsTypes,
+                        (plugin, params, returns, data) -> {
+                            display(plugin);
+                            System.out.println("Hello from Java Host Function!");
+                        },
+                        Optional.empty()
+                ).withNamespace("env")
+        };
+
+        OtoroshiInstance instance = template.instantiate(engine, functions, new OtoroshiLinearMemory[0], true);
+
+        instance.extismCall("execute", "".getBytes(StandardCharsets.UTF_8));
+
+        instance.free();
         template.free();
         engine.free();
     }

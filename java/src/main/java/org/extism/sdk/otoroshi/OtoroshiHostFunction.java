@@ -47,7 +47,7 @@ public class OtoroshiHostFunction<T extends OtoroshiHostUserData> implements Aut
             }
         };
 
-        this.pointer = Bridge.INSTANCE.extism_function_new(
+        this.pointer = Bridge.INSTANCE.otoroshi_extism_function_new(
                 this.name,
                 Arrays.stream(this.params).mapToInt(r -> r.v).toArray(),
                 this.params.length,

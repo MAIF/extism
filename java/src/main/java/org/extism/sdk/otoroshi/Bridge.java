@@ -94,13 +94,17 @@ public interface Bridge extends Library {
     Pointer otoroshi_extism_current_plugin_memory(OtoroshiInternal plugin);
     int otoroshi_extism_current_plugin_memory_alloc(OtoroshiInternal plugin, long n);
     void otoroshi_extism_current_plugin_memory_free(OtoroshiInternal plugin, long ptr);
-    Pointer otoroshi_extism_get_lineary_memory_from_host_functions(OtoroshiInternal plugin, int instanceIndex, String memoryName);
 
     int otoroshi_bridge_extism_plugin_call(OtoroshiInstance instance, String function_name, byte[] data, int dataLength);
     int otoroshi_bridge_extism_plugin_output_length(OtoroshiInstance instance);
     Pointer otoroshi_bridge_extism_plugin_output_data(OtoroshiInstance instance);
+    void otoroshi_extism_reset(OtoroshiInstance instance);
 
-    Pointer extism_function_new(String name,
+    int otoroshi_extism_memory_write_bytes(OtoroshiInstance instance, byte[] data, int n, int offset);
+
+    Pointer otoroshi_extism_get_memory(Pointer instance, String memoryName);
+
+    Pointer otoroshi_extism_function_new(String name,
                                 int[] inputs,
                                 int nInputs,
                                 int[] outputs,

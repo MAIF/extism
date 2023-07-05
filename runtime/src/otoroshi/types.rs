@@ -58,7 +58,22 @@ impl From<&wasmtime::Val> for ExtismVal {
                     f64: value.unwrap_f64(),
                 },
             },
-            t => todo!("{}", t),
+            t => ExtismVal {
+                t: ValType::I32,
+                v: ValUnion {
+                    i32: -1,
+                },
+            },
         }
     }
 }
+
+/// Host function signature
+pub type OtoroshiFunctionType = extern "C" fn(
+    plugin: *mut WasmPlugin,
+    inputs: *const ExtismVal,
+    n_inputs: Size,
+    outputs: *mut ExtismVal,
+    n_outputs: Size,
+    data: *mut std::ffi::c_void,
+);

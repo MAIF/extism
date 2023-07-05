@@ -218,11 +218,7 @@ public interface LibExtism extends Library {
 
     int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
 
-    int extism_memory_write_bytes(Pointer contextPointer, int pluginIndex, byte[] data, int n, int offset);
-
     void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
-
-    Pointer extism_get_memory(Pointer contextPointer, int pluginIndex, String memoryName);
 
     /**
      * Returns the length of a plugin's output data.

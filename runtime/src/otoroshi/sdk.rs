@@ -1,6 +1,7 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::os::raw::c_char;
+use core::panic;
+use std::{borrow::BorrowMut, f32::consts::E, os::raw::c_char};
 
 use crate::otoroshi::*;
 
@@ -13,7 +14,11 @@ pub(crate) unsafe extern "C" fn otoroshi_create_template_new(
     let engine: &Engine = unsafe { &*engine_ptr };
 
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
-    Box::into_raw(Box::new(PluginTemplate::new(engine, data).unwrap()))
+
+    match PluginTemplate::new(engine, data) {
+        Err(_) => std::ptr::null_mut(),
+        Ok(template) => Box::into_raw(Box::new(template)),
+    }
 }
 
 #[no_mangle]
@@ -60,11 +65,15 @@ pub(crate) unsafe extern "C" fn otoroshi_instantiate(
         }
     }
 
-    Box::into_raw(Box::new(
-        template
-            .instantiate(engine, funcs, mems, with_wasi)
-            .unwrap(),
-    ))
+    match template.instantiate(engine, funcs, mems, with_wasi) {
+        Err(err) => panic!("{}", err), //std::ptr::null_mut(),
+        Ok(instance) => {
+            let inst = Box::into_raw(Box::new(instance));
+            let plugin = unsafe { &mut *inst };
+            plugin.borrow_mut().set_wasm_plugin();
+            inst
+        }
+    }
 }
 
 #[no_mangle]
@@ -117,7 +126,7 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_call(
 
     let func = match plugin.get_func(name) {
         Some(str) => str,
-        None => return plugin.error(format!("Function not found: {name}"), -1)
+        None => return plugin.error(format!("Function not found: {name}"), -1),
     };
 
     // Call the function
@@ -167,7 +176,7 @@ pub(crate) unsafe fn otoroshi_plugin_call_native(
 
     let func = match instance.get_func(name) {
         Some(str) => str,
-        None => return instance.error(format!("Function not found: {name}"), None)
+        None => return instance.error(format!("Function not found: {name}"), None),
     };
 
     let n_results = func.ty(&instance.memory.store).results().len();
@@ -175,9 +184,9 @@ pub(crate) unsafe fn otoroshi_plugin_call_native(
     let mut results = vec![wasmtime::Val::null(); n_results];
 
     let _ = func.call(
-        &mut instance.memory.store, 
-        &params[..], 
-        results.as_mut_slice()
+        &mut instance.memory.store,
+        &params[..],
+        results.as_mut_slice(),
     );
 
     Some(results)
@@ -185,7 +194,9 @@ pub(crate) unsafe fn otoroshi_plugin_call_native(
 
 /// Get the length of a plugin's output data
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_length(instance_ptr: *mut WasmPlugin) -> Size {
+pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_length(
+    instance_ptr: *mut WasmPlugin,
+) -> Size {
     let plugin = &mut *instance_ptr;
 
     plugin.memory.store.data().output_length as Size
@@ -193,7 +204,9 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_length(inst
 
 /// Get the length of a plugin's output data
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_data(instance_ptr: *mut WasmPlugin) -> *const u8 {
+pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_data(
+    instance_ptr: *mut WasmPlugin,
+) -> *const u8 {
     let plugin = &mut *instance_ptr;
 
     let data = plugin.memory.store.data();
@@ -307,7 +320,7 @@ pub(crate) unsafe extern "C" fn otoroshi_wasm_plugin_call_without_results(
         })
         .collect();
 
-        otoroshi_plugin_call_native(plugin_ptr, func_name, p);
+    otoroshi_plugin_call_native(plugin_ptr, func_name, p);
 }
 
 #[no_mangle]
@@ -364,10 +377,169 @@ pub(crate) unsafe extern "C" fn otoroshi_extism_get_lineary_memory_from_host_fun
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_instance_error(
-    instance_ptr: *mut WasmPlugin
-) -> *mut i8 {
+pub(crate) unsafe extern "C" fn otoroshi_instance_error(instance_ptr: *mut WasmPlugin) -> *mut i8 {
     let plugin = &mut *instance_ptr;
 
-    plugin.last_error.borrow().as_ref().unwrap().as_ptr() as *mut c_char
+    match plugin.last_error.borrow().as_ref() {
+        None => std::ptr::null_mut(),
+        Some(value) => value.as_ptr() as *mut c_char
+    }
+}
+
+/// Remove all plugins from the registry
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_reset(instance_ptr: *mut WasmPlugin) {
+    let plugin = &mut *instance_ptr;
+
+    plugin.memory.reset()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_memory_write_bytes(
+    instance_ptr: *mut WasmPlugin,
+    data: *const u8,
+    data_size: Size,
+    offset: u32,
+) -> i8 {
+    let plugin = &mut *instance_ptr;
+
+    let memory = match plugin.get_memory("memory") {
+        Some(x) => x,
+        None => return plugin.error(format!("Memory not found: memory"), -1),
+    };
+
+    let data = std::slice::from_raw_parts(data, data_size as usize);
+    match memory.write(&mut plugin.memory.store, offset as usize, data) {
+        Ok(()) => 0,
+        Err(_) => -1,
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_get_memory(
+    instance_ptr: *mut WasmPlugin,
+    name: *const std::ffi::c_char,
+) -> *mut u8 {
+    let plugin = &mut *instance_ptr;
+
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(e) => return plugin.error(e, std::ptr::null_mut()),
+    };
+
+    let memory = match plugin.get_memory(name) {
+        Some(x) => x,
+        None => return plugin.error(format!("Memory not found: memory"), std::ptr::null_mut()),
+    };
+
+    memory.data_mut(&mut plugin.memory.store).as_mut_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_function_new(
+    name: *const std::ffi::c_char,
+    inputs: *const ValType,
+    n_inputs: Size,
+    outputs: *const ValType,
+    n_outputs: Size,
+    func: OtoroshiFunctionType,
+    user_data: *mut std::ffi::c_void,
+    free_user_data: Option<extern "C" fn(_: *mut std::ffi::c_void)>,
+) -> *mut ExtismFunction {
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(_) => {
+            return std::ptr::null_mut();
+        }
+    };
+
+    let inputs = if inputs.is_null() || n_inputs == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(inputs, n_inputs as usize)
+    }
+    .to_vec();
+
+    let output_types = if outputs.is_null() || n_outputs == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(outputs, n_outputs as usize)
+    }
+    .to_vec();
+
+    let user_data = UserData::new_pointer(user_data, free_user_data);
+    let f = Function::new(
+        name,
+        inputs,
+        output_types.clone(),
+        Some(user_data),
+        move |internal, inputs, outputs, user_data| {
+            let inputs: Vec<_> = inputs.iter().map(ExtismVal::from).collect();
+            let mut output_tmp: Vec<_> = output_types
+                .iter()
+                .map(|t| ExtismVal {
+                    t: t.clone(),
+                    v: ValUnion { i64: 0 },
+                })
+                .collect();
+
+            func(
+                internal.plugin_mut(),
+                inputs.as_ptr(),
+                inputs.len() as Size,
+                output_tmp.as_mut_ptr(),
+                output_tmp.len() as Size,
+                user_data.as_ptr(),
+            );
+
+            for (tmp, out) in output_tmp.iter().zip(outputs.iter_mut()) {
+                match tmp.t {
+                    ValType::I32 => *out = Val::I32(tmp.v.i32),
+                    ValType::I64 => *out = Val::I64(tmp.v.i64),
+                    ValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
+                    ValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
+                    _ => todo!(),
+                }
+            }
+            Ok(())
+        },
+    );
+    Box::into_raw(Box::new(ExtismFunction(f)))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_alloc(
+    instance_ptr: *mut WasmPlugin,
+    n: Size,
+) -> u64 {
+    let plugin = &mut *instance_ptr;
+
+    let mem = match plugin.memory.alloc(n as usize) {
+        Ok(x) => x,
+        Err(e) => return plugin.error(e, 0),
+    };
+
+    mem.offset as u64
+}
+
+
+/// Get the length of an allocated block
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_length(instance_ptr: *mut WasmPlugin, n: Size) -> Size {
+    let plugin = &mut *instance_ptr;
+
+    match plugin.memory.block_length(n as usize) {
+        Some(x) => x as Size,
+        None => 0,
+    }
+}
+
+/// Free an allocated memory block
+/// NOTE: this should only be called from host functions.
+#[no_mangle]
+pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_free(instance_ptr: *mut WasmPlugin, ptr: u64) {
+    let plugin = &mut *instance_ptr;
+
+    plugin.memory.free(ptr as usize);
 }

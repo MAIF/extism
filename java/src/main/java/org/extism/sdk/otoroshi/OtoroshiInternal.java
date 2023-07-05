@@ -15,8 +15,8 @@ public class OtoroshiInternal extends PointerType {
         return Bridge.INSTANCE.otoroshi_extism_current_plugin_memory_alloc(this, n);
     }
 
-    public Pointer getLinearMemory(int instanceIndex, String memoryName) {
-        return Bridge.INSTANCE.otoroshi_extism_get_lineary_memory_from_host_functions(this, instanceIndex, memoryName);
+    public Pointer getLinearMemory(String memoryName) {
+        return Bridge.INSTANCE.otoroshi_extism_get_memory(this.getPointer(), memoryName);
     }
 
     public void free(long offset) {

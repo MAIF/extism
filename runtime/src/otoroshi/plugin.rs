@@ -88,7 +88,7 @@ impl Internal {
     }
 
     pub fn plugin(&self) -> &WasmPlugin {
-        unsafe { &*self.plugin }
+        unsafe { &*(self.plugin) }
     }
 
     pub fn plugin_mut(&mut self) -> &mut WasmPlugin {
@@ -142,6 +142,12 @@ impl WasmPlugin {
         let internal = self.memory.store.data_mut();
         internal.input = input;
         internal.input_length = len;
+        internal.plugin = ptr;
+    }
+
+    pub fn set_wasm_plugin(&mut self) {
+        let ptr = self as *mut _;
+        let internal = self.memory.store.data_mut();
         internal.plugin = ptr;
     }
 

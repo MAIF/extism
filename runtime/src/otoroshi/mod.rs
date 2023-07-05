@@ -11,7 +11,7 @@ pub mod function;
 pub mod sdk;
 pub mod wasm_memory;
 
-pub use types::{ExtismMemory, ExtismFunction, ExtismVal};
+pub use types::{ExtismMemory, ExtismFunction, ExtismVal, OtoroshiFunctionType, ValUnion};
 pub use function::{Function, UserData, Val, ValType};
 pub use manifest::Manifest;
 pub use memory::{MemoryBlock, PluginMemory, ToMemoryBlock};
