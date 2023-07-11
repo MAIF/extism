@@ -56,7 +56,7 @@ impl PluginTemplate {
             self.manifest.as_ref().memory.max_pages)?;
 
         let mut linker = Linker::new(&engine);
-        // linker.allow_shadowing(true);
+        linker.allow_shadowing(true);
 
         if with_wasi {
             wasmtime_wasi::add_to_linker(&mut linker, |x: &mut Internal| {
@@ -126,7 +126,7 @@ impl PluginTemplate {
                         let ns = m.namespace.to_string();
 
 
-                        let mem = wasmtime::Memory::new(&mut *s, (&m.ty).clone())?;
+                        let mem = wasmtime::Memory::new(&mut *s, m.ty.clone())?;
                         linker.define(&mut *s, &ns, &name, mem)?;
                     }
                 }
@@ -136,19 +136,22 @@ impl PluginTemplate {
         // Add modules to linker
         for (name, module) in self.modules.iter() {
             if name != self.main_module_name.as_str() {
-                linker.module(&mut store, name, module)?;
+                linker.module(&mut *s, name, module)?;
                 linker.alias_module(name, "env")?;
             }
         }
         
+        let custom_data = Memory::new(s, MemoryType::new(4, Some(100))).unwrap();
         let instance = linker.instantiate(&mut store, &self.module)?;
 
         let manifest = self.manifest.as_ref();
         let plugin = WasmPlugin {
+            linker,
             memory: PluginMemory::new(store, memory, manifest),
             instance,
             last_error: std::cell::RefCell::new(None),
             vars: BTreeMap::new(),
+            custom_data: Some(custom_data)
         };
 
         Ok(plugin)

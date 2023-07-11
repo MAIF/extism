@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use log::debug;
-use wasmtime::{Instance, Error};
+use wasmtime::{Error, Instance};
 
 use crate::otoroshi::*;
 
@@ -10,7 +10,10 @@ pub struct WasmPlugin {
     pub instance: Instance,
     pub last_error: std::cell::RefCell<Option<std::ffi::CString>>,
     pub memory: PluginMemory,
-    pub vars: BTreeMap<String, Vec<u8>>
+    pub vars: BTreeMap<String, Vec<u8>>,
+    pub linker: Linker<Internal>,
+
+    pub custom_data: Option<Memory>
 }
 
 pub struct Internal {
@@ -82,11 +85,6 @@ impl Internal {
         *self.last_error.borrow_mut() = Some(error_string(e));
     }
 
-    /// Unset `last_error` field
-    pub fn clear_error(&self) {
-        *self.last_error.borrow_mut() = None;
-    }
-
     pub fn plugin(&self) -> &WasmPlugin {
         unsafe { &*(self.plugin) }
     }
@@ -107,14 +105,12 @@ impl Internal {
 impl WasmPlugin {
     /// Get a function by name
     pub fn get_func(&mut self, function: impl AsRef<str>) -> Option<Func> {
-        self.instance
-            .get_func(&mut self.memory.store, function.as_ref())
+       self.instance.get_func(&mut self.memory.store, function.as_ref())
     }
 
     /// Get a memory by name
     pub fn get_memory(&mut self, memory: impl AsRef<str>) -> Option<Memory> {
-        self.instance
-            .get_memory(&mut self.memory.store, memory.as_ref())
+        self.instance.get_memory(&mut self.memory.store, memory.as_ref())
     }
 
     /// Set `last_error` field
@@ -126,11 +122,6 @@ impl WasmPlugin {
     pub fn error<E>(&self, e: impl std::fmt::Debug, x: E) -> E {
         self.set_error(e);
         x
-    }
-
-    /// Unset `last_error` field
-    pub fn clear_error(&self) {
-        *self.last_error.borrow_mut() = None;
     }
 
     /// Store input in memory and initialize `Internal` pointer
@@ -149,9 +140,5 @@ impl WasmPlugin {
         let ptr = self as *mut _;
         let internal = self.memory.store.data_mut();
         internal.plugin = ptr;
-    }
-
-    pub fn has_wasi(&self) -> bool {
-        self.memory.store.data().wasi.is_some()
     }
 }

@@ -58,7 +58,7 @@ impl From<&wasmtime::Val> for ExtismVal {
                     f64: value.unwrap_f64(),
                 },
             },
-            t => ExtismVal {
+            _ => ExtismVal {
                 t: ValType::I32,
                 v: ValUnion {
                     i32: -1,

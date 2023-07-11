@@ -275,45 +275,48 @@ const char *extism_version(void);
 
 void extism_reset(ExtismContext *ctx, ExtismPlugin plugin);
 
-Engine *otoroshi_create_wasmtime_engine(void);
+Engine *wasm_otoroshi_create_wasmtime_engine(void);
 
-void otoroshi_free_engine(Engine *engine);
+void wasm_otoroshi_free_engine(Engine *engine);
 
-void otoroshi_free_template(PluginTemplate *template_);
+void wasm_otoroshi_free_template(PluginTemplate *template_);
 
-void otoroshi_free_memory(ExtismMemory *mem);
+void wasm_otoroshi_free_memory(ExtismMemory *mem);
 
 /**
  * Remove all plugins from the registry
  */
-void otoroshi_extism_reset(WasmPlugin *instance_ptr);
+void wasm_otoroshi_extism_reset(WasmPlugin *instance_ptr);
 
-int8_t otoroshi_extism_memory_write_bytes(WasmPlugin *instance_ptr,
-                                          const uint8_t *data,
-                                          ExtismSize data_size,
-                                          uint32_t offset);
+int8_t wasm_otoroshi_extism_memory_write_bytes(WasmPlugin *instance_ptr,
+                                               const uint8_t *data,
+                                               ExtismSize data_size,
+                                               uint32_t offset);
 
-uint8_t *otoroshi_extism_get_memory(WasmPlugin *instance_ptr, const char *name);
+uint8_t *wasm_otoroshi_extism_get_memory(WasmPlugin *instance_ptr, const char *name);
 
-ExtismFunction *otoroshi_extism_function_new(const char *name,
-                                             const ExtismValType *inputs,
-                                             ExtismSize n_inputs,
-                                             const ExtismValType *outputs,
-                                             ExtismSize n_outputs,
-                                             OtoroshiFunctionType func,
-                                             void *user_data,
-                                             void (*free_user_data)(void *_));
+ExtismFunction *wasm_otoroshi_extism_function_new(const char *name,
+                                                  const ExtismValType *inputs,
+                                                  ExtismSize n_inputs,
+                                                  const ExtismValType *outputs,
+                                                  ExtismSize n_outputs,
+                                                  OtoroshiFunctionType func,
+                                                  void *user_data,
+                                                  void (*free_user_data)(void *_));
 
-uint64_t otoroshi_extism_current_plugin_memory_alloc(WasmPlugin *instance_ptr, ExtismSize n);
+uint64_t wasm_otoroshi_extism_current_plugin_memory_alloc(WasmPlugin *instance_ptr, ExtismSize n);
 
 /**
  * Get the length of an allocated block
  * NOTE: this should only be called from host functions.
  */
-ExtismSize otoroshi_extism_current_plugin_memory_length(WasmPlugin *instance_ptr, ExtismSize n);
+ExtismSize wasm_otoroshi_extism_current_plugin_memory_length(WasmPlugin *instance_ptr,
+                                                             ExtismSize n);
 
 /**
  * Free an allocated memory block
  * NOTE: this should only be called from host functions.
  */
-void otoroshi_extism_current_plugin_memory_free(WasmPlugin *instance_ptr, uint64_t ptr);
+void wasm_otoroshi_extism_current_plugin_memory_free(WasmPlugin *instance_ptr, uint64_t ptr);
+
+uintptr_t wasm_otoroshi_extism_memory_bytes(WasmPlugin *instance_ptr);

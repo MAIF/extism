@@ -1,4 +1,4 @@
-package org.extism.sdk.otoroshi;
+package org.extism.sdk.wasmotoroshi;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -7,20 +7,20 @@ import org.extism.sdk.support.JsonSerde;
 
 import java.nio.charset.StandardCharsets;
 
-public class OtoroshiTemplate extends PointerType implements AutoCloseable {
+public class WasmOtoroshiTemplate extends PointerType implements AutoCloseable {
 
     private final String id;
 
-    private OtoroshiTemplate(OtoroshiEngine engine, String id, byte[] wasm) {
-        super(Bridge.INSTANCE.otoroshi_create_template_new(engine, wasm, wasm.length));
+    private WasmOtoroshiTemplate(WasmOtoroshiEngine engine, String id, byte[] wasm) {
+        super(WasmBridge.INSTANCE.wasm_otoroshi_create_template_new(engine, wasm, wasm.length));
         this.id = id;
     }
 
-    public OtoroshiTemplate(OtoroshiEngine engine, String id, Manifest manifest) {
+    public WasmOtoroshiTemplate(WasmOtoroshiEngine engine, String id, Manifest manifest) {
         this(engine, id, serialize(manifest));
     }
 
-    public OtoroshiTemplate() {
+    public WasmOtoroshiTemplate() {
         id = "unknown";
     }
 
@@ -29,7 +29,7 @@ public class OtoroshiTemplate extends PointerType implements AutoCloseable {
     }
 
     public void free() {
-        Bridge.INSTANCE.otoroshi_free_template(this);
+        WasmBridge.INSTANCE.wasm_otoroshi_free_template(this);
     }
 
     public String getId() {
@@ -41,11 +41,11 @@ public class OtoroshiTemplate extends PointerType implements AutoCloseable {
         free();
     }
 
-    public OtoroshiInstance instantiate(OtoroshiEngine engine, OtoroshiHostFunction[] functions, OtoroshiLinearMemory[] memories, boolean withWasi) {
-        Pointer[] functionsPtr = OtoroshiHostFunction.arrayToPointer(functions);
-        OtoroshiMemory[] memoriesPtr = OtoroshiLinearMemory.arrayToPointer(memories);
+    public WasmOtoroshiInstance instantiate(WasmOtoroshiEngine engine, WasmOtoroshiHostFunction[] functions, WasmOtoroshiLinearMemory[] memories, boolean withWasi) {
+        Pointer[] functionsPtr = WasmOtoroshiHostFunction.arrayToPointer(functions);
+        WasmOtoroshiMemory[] memoriesPtr = WasmOtoroshiLinearMemory.arrayToPointer(memories);
 
-        return Bridge.INSTANCE.otoroshi_instantiate(
+        return WasmBridge.INSTANCE.wasm_otoroshi_instantiate(
                 engine,
                 this,
                 functionsPtr.length == 0 ? null : functionsPtr,

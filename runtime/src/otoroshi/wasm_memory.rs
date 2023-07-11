@@ -24,25 +24,4 @@ impl WasmMemory {
             ty: wasmtime::MemoryType::new(min_pages, maximum),
         }
     }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn namespace(&self) -> &str {
-        &self.namespace
-    }
-
-    pub fn set_namespace(&mut self, namespace: impl Into<String>) {
-        self.namespace = namespace.into()
-    }
-
-    pub fn with_namespace(mut self, namespace: impl Into<String>) -> Self {
-        self.set_namespace(namespace);
-        self
-    }
-
-    pub fn ty(&self) -> &wasmtime::MemoryType {
-        &self.ty
-    }
 }

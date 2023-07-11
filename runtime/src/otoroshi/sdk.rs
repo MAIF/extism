@@ -1,12 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
 
 use core::panic;
-use std::{borrow::BorrowMut, f32::consts::E, os::raw::c_char};
+use std::{borrow::BorrowMut, os::raw::c_char};
 
 use crate::otoroshi::*;
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_create_template_new(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_create_template_new(
     engine_ptr: *mut Engine,
     wasm: *const u8,
     wasm_size: Size,
@@ -22,7 +22,7 @@ pub(crate) unsafe extern "C" fn otoroshi_create_template_new(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_instantiate(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_instantiate(
     engine_ptr: *mut Engine,
     template_ptr: *mut PluginTemplate,
     functions: *mut *const ExtismFunction,
@@ -77,7 +77,19 @@ pub(crate) unsafe extern "C" fn otoroshi_instantiate(
 }
 
 #[no_mangle]
-pub extern "C" fn otoroshi_create_wasmtime_engine() -> *mut Engine {
+pub(crate) unsafe extern "C" fn get_custom_data(
+    instance_ptr: *mut WasmPlugin,
+) -> *mut u8 {
+    let plugin = &mut *instance_ptr;
+
+    match plugin.custom_data {
+        Some(memory) => memory.data_mut(&mut plugin.memory.store).as_mut_ptr(),
+        None => std::ptr::null_mut()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_otoroshi_create_wasmtime_engine() -> *mut Engine {
     let engine = Engine::new(
         &Config::new(), // .debug_info(true)
     )
@@ -86,14 +98,14 @@ pub extern "C" fn otoroshi_create_wasmtime_engine() -> *mut Engine {
 }
 
 #[no_mangle]
-pub extern "C" fn otoroshi_free_engine(engine: *mut Engine) {
+pub extern "C" fn wasm_otoroshi_free_engine(engine: *mut Engine) {
     unsafe {
         drop(Box::from_raw(engine));
     }
 }
 
 #[no_mangle]
-pub extern "C" fn otoroshi_free_template(template: *mut PluginTemplate) {
+pub extern "C" fn wasm_otoroshi_free_template(template: *mut PluginTemplate) {
     unsafe {
         drop(Box::from_raw(template));
     }
@@ -101,7 +113,7 @@ pub extern "C" fn otoroshi_free_template(template: *mut PluginTemplate) {
 
 /// Free an `ExtismFunction`
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_free_function(ptr: *mut ExtismFunction) {
+pub(crate) unsafe extern "C" fn wasm_otoroshi_free_function(ptr: *mut ExtismFunction) {
     drop(Box::from_raw(ptr))
 }
 
@@ -111,7 +123,7 @@ pub(crate) unsafe extern "C" fn otoroshi_free_function(ptr: *mut ExtismFunction)
 /// `data`: is the input data
 /// `data_len`: is the length of `data`
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_call(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_bridge_extism_plugin_call(
     instance_ptr: *mut WasmPlugin,
     func_name: *const c_char,
     data: *const u8,
@@ -165,7 +177,7 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_call(
 }
 
 #[no_mangle]
-pub(crate) unsafe fn otoroshi_plugin_call_native(
+pub(crate) unsafe fn wasm_otoroshi_plugin_call_native(
     instance_ptr: *mut WasmPlugin,
     func_name: *const c_char,
     params: Vec<Val>,
@@ -194,7 +206,7 @@ pub(crate) unsafe fn otoroshi_plugin_call_native(
 
 /// Get the length of a plugin's output data
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_length(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_bridge_extism_plugin_output_length(
     instance_ptr: *mut WasmPlugin,
 ) -> Size {
     let plugin = &mut *instance_ptr;
@@ -204,7 +216,7 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_length(
 
 /// Get the length of a plugin's output data
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_data(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_bridge_extism_plugin_output_data(
     instance_ptr: *mut WasmPlugin,
 ) -> *const u8 {
     let plugin = &mut *instance_ptr;
@@ -219,20 +231,20 @@ pub(crate) unsafe extern "C" fn otoroshi_bridge_extism_plugin_output_data(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_deallocate_results(ptr: *mut ExtismVal, len: usize) {
+pub(crate) unsafe extern "C" fn wasm_otoroshi_deallocate_results(ptr: *mut ExtismVal, len: usize) {
     let len = len as usize;
     drop(Vec::from_raw_parts(ptr, len, len));
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_free_plugin(ptr: *mut WasmPlugin) {
+pub(crate) unsafe extern "C" fn wasm_otoroshi_free_plugin(ptr: *mut WasmPlugin) {
     unsafe {
         drop(Box::from_raw(ptr));
     }
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_call(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_call(
     instance_ptr: *mut WasmPlugin,
     func_name: *const c_char,
     params: *const ExtismVal,
@@ -254,7 +266,7 @@ pub(crate) unsafe extern "C" fn otoroshi_call(
         })
         .collect();
 
-    match otoroshi_plugin_call_native(instance_ptr, func_name, p) {
+    match wasm_otoroshi_plugin_call_native(instance_ptr, func_name, p) {
         None => std::ptr::null_mut(),
         Some(t) => {
             // std::ptr::null_mut()
@@ -274,11 +286,11 @@ pub(crate) unsafe extern "C" fn otoroshi_call(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_wasm_plugin_call_without_params(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_wasm_plugin_call_without_params(
     plugin_ptr: *mut WasmPlugin,
     func_name: *const c_char,
 ) -> *mut ExtismVal {
-    match otoroshi_plugin_call_native(plugin_ptr, func_name, Vec::new()) {
+    match wasm_otoroshi_plugin_call_native(plugin_ptr, func_name, Vec::new()) {
         None => std::ptr::null_mut(),
         Some(t) => {
             // std::ptr::null_mut()
@@ -298,7 +310,7 @@ pub(crate) unsafe extern "C" fn otoroshi_wasm_plugin_call_without_params(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_wasm_plugin_call_without_results(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_wasm_plugin_call_without_results(
     plugin_ptr: *mut WasmPlugin,
     func_name: *const c_char,
     params: *const ExtismVal,
@@ -320,11 +332,11 @@ pub(crate) unsafe extern "C" fn otoroshi_wasm_plugin_call_without_results(
         })
         .collect();
 
-    otoroshi_plugin_call_native(plugin_ptr, func_name, p);
+    wasm_otoroshi_plugin_call_native(plugin_ptr, func_name, p);
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_create_wasmtime_memory(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_create_wasmtime_memory(
     name: *const std::ffi::c_char,
     namespace: *const std::ffi::c_char,
     min_pages: u32,
@@ -350,14 +362,14 @@ pub(crate) unsafe extern "C" fn otoroshi_create_wasmtime_memory(
 }
 
 #[no_mangle]
-pub extern "C" fn otoroshi_free_memory(mem: *mut ExtismMemory) {
+pub extern "C" fn wasm_otoroshi_free_memory(mem: *mut ExtismMemory) {
     unsafe {
         drop(Box::from_raw(mem));
     }
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_extism_get_lineary_memory_from_host_functions(
+pub(crate) unsafe extern "C" fn wasm_otoroshi_extism_get_lineary_memory_from_host_functions(
     plugin: *mut WasmPlugin,
     name: *const std::ffi::c_char,
 ) -> *mut u8 {
@@ -377,7 +389,7 @@ pub(crate) unsafe extern "C" fn otoroshi_extism_get_lineary_memory_from_host_fun
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn otoroshi_instance_error(instance_ptr: *mut WasmPlugin) -> *mut i8 {
+pub(crate) unsafe extern "C" fn wasm_otoroshi_instance_error(instance_ptr: *mut WasmPlugin) -> *mut i8 {
     let plugin = &mut *instance_ptr;
 
     match plugin.last_error.borrow().as_ref() {
@@ -388,14 +400,14 @@ pub(crate) unsafe extern "C" fn otoroshi_instance_error(instance_ptr: *mut WasmP
 
 /// Remove all plugins from the registry
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_reset(instance_ptr: *mut WasmPlugin) {
+pub unsafe extern "C" fn wasm_otoroshi_extism_reset(instance_ptr: *mut WasmPlugin) {
     let plugin = &mut *instance_ptr;
 
     plugin.memory.reset()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_memory_write_bytes(
+pub unsafe extern "C" fn wasm_otoroshi_extism_memory_write_bytes(
     instance_ptr: *mut WasmPlugin,
     data: *const u8,
     data_size: Size,
@@ -416,7 +428,7 @@ pub unsafe extern "C" fn otoroshi_extism_memory_write_bytes(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_get_memory(
+pub unsafe extern "C" fn wasm_otoroshi_extism_get_memory(
     instance_ptr: *mut WasmPlugin,
     name: *const std::ffi::c_char,
 ) -> *mut u8 {
@@ -436,7 +448,7 @@ pub unsafe extern "C" fn otoroshi_extism_get_memory(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_function_new(
+pub unsafe extern "C" fn wasm_otoroshi_extism_function_new(
     name: *const std::ffi::c_char,
     inputs: *const ValType,
     n_inputs: Size,
@@ -508,7 +520,7 @@ pub unsafe extern "C" fn otoroshi_extism_function_new(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_alloc(
+pub unsafe extern "C" fn wasm_otoroshi_extism_current_plugin_memory_alloc(
     instance_ptr: *mut WasmPlugin,
     n: Size,
 ) -> u64 {
@@ -526,7 +538,7 @@ pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_alloc(
 /// Get the length of an allocated block
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_length(instance_ptr: *mut WasmPlugin, n: Size) -> Size {
+pub unsafe extern "C" fn wasm_otoroshi_extism_current_plugin_memory_length(instance_ptr: *mut WasmPlugin, n: Size) -> Size {
     let plugin = &mut *instance_ptr;
 
     match plugin.memory.block_length(n as usize) {
@@ -538,8 +550,22 @@ pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_length(instance_p
 /// Free an allocated memory block
 /// NOTE: this should only be called from host functions.
 #[no_mangle]
-pub unsafe extern "C" fn otoroshi_extism_current_plugin_memory_free(instance_ptr: *mut WasmPlugin, ptr: u64) {
+pub unsafe extern "C" fn wasm_otoroshi_extism_current_plugin_memory_free(instance_ptr: *mut WasmPlugin, ptr: u64) {
     let plugin = &mut *instance_ptr;
 
     plugin.memory.free(ptr as usize);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_otoroshi_extism_memory_bytes(
+    instance_ptr: *mut WasmPlugin
+) -> usize {
+    let plugin = &mut *instance_ptr;
+
+    match plugin.instance.get_memory(&mut plugin.memory.store, "memory") {
+        Some(mem) => mem.data(&plugin.memory.store).len(),
+        None => 0 as usize
+    }
+    
+    // plugin.memory.memory_size()
 }

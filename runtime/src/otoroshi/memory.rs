@@ -76,14 +76,6 @@ impl PluginMemory {
         }
     }
 
-    pub fn store(&self) -> &Store<Internal> {
-        &self.store
-    }
-
-    pub fn store_mut(&mut self) -> &mut Store<Internal> {
-        &mut self.store
-    }
-
     /// Write byte to memory
     pub(crate) fn store_u8(&mut self, offs: usize, data: u8) -> Result<(), MemoryAccessError> {
         trace!("store_u8: offset={offs} data={data:#04x}");
@@ -155,11 +147,6 @@ impl PluginMemory {
         self.memory.data_size(&self.store)
     }
 
-    /// Size of memory in pages
-    pub fn pages(&self) -> u32 {
-        self.memory.size(&self.store) as u32
-    }
-
     /// Reserve `n` bytes of memory
     pub fn alloc(&mut self, n: usize) -> Result<MemoryBlock, Error> {
         debug!("Allocating {n} bytes");
@@ -227,6 +214,10 @@ impl PluginMemory {
         Ok(handle)
     }
 
+    pub fn memory_size(&self) -> usize {
+        self.memory.data(&self.store).len()
+    }
+
     /// Free the block allocated at `offset`
     pub fn free(&mut self, offset: usize) {
         debug!("Freeing block at {offset}");
@@ -269,27 +260,10 @@ impl PluginMemory {
         self.position = 1;
     }
 
-    /// Get memory as a slice of bytes
-    pub fn data(&self) -> &[u8] {
-        self.memory.data(&self.store)
-    }
-
-    /// Get memory as a mutable slice of bytes
-    pub fn data_mut(&mut self) -> &mut [u8] {
-        self.memory.data_mut(&mut self.store)
-    }
-
     /// Get bytes occupied by the provided memory handle
     pub fn get(&self, handle: impl ToMemoryBlock) -> Result<&[u8], Error> {
         let handle = handle.to_memory_block(self)?;
         Ok(&self.memory.data(&self.store)
-            [handle.offset..handle.offset + handle.length])
-    }
-
-    /// Get mutable bytes occupied by the provided memory handle
-    pub fn get_mut(&mut self, handle: impl ToMemoryBlock) -> Result<&mut [u8], Error> {
-        let handle = handle.to_memory_block(self)?;
-        Ok(&mut self.memory.data_mut(&mut self.store)
             [handle.offset..handle.offset + handle.length])
     }
 
@@ -298,15 +272,6 @@ impl PluginMemory {
         let handle = handle.to_memory_block(self)?;
         Ok(std::str::from_utf8(
             &self.memory.data(&self.store)
-                [handle.offset..handle.offset + handle.length],
-        )?)
-    }
-
-    /// Get mutable str occupied by the provided memory handle
-    pub fn get_mut_str(&mut self, handle: impl ToMemoryBlock) -> Result<&mut str, Error> {
-        let handle = handle.to_memory_block(self)?;
-        Ok(std::str::from_utf8_mut(
-            &mut self.memory.data_mut(&mut self.store)
                 [handle.offset..handle.offset + handle.length],
         )?)
     }

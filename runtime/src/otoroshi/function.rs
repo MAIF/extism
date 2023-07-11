@@ -62,11 +62,6 @@ pub struct UserData {
     is_any: bool,
 }
 
-extern "C" fn free_any(ptr: *mut std::ffi::c_void) {
-    let ptr = ptr as *mut dyn std::any::Any;
-    unsafe { drop(Box::from_raw(ptr)) }
-}
-
 impl UserData {
     pub fn new_pointer(
         ptr: *mut std::ffi::c_void,
@@ -79,19 +74,6 @@ impl UserData {
         }
     }
 
-    pub fn new<T: std::any::Any>(x: T) -> Self {
-        let ptr = Box::into_raw(Box::new(x)) as *mut _;
-        UserData {
-            ptr,
-            free: Some(free_any),
-            is_any: true,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.ptr.is_null()
-    }
-
     pub fn as_ptr(&self) -> *mut std::ffi::c_void {
         self.ptr
     }
@@ -102,22 +84,6 @@ impl UserData {
             free: None,
             is_any: self.is_any,
         }
-    }
-
-    pub fn any(&self) -> Option<&dyn std::any::Any> {
-        if !self.is_any || self.is_null() {
-            return None;
-        }
-
-        unsafe { Some(&*self.ptr) }
-    }
-
-    pub fn any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        if !self.is_any || self.is_null() {
-            return None;
-        }
-
-        unsafe { Some(&mut *self.ptr) }
     }
 }
 
@@ -197,15 +163,6 @@ impl Function {
 
     pub fn namespace(&self) -> Option<&str> {
         self.namespace.as_deref()
-    }
-
-    pub fn set_namespace(&mut self, namespace: impl Into<String>) {
-        self.namespace = Some(namespace.into());
-    }
-
-    pub fn with_namespace(mut self, namespace: impl Into<String>) -> Self {
-        self.set_namespace(namespace);
-        self
     }
 
     pub fn ty(&self) -> &wasmtime::FuncType {

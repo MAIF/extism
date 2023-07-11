@@ -1,13 +1,13 @@
-package org.extism.sdk.otoroshi;
+package org.extism.sdk.wasmotoroshi;
 
 import java.util.Optional;
 
-public class OtoroshiLinearMemoryOptions {
+public class WasmOtoroshiLinearMemoryOptions {
 
     private final Integer min;
     private final Optional<Integer> max;
 
-    public OtoroshiLinearMemoryOptions(Integer min, Optional<Integer> max) {
+    public WasmOtoroshiLinearMemoryOptions(Integer min, Optional<Integer> max) {
         this.max = max;
         this.min = min;
     }
