@@ -566,6 +566,4 @@ pub unsafe extern "C" fn wasm_otoroshi_extism_memory_bytes(
         Some(mem) => mem.data(&plugin.memory.store).len(),
         None => 0 as usize
     }
-    
-    // plugin.memory.memory_size()
 }

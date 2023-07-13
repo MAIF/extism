@@ -4,7 +4,7 @@ import com.sun.jna.*;
 
 public interface WasmBridge extends Library {
 
-    WasmBridge INSTANCE = Native.load("extismotoroshi", WasmBridge.class);
+    WasmBridge INSTANCE = Native.load("extism", WasmBridge.class);
 
     interface InternalExtismFunction extends Callback {
         void invoke(

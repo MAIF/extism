@@ -214,10 +214,6 @@ impl PluginMemory {
         Ok(handle)
     }
 
-    pub fn memory_size(&self) -> usize {
-        self.memory.data(&self.store).len()
-    }
-
     /// Free the block allocated at `offset`
     pub fn free(&mut self, offset: usize) {
         debug!("Freeing block at {offset}");
