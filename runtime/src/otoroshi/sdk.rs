@@ -393,8 +393,8 @@ pub(crate) unsafe extern "C" fn wasm_otoroshi_instance_error(instance_ptr: *mut 
     let plugin = &mut *instance_ptr;
 
     match plugin.last_error.borrow().as_ref() {
-        None => std::ptr::null_mut(),
-        Some(value) => value.as_ptr() as *mut c_char
+        None => std::ptr::null_mut() as *mut i8,
+        Some(value) => value.as_ptr() as *mut c_char as *mut i8
     }
 }
 
