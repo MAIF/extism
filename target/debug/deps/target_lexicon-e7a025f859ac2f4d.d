@@ -1,0 +1,13 @@
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/libtarget_lexicon-e7a025f859ac2f4d.rmeta: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/data_model.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/host.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/parse_error.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/targets.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/triple.rs /Users/zwitterion/Documents/opensource/extism/target/debug/build/target-lexicon-8d7654082cedcfbe/out/host.rs
+
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/target_lexicon-e7a025f859ac2f4d.d: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/data_model.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/host.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/parse_error.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/targets.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/triple.rs /Users/zwitterion/Documents/opensource/extism/target/debug/build/target-lexicon-8d7654082cedcfbe/out/host.rs
+
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/lib.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/data_model.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/host.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/parse_error.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/targets.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/target-lexicon-0.12.12/src/triple.rs:
+/Users/zwitterion/Documents/opensource/extism/target/debug/build/target-lexicon-8d7654082cedcfbe/out/host.rs:
+
+# env-dep:OUT_DIR=/Users/zwitterion/Documents/opensource/extism/target/debug/build/target-lexicon-8d7654082cedcfbe/out

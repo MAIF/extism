@@ -1,0 +1,16 @@
+error[E0554]: `#![feature]` may not be used on the stable release channel
+ --> <anon>:1:12
+  |
+1 | #![feature(windows_by_handle)]
+  |            ^^^^^^^^^^^^^^^^^
+
+error[E0635]: unknown feature `windows_by_handle`
+ --> <anon>:1:12
+  |
+1 | #![feature(windows_by_handle)]
+  |            ^^^^^^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0554, E0635.
+For more information about an error, try `rustc --explain E0554`.

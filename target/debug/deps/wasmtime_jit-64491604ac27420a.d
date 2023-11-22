@@ -1,0 +1,14 @@
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/libwasmtime_jit-64491604ac27420a.rmeta: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/code_memory.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/debug.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/demangling.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/instantiate.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/profiling.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind/systemv.rs
+
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/wasmtime_jit-64491604ac27420a.d: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/code_memory.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/debug.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/demangling.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/instantiate.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/profiling.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind/systemv.rs
+
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/lib.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/code_memory.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/debug.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/demangling.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/instantiate.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/profiling.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasmtime-jit-10.0.2/src/unwind/systemv.rs:
+
+# env-dep:CARGO_PKG_VERSION=10.0.2

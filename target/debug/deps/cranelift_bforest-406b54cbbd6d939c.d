@@ -1,0 +1,10 @@
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/cranelift_bforest-406b54cbbd6d939c.rmeta: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/map.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/node.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/path.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/pool.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/set.rs
+
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/cranelift_bforest-406b54cbbd6d939c.d: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/map.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/node.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/path.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/pool.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/set.rs
+
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/lib.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/map.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/node.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/path.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/pool.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cranelift-bforest-0.97.2/src/set.rs:

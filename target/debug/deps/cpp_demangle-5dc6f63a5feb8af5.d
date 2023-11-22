@@ -1,0 +1,10 @@
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/cpp_demangle-5dc6f63a5feb8af5.rmeta: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/logging.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/ast.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/error.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/index_str.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/subs.rs
+
+/Users/zwitterion/Documents/opensource/extism/target/debug/deps/cpp_demangle-5dc6f63a5feb8af5.d: /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/lib.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/logging.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/ast.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/error.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/index_str.rs /Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/subs.rs
+
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/lib.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/logging.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/ast.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/error.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/index_str.rs:
+/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/cpp_demangle-0.3.5/src/subs.rs:

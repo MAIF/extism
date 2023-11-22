@@ -1,0 +1,3 @@
+cargo:rustc-cfg=io_lifetimes_use_std
+cargo:rustc-cfg=io_lifetimes_use_std
+cargo:rerun-if-changed=build.rs
