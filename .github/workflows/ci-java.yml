@@ -24,7 +24,7 @@ jobs:
         steps:
         - name: Checkout sources
           uses: actions/checkout@v3
-        - uses: ./.github/actions/extism
+        - uses: ./.github/actions/libextism
         - name: Set up Java
           uses: actions/setup-java@v3
           with:
