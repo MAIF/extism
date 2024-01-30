@@ -8,20 +8,20 @@ on:
         - libextism/**
         - java/**
     workflow_dispatch:
+
+name: Rust CI
   
-  name: Java CI
-  
-  jobs:
+jobs:
     java:
-      name: Java
-      runs-on: ${{ matrix.os }}
-      strategy:
-        matrix:
-          os: [ubuntu-latest]
-          version: [11, 17]
-          rust:
-            - stable
-      steps:
+        name: Java
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+                version: [11, 17]
+                rust:
+                - stable
+        steps:
         - name: Checkout sources
           uses: actions/checkout@v3
         - uses: ./.github/actions/extism
