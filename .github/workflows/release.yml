@@ -92,7 +92,7 @@ jobs:
           if [[ "$version" = "refs/heads/main" ]]; then
             version="0.0.0-dev"
           else
-            version="${version/refs\/tags\/v/}"
+            version="${version/refs\/tags/}"
           fi
           sed -i -e "s/0.0.0+replaced-by-ci/${version}/g" Cargo.toml
           pyproject="$(cat extism-maturin/pyproject.toml)"
