@@ -9,7 +9,7 @@ on:
         - java/**
     workflow_dispatch:
 
-name: Rust CI
+name: Java CI
   
 jobs:
     java:
