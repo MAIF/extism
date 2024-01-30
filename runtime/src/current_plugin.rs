@@ -1,6 +1,6 @@
 use crate::*;
 
-use self::otoroshi::custom_memory::PluginMemory;
+use self::extension::custom_memory::PluginMemory;
 
 /// CurrentPlugin stores data that is available to the caller in PDK functions, this should
 /// only be accessed from inside a host function

@@ -225,20 +225,11 @@ public class ProxyWasmState implements Api {
             totalBytesLen += key.length() + 1 + value.length + 1; // key + \0 + value + \0
         }
 
-        // TODO - try to call proxy_on_memory_allocate
         int addr = plugin.customMemoryAlloc(totalBytesLen);
-
-        // TODO - manage error
-//        if err != nil {
-//            return int32(v2.ResultInvalidMemoryAccess)
-//        }
 
         Pointer memory = plugin.customMemoryGet();
 
         memory.setInt(addr, cloneMap.size());
-//        if err != nil {
-//            return int32(v2.ResultInvalidMemoryAccess)
-//        }
 
         int lenPtr = addr + u32Len;
         int dataPtr = lenPtr + (u32Len+u32Len) * cloneMap.size();

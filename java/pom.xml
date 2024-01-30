@@ -5,7 +5,7 @@
   <groupId>org.extism.sdk</groupId>
   <artifactId>extism</artifactId>
   <packaging>jar</packaging>
-  <version>0.6.0</version>
+  <version>1.0.0</version>
   <name>extism</name>
   <url>https://github.com/extism/extism</url>
   <description>Java-SDK for Extism to use webassembly from Java</description>
@@ -154,8 +154,7 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <systemPropertyVariables>
-            <jna.library.path>../target/debug</jna.library.path>
-<!--            TODO - /target/release -->
+            <jna.library.path>../target/release</jna.library.path>
           </systemPropertyVariables>
         </configuration>
       </plugin>

@@ -197,14 +197,6 @@ public interface LibExtism extends Library {
      */
     void extism_plugin_free(Pointer pluginPointer);
 
-    LibExtism.ExtismVal.ByReference wasm_plugin_call(
-            Pointer contextPointer,
-            String function_name,
-            ExtismVal.ByReference inputs,
-            int nInputs,
-            byte[] data,
-            int dataLength);
-
     Pointer wasm_plugin_call_without_params(
             Pointer contextPointer,
             String function_name,
@@ -216,13 +208,6 @@ public interface LibExtism extends Library {
             String function_name,
             ExtismVal.ByReference inputs,
             int nInputs);
-
-    Pointer extism_plugin_call_native(Pointer contextPointer, String function_name, ExtismVal inputs, int nInputs);
-
-    int extism_plugin_call_native_int(Pointer contextPointer, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
-
-    void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
-
 
     /**
      * Update plugin config values, this will merge with the existing values.
@@ -239,19 +224,19 @@ public interface LibExtism extends Library {
     boolean extism_plugin_cancel(Pointer contextPointer);
     void extism_function_set_namespace(Pointer p, String name);
 
-    // void extism_reset(Pointer contextPointer);
+
     void extism_plugin_reset(Pointer contextPointer);
-//    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, int instanceIndex, String memoryName);
 
+    /** ###################################
+     * Following functions are not dependent of Extism and are used to run OPA and proxy wasm
+     ################################### */
 
-    // TODO - ADDED
-    Pointer wasm_otoroshi_create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
-    // TODO - ADDED
-    void wasm_otoroshi_free_memory(Pointer memory);
-    // TODO - ADDED
-    void wasm_otoroshi_deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
-    // TODO - ADDED
-    Pointer extism_plugin_new_with_memories(byte[] wasm,
+    Pointer extension_create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
+    
+    
+    void extension_deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
+    
+    Pointer extension_extism_plugin_new_with_memories(byte[] wasm,
                                             long wasmSize,
                                             Pointer[] functions,
                                             int nFunctions,
@@ -259,26 +244,10 @@ public interface LibExtism extends Library {
                                             int nMemories,
                                             boolean withWASI,
                                             Pointer[] errmsg);
-    // TODO - ADDED
-    LibExtism.ExtismVal.ByReference wasm_otoroshi_call(Pointer pluginPointer, String functionName, LibExtism.ExtismVal.ByReference inputs, int length);
-    // TODO - ADDED
-    Pointer wasm_otoroshi_wasm_plugin_call_without_params(Pointer pluginPointer, String functionName);
-    // TODO - ADDED
-    void wasm_otoroshi_wasm_plugin_call_without_results(Pointer pluginPointer,
-                                                        String functionName,
-                                                        LibExtism.ExtismVal.ByReference inputs,
-                                                        int nInputs);
-    // TODO - ADDED
-    int wasm_otoroshi_extism_memory_write_bytes(Pointer pluginPointer, byte[] data, int n, int offset, String namespace, String name);
-    // TODO - ADDED
-    Pointer wasm_otoroshi_extism_get_memory(Pointer instance, String memoryName, String namespace);
+    
+    LibExtism.ExtismVal.ByReference extension_call(Pointer pluginPointer, String functionName, LibExtism.ExtismVal.ByReference inputs, int length);
+    int extension_extism_memory_write_bytes(Pointer pluginPointer, byte[] data, int n, int offset, String namespace, String name);
 
-    Pointer wasm_otoroshi_extism_get_linear_memory(Pointer instance, String memoryName, String namespace);
-
-    // TODO - ADDED
-    int wasm_otoroshi_extism_memory_bytes(Pointer pluginPointer);
-
-    // TODO - ADDED
     Pointer custom_memory_get(Pointer plugin);
     int custom_memory_length(Pointer plugin, long n);
     int custom_memory_alloc(Pointer plugin, long n);

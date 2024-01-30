@@ -135,7 +135,7 @@ public class Parameters implements AutoCloseable {
     public void close() {
         if(!freed) {
             freed = true;
-            LibExtism.INSTANCE.wasm_otoroshi_deallocate_results(this.ptr, this.length);
+            LibExtism.INSTANCE.extension_deallocate_results(this.ptr, this.length);
         }
     }
 

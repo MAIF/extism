@@ -54,7 +54,6 @@ public class Plugin implements AutoCloseable {
         this.pluginPointer = p;
     }
 
-    // TODO - ADDED
     public Plugin(byte[] manifestBytes,
                   boolean withWASI,
                   HostFunction[] functions,
@@ -66,7 +65,7 @@ public class Plugin implements AutoCloseable {
         Pointer[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
         Pointer[] errormsg = new Pointer[1];
-        Pointer p = LibExtism.INSTANCE.extism_plugin_new_with_memories(manifestBytes,
+        Pointer p = LibExtism.INSTANCE.extension_extism_plugin_new_with_memories(manifestBytes,
                 manifestBytes.length,
                 functionsPtr,
                 functions == null ? 0 : functions.length,
@@ -88,7 +87,6 @@ public class Plugin implements AutoCloseable {
         this.pluginPointer = p;
     }
 
-    // TODO - ADDED
     public Plugin(Manifest manifest,
                   boolean withWASI,
                   HostFunction[] functions,
@@ -158,7 +156,7 @@ public class Plugin implements AutoCloseable {
     public Results call(String functionName, Parameters params, int resultsLength) {
         params.getPtr().write();
 
-        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_otoroshi_call(
+        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.extension_call(
                 this.pluginPointer,
                 functionName,
                 params.getPtr(),
@@ -166,9 +164,8 @@ public class Plugin implements AutoCloseable {
         );
 
         if (results == null && resultsLength > 0) {
-            String error = error();
-            System.out.println(error);
-//            throw new ExtismException(error);
+            // String error = error();
+            // throw new ExtismException(error);
             return new Results(0);
         }
 
@@ -265,11 +262,11 @@ public class Plugin implements AutoCloseable {
     }
 
     public int writeBytes(byte[] data, int n, int offset, String namespace) {
-        return LibExtism.INSTANCE.wasm_otoroshi_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, null);
+        return LibExtism.INSTANCE.extension_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, null);
     }
 
     public int writeBytes(byte[] data, int n, int offset, String namespace, String name) {
-        return LibExtism.INSTANCE.wasm_otoroshi_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, name);
+        return LibExtism.INSTANCE.extension_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, name);
     }
 
     public Pointer getLinearMemory(String namespace, String name) {

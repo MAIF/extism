@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use crate::{otoroshi::{custom_memory::PluginMemory, WasmMemory}, *};
+use crate::{extension::{custom_memory::PluginMemory, WasmMemory}, *};
 
 pub const EXTISM_ENV_MODULE: &str = "extism:host/env";
 pub const EXTISM_USER_MODULE: &str = "extism:host/user";

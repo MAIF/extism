@@ -111,12 +111,12 @@ typedef void (*ExtismLogDrainFunctionType)(const char *data, ExtismSize size);
 extern "C" {
 #endif // __cplusplus
 
-void wasm_otoroshi_deallocate_results(ExtismVal *ptr, uintptr_t len);
+void extension_deallocate_results(ExtismVal *ptr, uintptr_t len);
 
-ExtismVal *wasm_otoroshi_call(ExtismPlugin *plugin,
-                              const char *func_name,
-                              const ExtismVal *params,
-                              ExtismSize n_params);
+ExtismVal *extension_call(ExtismPlugin *plugin,
+                          const char *func_name,
+                          const ExtismVal *params,
+                          ExtismSize n_params);
 
 ExtismVal *wasm_plugin_call_without_params(ExtismPlugin *plugin_ptr, const char *func_name);
 
@@ -125,22 +125,22 @@ void wasm_plugin_call_without_results(ExtismPlugin *plugin_ptr,
                                       const ExtismVal *params,
                                       ExtismSize n_params);
 
-ExtismMemory *wasm_otoroshi_create_wasmtime_memory(const char *name,
-                                                   const char *namespace_,
-                                                   uint32_t min_pages,
-                                                   uint32_t max_pages);
+ExtismMemory *extension_create_wasmtime_memory(const char *name,
+                                               const char *namespace_,
+                                               uint32_t min_pages,
+                                               uint32_t max_pages);
 
 /**
  * Remove all plugins from the registry
  */
 void custom_memory_reset_from_plugin(ExtismPlugin *plugin);
 
-int8_t wasm_otoroshi_extism_memory_write_bytes(ExtismPlugin *instance_ptr,
-                                               const uint8_t *data,
-                                               ExtismSize data_size,
-                                               uint32_t offset,
-                                               const char *namespace_,
-                                               const char *name);
+int8_t extension_extism_memory_write_bytes(ExtismPlugin *instance_ptr,
+                                           const uint8_t *data,
+                                           ExtismSize data_size,
+                                           uint32_t offset,
+                                           const char *namespace_,
+                                           const char *name);
 
 uint8_t *linear_memory_get(ExtismCurrentPlugin *plugin, const char *namespace_, const char *name);
 
@@ -168,14 +168,14 @@ void custom_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);
 
 uint64_t custom_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
 
-ExtismPlugin *extism_plugin_new_with_memories(const uint8_t *wasm,
-                                              ExtismSize wasm_size,
-                                              const ExtismFunction **functions,
-                                              ExtismSize n_functions,
-                                              const ExtismMemory **memories,
-                                              int8_t n_memories,
-                                              bool with_wasi,
-                                              char **errmsg);
+ExtismPlugin *extension_extism_plugin_new_with_memories(const uint8_t *wasm,
+                                                        ExtismSize wasm_size,
+                                                        const ExtismFunction **functions,
+                                                        ExtismSize n_functions,
+                                                        const ExtismMemory **memories,
+                                                        int8_t n_memories,
+                                                        bool with_wasi,
+                                                        char **errmsg);
 
 /**
  * Get a plugin's ID, the returned bytes are a 16 byte buffer that represent a UUIDv4

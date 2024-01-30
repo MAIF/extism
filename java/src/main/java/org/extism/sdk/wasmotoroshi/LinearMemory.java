@@ -28,7 +28,7 @@ public class LinearMemory {
     }
 
     private Pointer instanciate() {
-        return LibExtism.INSTANCE.wasm_otoroshi_create_wasmtime_memory(
+        return LibExtism.INSTANCE.extension_create_wasmtime_memory(
                 this.name,
                 this.namespace,
                 this.memoryOptions.getMin(),
