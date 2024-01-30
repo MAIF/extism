@@ -1,4 +1,5 @@
 use crate::*;
+use quickcheck::*;
 
 const KERNEL: &[u8] = include_bytes!("../extism-runtime.wasm");
 
@@ -16,6 +17,20 @@ fn extism_length<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance,
     let out = &mut [Val::I64(0)];
     instance
         .get_func(&mut store, "length")
+        .unwrap()
+        .call(&mut store, &[Val::I64(p as i64)], out)
+        .unwrap();
+    out[0].unwrap_i64() as u64
+}
+
+fn extism_length_unsafe<T>(
+    mut store: &mut wasmtime::Store<T>,
+    instance: &mut Instance,
+    p: u64,
+) -> u64 {
+    let out = &mut [Val::I64(0)];
+    instance
+        .get_func(&mut store, "length_unsafe")
         .unwrap()
         .call(&mut store, &[Val::I64(p as i64)], out)
         .unwrap();
@@ -173,6 +188,7 @@ fn test_kernel_allocations() {
     let first_alloc = p;
     assert!(p > 0);
     assert_eq!(extism_length(&mut store, instance, p), 1);
+    assert_eq!(extism_length_unsafe(&mut store, instance, p), 1);
     extism_free(&mut store, instance, p);
 
     // 2 bytes
@@ -180,24 +196,31 @@ fn test_kernel_allocations() {
     assert!(x > 0);
     assert!(x != p);
     assert_eq!(extism_length(&mut store, instance, x), 2);
+    assert_eq!(extism_length_unsafe(&mut store, instance, x), 2);
     extism_free(&mut store, instance, x);
 
     for i in 0..64 {
         let p = extism_alloc(&mut store, instance, 64 - i);
         assert!(p > 0);
         assert_eq!(extism_length(&mut store, instance, p), 64 - i);
+        assert_eq!(extism_length_unsafe(&mut store, instance, p), 64 - i);
         extism_free(&mut store, instance, p);
 
         // should re-use the last allocation
         let q = extism_alloc(&mut store, instance, 64 - i);
         assert_eq!(p, q);
         assert_eq!(extism_length(&mut store, instance, q), 64 - i);
+        assert_eq!(extism_length_unsafe(&mut store, instance, q), 64 - i);
         extism_free(&mut store, instance, q);
     }
 
     // 512 bytes, test block re-use + splitting
     let p = extism_alloc(&mut store, instance, 512);
     assert_eq!(extism_length(&mut store, instance, p), 512);
+    assert_eq!(extism_length(&mut store, instance, p + 1), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 2), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 3), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 4), 0);
     extism_free(&mut store, instance, p);
 
     // 128 bytes, should be split off the 512 byte block
@@ -210,7 +233,7 @@ fn test_kernel_allocations() {
     let r = extism_alloc(&mut store, instance, 128);
     assert!(p <= r && r < p + 512);
     assert!(r > p);
-    assert_eq!(extism_length(&mut store, instance, q), 128);
+    assert_eq!(extism_length(&mut store, instance, r), 128);
     extism_free(&mut store, instance, q);
 
     // 100 pages
@@ -262,8 +285,8 @@ fn test_load_store() {
 
     let mut buf = [0u8; 8];
 
-    for i in 0..8 {
-        buf[i] = extism_load_u8(&mut store, instance, p + i as u64);
+    for (i, b) in buf.iter_mut().enumerate() {
+        *b = extism_load_u8(&mut store, instance, p + i as u64);
     }
     assert_eq!(u64::from_le_bytes(buf), 999);
 
@@ -296,4 +319,159 @@ fn test_load_input() {
 
     // Out of bounds should return 0
     assert_eq!(extism_input_load_u64(&mut store, instance, 123457), 0);
+}
+
+#[test]
+fn test_failed_quickcheck1() {
+    let (mut store, mut instance) = init_kernel_test();
+    let allocs = [
+        20622, 23162, 58594, 32421, 25928, 44611, 26318, 24455, 5798, 60202, 42126, 64928, 57832,
+        50888, 63256, 37562, 46334, 47985, 60836, 28132, 65535, 37800, 33150, 48768, 38457, 57249,
+        5734, 58587, 26294, 26653, 24519, 1,
+    ];
+
+    extism_reset(&mut store, &mut instance);
+    for a in allocs {
+        println!("Alloc: {a}");
+        let n = extism_alloc(&mut store, &mut instance, a);
+        if n == 0 {
+            continue;
+        }
+        assert_eq!(a, extism_length(&mut store, &mut instance, n));
+    }
+}
+
+#[test]
+fn test_failed_quickcheck2() {
+    let (mut store, mut instance) = init_kernel_test();
+    let allocs = [352054710, 1248853976, 2678441931, 14567928];
+
+    extism_reset(&mut store, &mut instance);
+    for a in allocs {
+        println!("Alloc: {a}");
+        let n = extism_alloc(&mut store, &mut instance, a);
+        if n == 0 {
+            continue;
+        }
+        assert_eq!(a, extism_length(&mut store, &mut instance, n));
+    }
+}
+
+quickcheck! {
+    fn check_alloc(amounts: Vec<u16>) -> bool {
+        let (mut store, mut instance) = init_kernel_test();
+        let instance = &mut instance;
+        for a in amounts {
+            let ptr = extism_alloc(&mut store, instance, a as u64);
+            if ptr == 0 || ptr == u64::MAX {
+                continue
+            }
+            if extism_length(&mut store, instance, ptr) != a as u64 {
+                return false
+            }
+        }
+
+        true
+    }
+}
+
+quickcheck! {
+    fn check_large_alloc(amounts: Vec<u32>) -> bool {
+        let (mut store, mut instance) = init_kernel_test();
+        let instance = &mut instance;
+        for a in amounts {
+            let ptr = extism_alloc(&mut store, instance, a as u64);
+            if ptr == 0 {
+                continue
+            }
+            let len = extism_length_unsafe(&mut store, instance, ptr);
+            if len != a as u64 {
+                return false
+            }
+        }
+
+        true
+    }
+}
+
+quickcheck! {
+    fn check_alloc_with_frees(amounts: Vec<u16>) -> bool {
+        let (mut store, mut instance) = init_kernel_test();
+        let instance = &mut instance;
+        let mut prev = 0;
+        for a in amounts {
+            let ptr = extism_alloc(&mut store, instance, a as u64);
+            if ptr == 0 {
+                continue
+            }
+            if extism_length(&mut store, instance, ptr) != a as u64  {
+                return false
+            }
+
+            if a % 2 == 0 {
+                extism_free(&mut store, instance, ptr);
+            } else if a % 3 == 0 {
+                extism_free(&mut store, instance, prev);
+            }
+
+            prev = ptr;
+        }
+
+        true
+    }
+}
+
+quickcheck! {
+    fn check_large_alloc_with_frees(amounts: Vec<u32>) -> bool {
+        let (mut store, mut instance) = init_kernel_test();
+        let instance = &mut instance;
+        let mut prev = 0;
+        for a in amounts {
+            let ptr = extism_alloc(&mut store, instance, a as u64);
+            if ptr == 0 || ptr == u64::MAX {
+                continue
+            }
+            if extism_length(&mut store, instance, ptr) != a as u64 {
+                return false
+            }
+            if a % 2 == 0 {
+                extism_free(&mut store, instance, ptr);
+            } else if a % 3 == 0 {
+                extism_free(&mut store, instance, prev);
+            }
+
+            prev = ptr;
+
+        }
+
+        true
+    }
+}
+
+quickcheck! {
+    fn check_alloc_with_load_and_store(amounts: Vec<u16>) -> bool {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let (mut store, mut instance) = init_kernel_test();
+        let instance = &mut instance;
+        for a in amounts {
+            let ptr = extism_alloc(&mut store, instance, a as u64);
+            if ptr == 0 || ptr == u64::MAX {
+                continue
+            }
+            if extism_length(&mut store, instance, ptr) != a as u64 {
+                return false
+            }
+
+            for _ in 0..16 {
+                let i = rng.gen_range(ptr..ptr+a as u64);
+                extism_store_u8(&mut store, instance, i, i as u8);
+                if extism_load_u8(&mut store, instance, i as u64) != i as u8 {
+                    return false
+                }
+            }
+        }
+
+        true
+    }
 }

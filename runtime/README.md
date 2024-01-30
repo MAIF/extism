@@ -12,7 +12,7 @@ To use the `extism` crate, you can add it to your Cargo file:
 
 ```toml
 [dependencies]
-extism = "^1.0.0-rc3"
+extism = "1.0.0"
 ```
 
 ## Environment variables
@@ -24,6 +24,7 @@ There are a few environment variables that can be used for debugging purposes:
 - `EXTISM_COREDUMP=extism.core`: write [coredump](https://github.com/WebAssembly/tool-conventions/blob/main/Coredump.md) to a file when a WebAssembly function traps
 - `EXTISM_DEBUG=1`: generate debug information
 - `EXTISM_PROFILE=perf|jitdump|vtune`: enable Wasmtime profiling
+- `EXTISM_CACHE_CONFIG=path/to/config.toml`: enable Wasmtime cache, see [the docs](https://docs.wasmtime.dev/cli-cache.html) for details about configuration. Setting this to an empty string will disable caching.
 
 > *Note*: The debug and coredump info will only be written if the plug-in has an error.
 
@@ -51,7 +52,7 @@ fn main() {
 }
 ```
 
-> **Note**: See [the Manifest docs](https://docs.rs/extism-manifest/extism_manifest/) as it has a rich schema and a lot of options.
+> **Note**: See [the Manifest docs](https://docs.rs/extism-manifest/latest/extism_manifest/) as it has a rich schema and a lot of options.
 
 ### Calling A Plug-in's Exports
 

@@ -1,3 +1,0 @@
-cargo:wasi=/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasi-common-10.0.2/WASI
-cargo:rustc-env=WASI_ROOT=/Users/zwitterion/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wasi-common-10.0.2/WASI
-cargo:rerun-if-changed=build.rs

@@ -18,16 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PluginTests {
 
-//     static {
-//         Extism.setLogFile(Paths.get("/tmp/extism.log"), Extism.LogLevel.TRACE);
-//     }
-
     @Test
     public void shouldInvokeFunctionWithMemoryOptions() {
-        //FIXME check whether memory options are effective
-        var manifest = new Manifest(List.of(CODE.pathWasmSource()));
-        var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-        assertThat(output).isEqualTo("{\"count\": 3}");
+        var manifest = new Manifest(List.of(CODE.pathWasmSource()), new MemoryOptions(0));
+        assertThrows(ExtismException.class, () -> {
+            Extism.invokeFunction(manifest, "count_vowels", "Hello World");
+        });
     }
 
     @Test
@@ -36,21 +32,21 @@ public class PluginTests {
         var config = Map.of("key1", "value1");
         var manifest = new Manifest(List.of(CODE.pathWasmSource()), null, config);
         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-        assertThat(output).isEqualTo("{\"count\": 3}");
+        assertThat(output).startsWith("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
     }
 
     @Test
     public void shouldInvokeFunctionFromFileWasmSource() {
         var manifest = new Manifest(CODE.pathWasmSource());
         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-        assertThat(output).isEqualTo("{\"count\": 3}");
+        assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
     }
 
      @Test
      public void shouldInvokeFunctionFromByteArrayWasmSource() {
          var manifest = new Manifest(CODE.byteArrayWasmSource());
          var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-         assertThat(output).isEqualTo("{\"count\": 3}");
+         assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
      }
 
     @Test
@@ -66,14 +62,14 @@ public class PluginTests {
         var wasmSource = CODE.pathWasmSource();
         var manifest = new Manifest(wasmSource);
         var output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-        assertThat(output).isEqualTo("{\"count\": 3}");
+        assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
 
         output = Extism.invokeFunction(manifest, "count_vowels", "Hello World");
-        assertThat(output).isEqualTo("{\"count\": 3}");
+        assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
     }
 
     @Test
-    public void shouldAllowInvokeFunctionFromFileWasmSourceApiUsageExample() {
+    public void shouldAllowInvokeFunctionFromFileWasmSourceApiUsageExample() throws Exception {
 
         var wasmSourceResolver = new WasmSourceResolver();
         var manifest = new Manifest(wasmSourceResolver.resolve(CODE.getWasmFilePath()));
@@ -81,28 +77,9 @@ public class PluginTests {
         var functionName = "count_vowels";
         var input = "Hello World";
 
-        try (var ctx = new Context()) {
-            try (var plugin = ctx.newPlugin(manifest, false, null)) {
-                var output = plugin.call(functionName, input);
-                assertThat(output).isEqualTo("{\"count\": 3}");
-            }
-        }
-    }
-
-    @Test
-    public void shouldAllowInvokeFunctionFromFileWasmSourceMultipleTimesByReusingContext() {
-        var manifest = new Manifest(CODE.pathWasmSource());
-        var functionName = "count_vowels";
-        var input = "Hello World";
-
-        try (var ctx = new Context()) {
-            try (var plugin = ctx.newPlugin(manifest, false, null)) {
-                var output = plugin.call(functionName, input);
-                assertThat(output).isEqualTo("{\"count\": 3}");
-
-                output = plugin.call(functionName, input);
-                assertThat(output).isEqualTo("{\"count\": 3}");
-            }
+        try (var plugin = new Plugin(manifest, false, null)) {
+            var output = plugin.call(functionName, input);
+            assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
         }
     }
 
@@ -144,19 +121,20 @@ public class PluginTests {
 
         HostFunction[] functions = {helloWorld};
 
-        try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
-            String functionName = "count_vowels";
+        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+        String functionName = "count_vowels";
 
-            try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-                var output = plugin.call(functionName, "this is a test");
-                assertThat(output).isEqualTo("test");
-            }
+        try (var plugin = new Plugin(manifest, true, functions)) {
+            var output = plugin.call(functionName, "this is a test");
+            assertThat(output).isEqualTo("test");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Test
-    public void shouldAllowInvokeHostFunctionWithoutUserData() {
+    public void shouldAllowInvokeHostFunctionWithoutUserData() throws Exception {
+
         var parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         var resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
@@ -172,14 +150,14 @@ public class PluginTests {
             assertThat(data.isEmpty());
         };
 
-
         HostFunction f = new HostFunction<>(
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
                 helloWorldFunction,
                 Optional.empty()
-        ).withNamespace("env");
+        )
+                .withNamespace("extism:host/user");
 
         HostFunction g = new HostFunction<>(
                 "hello_world",
@@ -187,33 +165,31 @@ public class PluginTests {
                 resultsTypes,
                 helloWorldFunction,
                 Optional.empty()
-        ).withNamespace("test");
+        )
+                .withNamespace("test");
 
         HostFunction[] functions = {f,g};
 
-        try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
-            String functionName = "count_vowels";
+        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+        String functionName = "count_vowels";
 
-            try (var plugin = ctx.newPlugin(manifest, true, functions)) {
-                var output = plugin.call(functionName, "this is a test");
-                assertThat(output).isEqualTo("test");
-            }
+        try (var plugin = new Plugin(manifest, true, functions)) {
+            var output = plugin.call(functionName, "this is a test");
+            assertThat(output).isEqualTo("test");
         }
     }
 
+
     @Test
     public void shouldFailToInvokeUnknownHostFunction() {
-        try (var ctx = new Context()) {
-            Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
-            String functionName = "count_vowels";
+        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
+        String functionName = "count_vowels";
 
-            try {
-                var plugin = ctx.newPlugin(manifest, true, null);
-                plugin.call(functionName, "this is a test");
-            }  catch (ExtismException e) {
-                assertThat(e.getMessage()).contains("unknown import: `env::hello_world` has not been defined");
-            }
+        try {
+            var plugin = new Plugin(manifest, true, null);
+            plugin.call(functionName, "this is a test");
+        }  catch (ExtismException e) {
+            assertThat(e.getMessage()).contains("Unable to create Extism plugin: unknown import: `extism:host/user::hello_world` has not been defined");
         }
     }
 }

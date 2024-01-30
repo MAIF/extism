@@ -3,15 +3,21 @@ package org.extism.sdk.wasm;
 import org.extism.sdk.ExtismException;
 import org.extism.sdk.support.Hashing;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Resolves {@link WasmSource} from {@link Path Path's} or raw bytes.
  */
 public class WasmSourceResolver {
+
+    private HashMap<String, File> files = new HashMap<>();
 
     public PathWasmSource resolve(Path path) {
         return resolve(null, path);
@@ -21,7 +27,8 @@ public class WasmSourceResolver {
 
         Objects.requireNonNull(path, "path");
 
-        var wasmFile = path.toFile();
+        var wasmFile = files.computeIfAbsent(name, k -> path.toFile());
+
         var hash = hash(path);
         var wasmName = name == null ? wasmFile.getName() : name;
 

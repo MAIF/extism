@@ -4,26 +4,35 @@ use std::path::{Path, PathBuf};
 #[deprecated]
 pub type ManifestMemory = MemoryOptions;
 
-#[derive(Default, serde::Serialize, serde::Deserialize)]
+/// Configure memory settings
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemoryOptions {
+    /// The max number of WebAssembly pages that should be allocated
     #[serde(alias = "max")]
     pub max_pages: Option<u32>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+/// Generic HTTP request structure
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HttpRequest {
+    /// The request URL
     pub url: String,
+
+    /// Request headers
     #[serde(default)]
     #[serde(alias = "header")]
     pub headers: std::collections::BTreeMap<String, String>,
+
+    /// Request method
     pub method: Option<String>,
 }
 
 impl HttpRequest {
+    /// Create a new `HttpRequest` to the given URL
     pub fn new(url: impl Into<String>) -> HttpRequest {
         HttpRequest {
             url: url.into(),
@@ -32,22 +41,28 @@ impl HttpRequest {
         }
     }
 
+    /// Update the method
     pub fn with_method(mut self, method: impl Into<String>) -> HttpRequest {
         self.method = Some(method.into());
         self
     }
 
+    /// Add a header
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> HttpRequest {
         self.headers.insert(key.into(), value.into());
         self
     }
 }
 
-#[derive(Default, serde::Serialize, serde::Deserialize)]
+/// Provides additional metadata about a Webassembly module
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct WasmMetadata {
+    /// Module name, this is used by Extism to determine which is the `main` module
     pub name: Option<String>,
+
+    /// Module hash, if the data loaded from disk or via HTTP doesn't match an error will be raised
     pub hash: Option<String>,
 }
 
@@ -81,23 +96,29 @@ impl From<Vec<u8>> for Wasm {
 #[deprecated]
 pub type ManifestWasm = Wasm;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+/// The `Wasm` type specifies how to access a WebAssembly module
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 #[serde(deny_unknown_fields)]
 pub enum Wasm {
+    /// From disk
     File {
         path: PathBuf,
         #[serde(flatten)]
         meta: WasmMetadata,
     },
+
+    /// From memory
     Data {
-        #[serde(with = "base64")]
-        #[cfg_attr(feature = "json_schema", schemars(schema_with = "base64_schema"))]
+        #[serde(with = "wasmdata")]
+        #[cfg_attr(feature = "json_schema", schemars(schema_with = "wasmdata_schema"))]
         data: Vec<u8>,
         #[serde(flatten)]
         meta: WasmMetadata,
     },
+
+    /// Via HTTP
     Url {
         #[serde(flatten)]
         req: HttpRequest,
@@ -107,6 +128,7 @@ pub enum Wasm {
 }
 
 impl Wasm {
+    /// Load Wasm from a path
     pub fn file(path: impl AsRef<std::path::Path>) -> Self {
         Wasm::File {
             path: path.as_ref().to_path_buf(),
@@ -114,6 +136,7 @@ impl Wasm {
         }
     }
 
+    /// Load Wasm directly from a buffer
     pub fn data(data: impl Into<Vec<u8>>) -> Self {
         Wasm::Data {
             data: data.into(),
@@ -121,13 +144,27 @@ impl Wasm {
         }
     }
 
-    pub fn url(req: HttpRequest) -> Self {
+    /// Load Wasm from a URL
+    pub fn url(url: impl Into<String>) -> Self {
         Wasm::Url {
-            req,
+            req: HttpRequest {
+                url: url.into(),
+                headers: Default::default(),
+                method: None,
+            },
             meta: Default::default(),
         }
     }
 
+    /// Load Wasm from an HTTP request
+    pub fn http(req: impl Into<HttpRequest>) -> Self {
+        Wasm::Url {
+            req: req.into(),
+            meta: Default::default(),
+        }
+    }
+
+    /// Get the metadata
     pub fn meta(&self) -> &WasmMetadata {
         match self {
             Wasm::File { path: _, meta } => meta,
@@ -136,6 +173,7 @@ impl Wasm {
         }
     }
 
+    /// Get mutable access to the metadata
     pub fn meta_mut(&mut self) -> &mut WasmMetadata {
         match self {
             Wasm::File { path: _, meta } => meta,
@@ -143,36 +181,72 @@ impl Wasm {
             Wasm::Url { req: _, meta } => meta,
         }
     }
+
+    /// Update Wasm module name
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.meta_mut().name = Some(name.into());
+        self
+    }
+
+    /// Update Wasm module hash
+    pub fn with_hash(mut self, hash: impl Into<String>) -> Self {
+        self.meta_mut().hash = Some(hash.into());
+        self
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+struct DataPtrLength {
+    ptr: u64,
+    len: u64,
 }
 
 #[cfg(feature = "json_schema")]
-fn base64_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+fn wasmdata_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
     use schemars::{schema::SchemaObject, JsonSchema};
     let mut schema: SchemaObject = <String>::json_schema(gen).into();
-    schema.format = Some("string".to_owned());
+    let objschema: SchemaObject = <DataPtrLength>::json_schema(gen).into();
+    let types = schemars::schema::SingleOrVec::<schemars::schema::InstanceType>::Vec(vec![
+        schemars::schema::InstanceType::String,
+        schemars::schema::InstanceType::Object,
+    ]);
+    schema.instance_type = Some(types);
+    schema.object = objschema.object;
     schema.into()
 }
 
-#[derive(Default, serde::Serialize, serde::Deserialize)]
+/// The `Manifest` type is used to configure the runtime and specify how to load modules.
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
+    /// WebAssembly modules, the `main` module should be named `main` or listed last
     #[serde(default)]
     pub wasm: Vec<Wasm>,
+    /// Memory options
     #[serde(default)]
     pub memory: MemoryOptions,
+
+    /// Config values are made accessible using the PDK `extism_config_get` function
     #[serde(default)]
     pub config: BTreeMap<String, String>,
     #[serde(default)]
+
+    /// Specifies which hosts may be accessed via HTTP, if this is empty then
+    /// no hosts may be accessed. Wildcards may be used.
     pub allowed_hosts: Option<Vec<String>>,
+
+    /// Specifies which paths should be made available on disk when using WASI. This is a mapping from
+    /// the path on disk to the path it should be available inside the plugin.
+    /// For example, `".": "/tmp"` would mount the current directory as `/tmp` inside the module
     #[serde(default)]
     pub allowed_paths: Option<BTreeMap<PathBuf, PathBuf>>,
-    #[serde(default = "default_timeout")]
-    pub timeout_ms: Option<u64>,
-}
 
-fn default_timeout() -> Option<u64> {
-    Some(30000)
+    /// The plugin timeout, by default this is set to 30s
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
 }
 
 impl Manifest {
@@ -180,9 +254,13 @@ impl Manifest {
     pub fn new(wasm: impl IntoIterator<Item = impl Into<Wasm>>) -> Manifest {
         Manifest {
             wasm: wasm.into_iter().map(|x| x.into()).collect(),
-            timeout_ms: default_timeout(),
             ..Default::default()
         }
+    }
+
+    pub fn with_wasm(mut self, wasm: impl Into<Wasm>) -> Self {
+        self.wasm.push(wasm.into());
+        self
     }
 
     /// Disallow HTTP requests to all hosts
@@ -194,6 +272,12 @@ impl Manifest {
     /// Set memory options
     pub fn with_memory_options(mut self, memory: MemoryOptions) -> Self {
         self.memory = memory;
+        self
+    }
+
+    /// Set MemoryOptions::memory_max
+    pub fn with_memory_max(mut self, max: u32) -> Self {
+        self.memory.max_pages = Some(max);
         self
     }
 
@@ -240,8 +324,19 @@ impl Manifest {
     }
 
     /// Set `config`
-    pub fn with_config(mut self, c: impl Iterator<Item = (String, String)>) -> Self {
-        self.config = c.collect();
+    pub fn with_config(
+        mut self,
+        c: impl Iterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Self {
+        for (k, v) in c {
+            self.config.insert(k.into(), v.into());
+        }
+        self
+    }
+
+    /// Set a single `config` key
+    pub fn with_config_key(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
+        self.config.insert(k.into(), v.into());
         self
     }
 
@@ -254,20 +349,48 @@ impl Manifest {
     }
 }
 
-mod base64 {
+mod wasmdata {
+    use crate::DataPtrLength;
     use base64::{engine::general_purpose, Engine as _};
     use serde::{Deserialize, Serialize};
     use serde::{Deserializer, Serializer};
+    use std::slice;
 
     pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
-        let base64 = general_purpose::STANDARD.encode(v);
+        let base64 = general_purpose::STANDARD.encode(v.as_slice());
         String::serialize(&base64, s)
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
-        let base64 = String::deserialize(d)?;
-        general_purpose::STANDARD
-            .decode(base64.as_bytes())
-            .map_err(serde::de::Error::custom)
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum WasmDataTypes {
+            String(String),
+            DataPtrLength(DataPtrLength),
+        }
+        Ok(match WasmDataTypes::deserialize(d)? {
+            WasmDataTypes::String(string) => general_purpose::STANDARD
+                .decode(string.as_bytes())
+                .map_err(serde::de::Error::custom)?,
+            WasmDataTypes::DataPtrLength(ptrlen) => {
+                let slice =
+                    unsafe { slice::from_raw_parts(ptrlen.ptr as *const u8, ptrlen.len as usize) };
+                slice.to_vec()
+            }
+        })
+    }
+}
+
+impl<'a> From<Manifest> for std::borrow::Cow<'a, [u8]> {
+    fn from(m: Manifest) -> Self {
+        let s = serde_json::to_vec(&m).unwrap();
+        std::borrow::Cow::Owned(s)
+    }
+}
+
+impl<'a> From<&Manifest> for std::borrow::Cow<'a, [u8]> {
+    fn from(m: &Manifest) -> Self {
+        let s = serde_json::to_vec(&m).unwrap();
+        std::borrow::Cow::Owned(s)
     }
 }

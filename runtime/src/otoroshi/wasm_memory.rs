@@ -25,3 +25,5 @@ impl WasmMemory {
         }
     }
 }
+
+pub struct ExtismMemory(pub WasmMemory);

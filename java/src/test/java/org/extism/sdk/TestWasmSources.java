@@ -28,6 +28,16 @@ public enum TestWasmSources {
         }
 
         public Path getCorazaFilePath() { return Paths.get(WASM_LOCATION, "coraza.wasm"); }
+
+        public Path getMajorReleasePath() { return Paths.get(WASM_LOCATION, "test-1.0.0-dev.wasm"); }
+
+        public Path getOPAPath() { return Paths.get(WASM_LOCATION, "OPA_POLICY-1.0.0-dev.wasm"); }
+
+        public Path getWasmWaf() {
+            return Paths.get(WASM_LOCATION, "coraza-proxy-wasm-v0.1.2.wasm");
+//            return Paths.get(WASM_LOCATION, "coraza.wasm");
+//            return Paths.get(WASM_LOCATION, "../../../../../coraza-proxy-wasm/build/mainraw.wasm");
+        }
     };
 
     public static final String WASM_LOCATION = "src/test/resources";
@@ -39,6 +49,10 @@ public enum TestWasmSources {
     public abstract Path getRawAdditionFilePath();
 
     public abstract Path getCorazaFilePath();
+
+    public abstract Path getMajorReleasePath();
+
+    public abstract Path getOPAPath();
 
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
@@ -58,6 +72,16 @@ public enum TestWasmSources {
         return resolvePathWasmSource(getCorazaFilePath());
     }
 
+    public PathWasmSource getMajorRelease() {
+        return resolvePathWasmSource(getMajorReleasePath());
+    }
+
+    public PathWasmSource getOPA() {
+        return resolvePathWasmSource(getOPAPath());
+    }
+
+    public abstract Path getWasmWaf();
+
     public PathWasmSource pathWasmWebAssemblyFunctionSource() {
         return resolvePathWasmSource(getWasmWebAssemblyFunctionFilePath());
     }
@@ -73,6 +97,10 @@ public enum TestWasmSources {
 
     public static PathWasmSource resolvePathWasmSource(Path path) {
         return new WasmSourceResolver().resolve(path);
+    }
+
+    public PathWasmSource pathWasmWaf() {
+        return resolvePathWasmSource(getWasmWaf());
     }
 
 }

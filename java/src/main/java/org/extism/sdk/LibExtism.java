@@ -85,6 +85,7 @@ public interface LibExtism extends Library {
                                 Pointer userData,
                                 Pointer freeUserData);
 
+    void extism_function_free(Pointer function);
 
     Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
 
@@ -106,31 +107,13 @@ public interface LibExtism extends Library {
      */
     int extism_current_plugin_memory_alloc(Pointer plugin, long n);
 
-    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, String memoryName);
+//    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, String memoryName);
 
     /**
      * Free an allocated memory block
      * NOTE: this should only be called from host functions.
      */
     void extism_current_plugin_memory_free(Pointer plugin, long ptr);
-
-        /**
-     * Create a new context
-     */
-    Pointer extism_context_new();
-
-    /**
-     * Free a context
-     */
-    void extism_context_free(Pointer contextPointer);
-
-
-    /**
-     * Remove all plugins from the registry.
-     *
-     * @param contextPointer
-     */
-    void extism_context_reset(Pointer contextPointer);
 
     /**
      * Sets the logger to the given path with the given level of verbosity
@@ -142,18 +125,23 @@ public interface LibExtism extends Library {
     boolean extism_log_file(String path, String logLevel);
 
     /**
-     * Returns the error associated with a @{@link Context} or @{@link Plugin}, if {@code pluginId} is {@literal -1} then the context error will be returned
+     * Returns the error associated with a @{@link Plugin}
      *
-     * @param contextPointer
-     * @param pluginId
+     * @param pluginPointer
      * @return
      */
-    String extism_error(Pointer contextPointer, int pluginId);
+    String extism_plugin_error(Pointer pluginPointer);
+
+    /**
+     *
+     * @param pluginPointer
+     * @return
+     */
+    String extism_error(Pointer plugiPointer);
 
     /**
      * Create a new plugin.
      *
-     * @param contextPointer pointer to the {@link Context}.
      * @param wasm           is a WASM module (wat or wasm) or a JSON encoded manifest
      * @param wasmSize       the length of the `wasm` parameter
      * @param functions      host functions
@@ -162,14 +150,18 @@ public interface LibExtism extends Library {
      * @return id of the plugin or {@literal -1} in case of error
      */
 
-    int extism_plugin_new(Pointer contextPointer,
-                          byte[] wasm,
+    Pointer extism_plugin_new(byte[] wasm,
                           long wasmSize,
                           Pointer[] functions,
                           int nFunctions,
                           boolean withWASI,
-                          Pointer[] memories,
-                          int nMemories);
+                          Pointer[] errmsg);
+
+    /**
+     * Free error message from `extism_plugin_new`
+     */
+    void extism_plugin_new_error_free(Pointer errmsg);
+
 
     /**
      * Returns the Extism version string
@@ -180,18 +172,33 @@ public interface LibExtism extends Library {
     /**
      * Calls a function from the @{@link Plugin} at the given {@code pluginIndex}.
      *
-     * @param contextPointer
-     * @param pluginIndex
+     * @param pluginPointer
      * @param function_name  is the function to call
      * @param data           is the data input data
      * @param dataLength     is the data input data length
      * @return the result code of the plugin call. {@literal -1} in case of error, {@literal 0} otherwise.
      */
-    int extism_plugin_call(Pointer contextPointer, int pluginIndex, String function_name, byte[] data, int dataLength);
+    int extism_plugin_call(Pointer pluginPointer, String function_name, byte[] data, int dataLength);
+
+    /**
+     * Returns 
+     * @return the length of the output data in bytes.
+     */
+    int extism_plugin_output_length(Pointer pluginPointer);
+
+    /**
+   
+     * @return
+     */
+    Pointer extism_plugin_output_data(Pointer pluginPointer);
+
+    /**
+     * Remove a plugin from the
+     */
+    void extism_plugin_free(Pointer pluginPointer);
 
     LibExtism.ExtismVal.ByReference wasm_plugin_call(
             Pointer contextPointer,
-            int pluginIndex,
             String function_name,
             ExtismVal.ByReference inputs,
             int nInputs,
@@ -200,92 +207,92 @@ public interface LibExtism extends Library {
 
     Pointer wasm_plugin_call_without_params(
             Pointer contextPointer,
-            int pluginIndex,
             String function_name,
             byte[] data,
             int dataLength);
 
     void wasm_plugin_call_without_results(
             Pointer contextPointer,
-            int pluginIndex,
             String function_name,
             ExtismVal.ByReference inputs,
-            int nInputs,
-            byte[] data,
-            int dataLength);
+            int nInputs);
 
-    Pointer extism_plugin_call_native(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal inputs, int nInputs);
+    Pointer extism_plugin_call_native(Pointer contextPointer, String function_name, ExtismVal inputs, int nInputs);
 
-    int extism_plugin_call_native_int(Pointer contextPointer, int pluginIndex, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
+    int extism_plugin_call_native_int(Pointer contextPointer, String function_name, ExtismVal.ByReference inputs, int nInputs, byte[] data, int dataLen);
 
     void deallocate_plugin_call_results(LibExtism.ExtismVal.ByReference results, int length);
 
-    /**
-     * Returns the length of a plugin's output data.
-     *
-     * @param contextPointer
-     * @param pluginIndex
-     * @return the length of the output data in bytes.
-     */
-    int extism_plugin_output_length(Pointer contextPointer, int pluginIndex);
-
-    /**
-     * Returns the plugin's output data.
-     *
-     * @param contextPointer
-     * @param pluginIndex
-     * @return
-     */
-    Pointer extism_plugin_output_data(Pointer contextPointer, int pluginIndex);
-
-    /**
-     * Update a plugin, keeping the existing ID.
-     * Similar to {@link #extism_plugin_new(Pointer, byte[], long, Pointer[], int, boolean)} but takes an {@code pluginIndex} argument to specify which plugin to update.
-     * Note: Memory for this plugin will be reset upon update.
-     *
-     * @param contextPointer
-     * @param pluginIndex
-     * @param wasm
-     * @param length
-     * @param functions      host functions
-     * @param nFunctions     the number of host functions
-     * @param withWASI
-     * @return {@literal true} if update was successful
-     */
-    boolean extism_plugin_update(Pointer contextPointer,
-                                 int pluginIndex,
-                                 byte[] wasm,
-                                 int length,
-                                 Pointer[] functions,
-                                 int nFunctions,
-                                 boolean withWASI,
-                                 Pointer[] memories,
-                                 int nMemories);
-
-    /**
-     * Remove a plugin from the registry and free associated memory.
-     *
-     * @param contextPointer
-     * @param pluginIndex
-     */
-    void extism_plugin_free(Pointer contextPointer, int pluginIndex);
 
     /**
      * Update plugin config values, this will merge with the existing values.
      *
-     * @param contextPointer
-     * @param pluginIndex
+     * @param pluginPointer
      * @param json
      * @param jsonLength
      * @return {@literal true} if update was successful
      */
-    boolean extism_plugin_config(Pointer contextPointer, int pluginIndex, byte[] json, int jsonLength);
+    boolean extism_plugin_config(Pointer pluginPointer, byte[] json, int jsonLength);
+    Pointer extism_plugin_cancel_handle(Pointer pluginPointer);
+    int strlen(Pointer s);
     Pointer extism_plugin_cancel_handle(Pointer contextPointer, int n);
     boolean extism_plugin_cancel(Pointer contextPointer);
     void extism_function_set_namespace(Pointer p, String name);
 
-    void extism_reset(Pointer contextPointer, int n);
-    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, int instanceIndex, String memoryName);
+    // void extism_reset(Pointer contextPointer);
+    void extism_plugin_reset(Pointer contextPointer);
+//    Pointer extism_get_lineary_memory_from_host_functions(Pointer plugin, int instanceIndex, String memoryName);
 
-    void deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
+
+    // TODO - ADDED
+    Pointer wasm_otoroshi_create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
+    // TODO - ADDED
+    void wasm_otoroshi_free_memory(Pointer memory);
+    // TODO - ADDED
+    void wasm_otoroshi_deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
+    // TODO - ADDED
+    Pointer extism_plugin_new_with_memories(byte[] wasm,
+                                            long wasmSize,
+                                            Pointer[] functions,
+                                            int nFunctions,
+                                            Pointer[] memories,
+                                            int nMemories,
+                                            boolean withWASI,
+                                            Pointer[] errmsg);
+    // TODO - ADDED
+    LibExtism.ExtismVal.ByReference wasm_otoroshi_call(Pointer pluginPointer, String functionName, LibExtism.ExtismVal.ByReference inputs, int length);
+    // TODO - ADDED
+    Pointer wasm_otoroshi_wasm_plugin_call_without_params(Pointer pluginPointer, String functionName);
+    // TODO - ADDED
+    void wasm_otoroshi_wasm_plugin_call_without_results(Pointer pluginPointer,
+                                                        String functionName,
+                                                        LibExtism.ExtismVal.ByReference inputs,
+                                                        int nInputs);
+    // TODO - ADDED
+    int wasm_otoroshi_extism_memory_write_bytes(Pointer pluginPointer, byte[] data, int n, int offset, String namespace, String name);
+    // TODO - ADDED
+    Pointer wasm_otoroshi_extism_get_memory(Pointer instance, String memoryName, String namespace);
+
+    Pointer wasm_otoroshi_extism_get_linear_memory(Pointer instance, String memoryName, String namespace);
+
+    // TODO - ADDED
+    int wasm_otoroshi_extism_memory_bytes(Pointer pluginPointer);
+
+    // TODO - ADDED
+    Pointer custom_memory_get(Pointer plugin);
+    int custom_memory_length(Pointer plugin, long n);
+    int custom_memory_alloc(Pointer plugin, long n);
+    void custom_memory_free(Pointer plugin, long ptr);
+    int custom_memory_size_from_plugin(Pointer plugin);
+    void custom_memory_reset_from_plugin(Pointer plugin);
+
+    Pointer linear_memory_get(Pointer plugin, String namespace, String name);
+    int linear_memory_size(Pointer plugin, String namespace, String name, long n);
+
+//    int linear_memory_alloc(Pointer plugin, String namespace, String name, long n);
+//    void linear_memory_free(Pointer plugin, String namespace, String name, long ptr);
+
+    void linear_memory_reset_from_plugin(Pointer plugin, String namespace, String name);
+    int linear_memory_size_from_plugin(Pointer plugin, String namespace, String name);
+    Pointer linear_memory_get_from_plugin(Pointer plugin, String namespace, String name);
 }

@@ -4,8 +4,9 @@ import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.support.JsonSerde;
 
-import org.extism.sdk.Parameters;
-import org.extism.sdk.Results;
+import org.extism.sdk.wasmotoroshi.LinearMemory;
+import org.extism.sdk.wasmotoroshi.Parameters;
+import org.extism.sdk.wasmotoroshi.Results;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -16,73 +17,92 @@ import java.util.Objects;
 public class Plugin implements AutoCloseable {
 
     /**
-     * Holds the Extism {@link Context} that the plugin belongs to.
+     * Holds the Extism plugin pointer
      */
-    private final Context context;
+    protected final Pointer pluginPointer;
 
-    /**
-     * Holds the index of the plugin
-     */
-    private final int index;
+    private final HostFunction[] functions;
 
-    /**
-     * Constructor for a Plugin. Only expose internally. Plugins should be created and
-     * managed from {@link org.extism.sdk.Context}.
-     *
-     * @param context       The context to manage the plugin
-     * @param manifestBytes The manifest for the plugin
-     * @param functions     The Host functions for th eplugin
-     * @param withWASI      Set to true to enable WASI
-     */
-    public Plugin(Context context,
-                  byte[] manifestBytes,
+    private boolean freed = false;
+
+    public Plugin(byte[] manifestBytes,
+                  boolean withWASI,
+                  HostFunction[] functions) {
+
+        Objects.requireNonNull(manifestBytes, "manifestBytes");
+
+        Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
+
+        Pointer[] errormsg = new Pointer[1];
+        Pointer p = LibExtism.INSTANCE.extism_plugin_new(manifestBytes,
+                manifestBytes.length,
+                functionsPtr,
+                functions == null ? 0 : functions.length,
+                withWASI,
+                errormsg
+        );
+
+        if (p == null) {
+            int errlen = LibExtism.INSTANCE.strlen(errormsg[0]);
+            byte[] msg = new byte[errlen];
+            errormsg[0].read(0, msg, 0, errlen);
+            LibExtism.INSTANCE.extism_plugin_new_error_free(errormsg[0]);
+            throw new ExtismException(new String(msg));
+        }
+
+        this.functions = functions;
+        this.pluginPointer = p;
+    }
+
+    // TODO - ADDED
+    public Plugin(byte[] manifestBytes,
                   boolean withWASI,
                   HostFunction[] functions,
                   LinearMemory[] memories) {
 
-        Objects.requireNonNull(context, "context");
         Objects.requireNonNull(manifestBytes, "manifestBytes");
 
         Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
         Pointer[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
-        Pointer contextPointer = context.getPointer();
-
-        int index = LibExtism.INSTANCE.extism_plugin_new(contextPointer,
-                manifestBytes,
+        Pointer[] errormsg = new Pointer[1];
+        Pointer p = LibExtism.INSTANCE.extism_plugin_new_with_memories(manifestBytes,
                 manifestBytes.length,
                 functionsPtr,
                 functions == null ? 0 : functions.length,
-                withWASI,
                 memoriesPtr,
-                memories == null ? 0 : memories.length
+                memories == null ? 0 : memories.length,
+                withWASI,
+                errormsg
         );
-        if (index == -1) {
-            String error = context.error(this);
-            throw new ExtismException(error);
+
+        if (p == null) {
+            int errlen = LibExtism.INSTANCE.strlen(errormsg[0]);
+            byte[] msg = new byte[errlen];
+            errormsg[0].read(0, msg, 0, errlen);
+            LibExtism.INSTANCE.extism_plugin_new_error_free(errormsg[0]);
+            throw new ExtismException(new String(msg));
         }
 
-        this.index= index;
-        this.context = context;
+        this.functions = functions;
+        this.pluginPointer = p;
     }
 
+    // TODO - ADDED
+    public Plugin(Manifest manifest,
+                  boolean withWASI,
+                  HostFunction[] functions,
+                  LinearMemory[] memories) {
+        this(serialize(manifest), withWASI, functions, memories);
+    }
 
-    public Plugin(Context context, Manifest manifest, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
-        this(context, serialize(manifest), withWASI, functions, memories);
+    public Plugin(Manifest manifest, boolean withWASI, HostFunction[] functions) {
+        this(serialize(manifest), withWASI, functions);
     }
 
     private static byte[] serialize(Manifest manifest) {
         Objects.requireNonNull(manifest, "manifest");
         return JsonSerde.toJson(manifest).getBytes(StandardCharsets.UTF_8);
-    }
-
-    /**
-     * Getter for the internal index pointer to this plugin.
-     *
-     * @return the plugin index
-     */
-    public int getIndex() {
-        return index;
     }
 
     /**
@@ -97,16 +117,15 @@ public class Plugin implements AutoCloseable {
 
         Objects.requireNonNull(functionName, "functionName");
 
-        Pointer contextPointer = context.getPointer();
         int inputDataLength = inputData == null ? 0 : inputData.length;
-        int exitCode = LibExtism.INSTANCE.extism_plugin_call(contextPointer, index, functionName, inputData, inputDataLength);
+        int exitCode = LibExtism.INSTANCE.extism_plugin_call(this.pluginPointer, functionName, inputData, inputDataLength);
         if (exitCode == -1) {
-            String error = context.error(this);
+            String error = this.error();
             throw new ExtismException(error);
         }
 
-        int length = LibExtism.INSTANCE.extism_plugin_output_length(contextPointer, index);
-        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(contextPointer, index);
+        int length = LibExtism.INSTANCE.extism_plugin_output_length(this.pluginPointer);
+        Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(this.pluginPointer);
         return output.getByteArray(0, length);
     }
 
@@ -125,85 +144,54 @@ public class Plugin implements AutoCloseable {
         var outputBytes = call(functionName, inputBytes);
         return new String(outputBytes, StandardCharsets.UTF_8);
     }
-
-    public Results call(String functionName, Parameters params, int resultsLength) {
-        return call(functionName, params, resultsLength, new byte[0]);
+    
+    /**
+     * Get the error associated with a plugin
+     *
+     * @return the error message
+     */
+    protected String error() {
+        return LibExtism.INSTANCE.extism_plugin_error(this.pluginPointer);
     }
 
-    public Results call(String functionName, Parameters params, int resultsLength, byte[] input) {
-        Pointer contextPointer = context.getPointer();
+
+    public Results call(String functionName, Parameters params, int resultsLength) {
         params.getPtr().write();
 
-        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_plugin_call(
-                contextPointer,
-                index,
+        LibExtism.ExtismVal.ByReference results = LibExtism.INSTANCE.wasm_otoroshi_call(
+                this.pluginPointer,
                 functionName,
                 params.getPtr(),
-                params.getLength(),
-                input,
-                input.length);
+                params.getLength()
+        );
 
         if (results == null && resultsLength > 0) {
-            String error = context.error(this);
-            throw new ExtismException(error);
+            String error = error();
+            System.out.println(error);
+//            throw new ExtismException(error);
+            return new Results(0);
         }
 
         if (results == null) {
-            if (resultsLength > 0) {
-                String error = context.error(this);
-                throw new ExtismException(error);
-            } else {
-                return new Results(0);
-            }
+            return new Results(0);
         } else {
             return new Results(results, resultsLength);
         }
     }
-
-    public Context getContext() {
-        return context;
-    }
-
     /**
-     * Update the plugin code given manifest changes
-     *
-     * @param manifest The manifest for the plugin
-     * @param withWASI Set to true to enable WASI
-     * @return {@literal true} if update was successful
-     */
-    public boolean update(Manifest manifest, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
-        return update(serialize(manifest), withWASI, functions, memories);
-    }
-
-    /**
-     * Update the plugin code given manifest changes
-     *
-     * @param manifestBytes The manifest for the plugin
-     * @param withWASI      Set to true to enable WASI
-     * @return {@literal true} if update was successful
-     */
-    public boolean update(byte[] manifestBytes, boolean withWASI, HostFunction[] functions, LinearMemory[] memories) {
-        Objects.requireNonNull(manifestBytes, "manifestBytes");
-
-        Pointer[] ptrArr = HostFunction.arrayToPointer(functions);
-        Pointer[] ptrMem = LinearMemory.arrayToPointer(memories);
-
-
-        return LibExtism.INSTANCE.extism_plugin_update(context.getPointer(), index, manifestBytes, manifestBytes.length,
-                ptrArr,
-                functions == null ? 0 : functions.length,
-                withWASI,
-                ptrMem,
-                memories == null ? 0 : memories.length
-        );
-    }
-
-    /**
-     * Frees a plugin from memory. Plugins will be automatically cleaned up
-     * if you free their parent Context using {@link org.extism.sdk.Context#free() free()} or {@link org.extism.sdk.Context#reset() reset()}
+     * Frees a plugin from memory
      */
     public void free() {
-        LibExtism.INSTANCE.extism_plugin_free(context.getPointer(), index);
+        if (this.functions != null){
+            for (int i = 0; i < this.functions.length; i++) {
+                this.functions[i].free();
+            }
+        }
+
+        if(!freed) {
+            freed = true;
+            LibExtism.INSTANCE.extism_plugin_free(this.pluginPointer);
+        }
     }
 
     /**
@@ -217,6 +205,7 @@ public class Plugin implements AutoCloseable {
         return updateConfig(json.getBytes(StandardCharsets.UTF_8));
     }
 
+
     /**
      * Update plugin config values, this will merge with the existing values.
      *
@@ -225,39 +214,24 @@ public class Plugin implements AutoCloseable {
      */
     public boolean updateConfig(byte[] jsonBytes) {
         Objects.requireNonNull(jsonBytes, "jsonBytes");
-        return LibExtism.INSTANCE.extism_plugin_config(context.getPointer(), index, jsonBytes, jsonBytes.length);
+        return LibExtism.INSTANCE.extism_plugin_config(this.pluginPointer, jsonBytes, jsonBytes.length);
     }
 
-    /**
-     * Calls {@link #free()} if used in the context of a TWR block.
-     */
-    @Override
-    public void close() {
-        free();
-    }
-
-    public Pointer getPointer() {
-        return context.getPointer();
-    }
     /**
      * Return a new `CancelHandle`, which can be used to cancel a running Plugin
      */
     public CancelHandle cancelHandle() {
-        if (this.context.getPointer() == null) {
-            throw new ExtismException("No Context set");
-        }
-        Pointer handle = LibExtism.INSTANCE.extism_plugin_cancel_handle(this.context.getPointer(), this.index);
+        Pointer handle = LibExtism.INSTANCE.extism_plugin_cancel_handle(this.pluginPointer);
         return new CancelHandle(handle);
     }
 
     public void reset() {
-        LibExtism.INSTANCE.extism_reset(this.context.getPointer(), this.index);
+        LibExtism.INSTANCE.extism_plugin_reset(this.pluginPointer);
     }
 
     public Pointer callWithoutParams(String functionName, int resultsLength) {
         Pointer results = LibExtism.INSTANCE.wasm_plugin_call_without_params(
-                context.getPointer(),
-                index,
+                this.pluginPointer,
                 functionName,
                 new byte[0],
                 0);
@@ -265,7 +239,7 @@ public class Plugin implements AutoCloseable {
 
         if (results == null) {
             if (resultsLength > 0) {
-                String error = context.error(this);
+                String error = error();
                 throw new ExtismException(error);
             } else {
                 return null;
@@ -276,16 +250,45 @@ public class Plugin implements AutoCloseable {
     }
 
     public void callWithoutResults(String functionName, Parameters params) {
-        Pointer contextPointer = context.getPointer();
         params.getPtr().write();
 
         LibExtism.INSTANCE.wasm_plugin_call_without_results(
-                contextPointer,
-                index,
+                this.pluginPointer,
                 functionName,
                 params.getPtr(),
-                params.getLength(),
-                new byte[0],
-                0);
+                params.getLength());
+    }
+
+    @Override
+    public void close() {
+        free();
+    }
+
+    public int writeBytes(byte[] data, int n, int offset, String namespace) {
+        return LibExtism.INSTANCE.wasm_otoroshi_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, null);
+    }
+
+    public int writeBytes(byte[] data, int n, int offset, String namespace, String name) {
+        return LibExtism.INSTANCE.wasm_otoroshi_extism_memory_write_bytes(this.pluginPointer, data, n, offset, namespace, name);
+    }
+
+    public Pointer getLinearMemory(String namespace, String name) {
+        return LibExtism.INSTANCE.linear_memory_get_from_plugin(this.pluginPointer, namespace, name);
+    }
+
+    public void resetLinearMemory(String namespace, String name) {
+        LibExtism.INSTANCE.linear_memory_reset_from_plugin(this.pluginPointer, namespace, name);
+    }
+
+    public int getLinearMemorySize(String namespace, String name) {
+        return LibExtism.INSTANCE.linear_memory_size_from_plugin(this.pluginPointer, namespace, name);
+    }
+
+    public int getMemorySize() {
+        return LibExtism.INSTANCE.custom_memory_size_from_plugin(this.pluginPointer);
+    }
+
+    public void resetCustomMemory() {
+        LibExtism.INSTANCE.custom_memory_reset_from_plugin(this.pluginPointer);
     }
 }

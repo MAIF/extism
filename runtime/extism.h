@@ -6,9 +6,15 @@
 #define EXTISM_FUNCTION(N) extern void N(ExtismCurrentPlugin*, const ExtismVal*, ExtismSize, ExtismVal*, ExtismSize, void*)
 #define EXTISM_GO_FUNCTION(N) extern void N(void*, ExtismVal*, ExtismSize, ExtismVal*, ExtismSize, uintptr_t)
 
+/** The return code from extism_plugin_call used to signal a successful call with no errors */
+#define EXTISM_SUCCESS 0
+
+/** An alias for I64 to signify an Extism pointer */
+#define PTR I64
+
 
 /**
- * A list of all possible value types in WebAssembly.
+ * An enumeration of all possible value types in WebAssembly.
  */
 typedef enum {
   /**
@@ -42,32 +48,24 @@ typedef enum {
 } ExtismValType;
 
 /**
- * A `Context` is used to store and manage plugins
+ * A `CancelHandle` can be used to cancel a running plugin from another thread
  */
-typedef struct ExtismContext ExtismContext;
-
 typedef struct ExtismCancelHandle ExtismCancelHandle;
 
 /**
- * Wraps host functions
+ * CurrentPlugin stores data that is available to the caller in PDK functions, this should
+ * only be accessed from inside a host function
  */
+typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
+
 typedef struct ExtismFunction ExtismFunction;
 
 typedef struct ExtismMemory ExtismMemory;
 
 /**
- * Internal stores data that is available to the caller in PDK functions
+ * Plugin contains everything needed to execute a WASM function
  */
-typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
-
-typedef struct PluginTemplate PluginTemplate;
-
-/**
- * WasmPlugin contains everything needed to execute a WASM function
- */
-typedef struct WasmPlugin WasmPlugin;
-
-typedef uint64_t ExtismSize;
+typedef struct ExtismPlugin ExtismPlugin;
 
 /**
  * A union type for host function argument/return values
@@ -81,11 +79,16 @@ typedef union {
 
 /**
  * `ExtismVal` holds the type and value of a function argument/return
+ * TODO - ADDED
  */
 typedef struct {
   ExtismValType t;
   ExtismValUnion v;
 } ExtismVal;
+
+typedef uint64_t ExtismSize;
+
+typedef uint64_t ExtismMemoryHandle;
 
 /**
  * Host function signature
@@ -97,27 +100,87 @@ typedef void (*ExtismFunctionType)(ExtismCurrentPlugin *plugin,
                                    ExtismSize n_outputs,
                                    void *data);
 
-typedef int32_t ExtismPlugin;
+/**
+ * Log drain callback
+ */
+typedef void (*ExtismLogDrainFunctionType)(const char *data, ExtismSize size);
+
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
+void wasm_otoroshi_deallocate_results(ExtismVal *ptr, uintptr_t len);
+
+ExtismVal *wasm_otoroshi_call(ExtismPlugin *plugin,
+                              const char *func_name,
+                              const ExtismVal *params,
+                              ExtismSize n_params);
+
+ExtismVal *wasm_plugin_call_without_params(ExtismPlugin *plugin_ptr, const char *func_name);
+
+void wasm_plugin_call_without_results(ExtismPlugin *plugin_ptr,
+                                      const char *func_name,
+                                      const ExtismVal *params,
+                                      ExtismSize n_params);
+
+ExtismMemory *wasm_otoroshi_create_wasmtime_memory(const char *name,
+                                                   const char *namespace_,
+                                                   uint32_t min_pages,
+                                                   uint32_t max_pages);
 
 /**
- * Host function signature
+ * Remove all plugins from the registry
  */
-typedef void (*OtoroshiFunctionType)(WasmPlugin *plugin,
-                                     const ExtismVal *inputs,
-                                     ExtismSize n_inputs,
-                                     ExtismVal *outputs,
-                                     ExtismSize n_outputs,
-                                     void *data);
+void custom_memory_reset_from_plugin(ExtismPlugin *plugin);
+
+int8_t wasm_otoroshi_extism_memory_write_bytes(ExtismPlugin *instance_ptr,
+                                               const uint8_t *data,
+                                               ExtismSize data_size,
+                                               uint32_t offset,
+                                               const char *namespace_,
+                                               const char *name);
+
+uint8_t *linear_memory_get(ExtismCurrentPlugin *plugin, const char *namespace_, const char *name);
+
+uint8_t *linear_memory_get_from_plugin(ExtismPlugin *plugin,
+                                       const char *namespace_,
+                                       const char *name);
+
+uintptr_t linear_memory_size(ExtismPlugin *instance_ptr, const char *namespace_, const char *name);
+
+void linear_memory_reset_from_plugin(ExtismPlugin *instance_ptr,
+                                     const char *namespace_,
+                                     const char *name);
+
+uint8_t *custom_memory_get(ExtismCurrentPlugin *plugin);
+
+uintptr_t custom_memory_size_from_plugin(ExtismPlugin *plugin);
+
+uintptr_t linear_memory_size_from_plugin(ExtismPlugin *plugin,
+                                         const char *namespace_,
+                                         const char *name);
+
+ExtismSize custom_memory_length(ExtismCurrentPlugin *plugin, ExtismSize n);
+
+void custom_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);
+
+uint64_t custom_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
+
+ExtismPlugin *extism_plugin_new_with_memories(const uint8_t *wasm,
+                                              ExtismSize wasm_size,
+                                              const ExtismFunction **functions,
+                                              ExtismSize n_functions,
+                                              const ExtismMemory **memories,
+                                              int8_t n_memories,
+                                              bool with_wasi,
+                                              char **errmsg);
 
 /**
- * Create a new context
+ * Get a plugin's ID, the returned bytes are a 16 byte buffer that represent a UUIDv4
  */
-ExtismContext *extism_context_new(void);
-
-/**
- * Free a context
- */
-void extism_context_free(ExtismContext *ctx);
+const uint8_t *extism_plugin_id(ExtismPlugin *plugin);
 
 /**
  * Returns a pointer to the memory of the currently running plugin
@@ -129,19 +192,19 @@ uint8_t *extism_current_plugin_memory(ExtismCurrentPlugin *plugin);
  * Allocate a memory block in the currently running plugin
  * NOTE: this should only be called from host functions.
  */
-uint64_t extism_current_plugin_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
+ExtismMemoryHandle extism_current_plugin_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
 
 /**
  * Get the length of an allocated block
  * NOTE: this should only be called from host functions.
  */
-ExtismSize extism_current_plugin_memory_length(ExtismCurrentPlugin *plugin, ExtismSize n);
+ExtismSize extism_current_plugin_memory_length(ExtismCurrentPlugin *plugin, ExtismMemoryHandle n);
 
 /**
  * Free an allocated memory block
  * NOTE: this should only be called from host functions.
  */
-void extism_current_plugin_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);
+void extism_current_plugin_memory_free(ExtismCurrentPlugin *plugin, ExtismMemoryHandle ptr);
 
 /**
  * Create a new host function
@@ -170,17 +233,17 @@ ExtismFunction *extism_function_new(const char *name,
                                     void (*free_user_data)(void *_));
 
 /**
+ * Free `ExtismFunction`
+ */
+void extism_function_free(ExtismFunction *f);
+
+/**
  * Set the namespace of an `ExtismFunction`
  */
 void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
 
 /**
- * Free an `ExtismFunction`
- */
-void extism_function_free(ExtismFunction *ptr);
-
-/**
- * Create a new plugin with additional host functions
+ * Create a new plugin with host functions, the functions passed to this function no longer need to be manually freed using
  *
  * `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
  * `wasm_size`: the length of the `wasm` parameter
@@ -188,38 +251,27 @@ void extism_function_free(ExtismFunction *ptr);
  * `n_functions`: the number of functions provided
  * `with_wasi`: enables/disables WASI
  */
-ExtismPlugin extism_plugin_new(ExtismContext *ctx,
-                               const uint8_t *wasm,
-                               ExtismSize wasm_size,
-                               const ExtismFunction **functions,
-                               ExtismSize n_functions,
-                               bool with_wasi);
+ExtismPlugin *extism_plugin_new(const uint8_t *wasm,
+                                ExtismSize wasm_size,
+                                const ExtismFunction **functions,
+                                ExtismSize n_functions,
+                                bool with_wasi,
+                                char **errmsg);
 
 /**
- * Update a plugin, keeping the existing ID
- *
- * Similar to `extism_plugin_new` but takes an `index` argument to specify
- * which plugin to update
- *
- * Memory for this plugin will be reset upon update
+ * Free the error returned by `extism_plugin_new`, errors returned from `extism_plugin_error` don't need to be freed
  */
-bool extism_plugin_update(ExtismContext *ctx,
-                          ExtismPlugin index,
-                          const uint8_t *wasm,
-                          ExtismSize wasm_size,
-                          const ExtismFunction **functions,
-                          ExtismSize nfunctions,
-                          bool with_wasi);
+void extism_plugin_new_error_free(char *err);
 
 /**
  * Remove a plugin from the registry and free associated memory
  */
-void extism_plugin_free(ExtismContext *ctx, ExtismPlugin plugin);
+void extism_plugin_free(ExtismPlugin *plugin);
 
 /**
- * Get plugin ID for cancellation
+ * Get handle for plugin cancellation
  */
-const ExtismCancelHandle *extism_plugin_cancel_handle(ExtismContext *ctx, ExtismPlugin plugin);
+const ExtismCancelHandle *extism_plugin_cancel_handle(const ExtismPlugin *plugin);
 
 /**
  * Cancel a running plugin
@@ -227,22 +279,14 @@ const ExtismCancelHandle *extism_plugin_cancel_handle(ExtismContext *ctx, Extism
 bool extism_plugin_cancel(const ExtismCancelHandle *handle);
 
 /**
- * Remove all plugins from the registry
+ * Update plugin config values.
  */
-void extism_context_reset(ExtismContext *ctx);
-
-/**
- * Update plugin config values, this will merge with the existing values
- */
-bool extism_plugin_config(ExtismContext *ctx,
-                          ExtismPlugin plugin,
-                          const uint8_t *json,
-                          ExtismSize json_size);
+bool extism_plugin_config(ExtismPlugin *plugin, const uint8_t *json, ExtismSize json_size);
 
 /**
  * Returns true if `func_name` exists
  */
-bool extism_plugin_function_exists(ExtismContext *ctx, ExtismPlugin plugin, const char *func_name);
+bool extism_plugin_function_exists(ExtismPlugin *plugin, const char *func_name);
 
 /**
  * Call a function
@@ -251,82 +295,61 @@ bool extism_plugin_function_exists(ExtismContext *ctx, ExtismPlugin plugin, cons
  * `data`: is the input data
  * `data_len`: is the length of `data`
  */
-int32_t extism_plugin_call(ExtismContext *ctx,
-                           ExtismPlugin plugin_id,
+int32_t extism_plugin_call(ExtismPlugin *plugin,
                            const char *func_name,
                            const uint8_t *data,
                            ExtismSize data_len);
 
 /**
- * Get the error associated with a `Context` or `Plugin`, if `plugin` is `-1` then the context
- * error will be returned
+ * Get the error associated with a `Plugin`
  */
-const char *extism_error(ExtismContext *ctx, ExtismPlugin plugin);
+const char *extism_error(ExtismPlugin *plugin);
+
+/**
+ * Get the error associated with a `Plugin`
+ */
+const char *extism_plugin_error(ExtismPlugin *plugin);
 
 /**
  * Get the length of a plugin's output data
  */
-ExtismSize extism_plugin_output_length(ExtismContext *ctx, ExtismPlugin plugin);
+ExtismSize extism_plugin_output_length(ExtismPlugin *plugin);
 
 /**
- * Get the length of a plugin's output data
+ * Get a pointer to the output data
  */
-const uint8_t *extism_plugin_output_data(ExtismContext *ctx, ExtismPlugin plugin);
+const uint8_t *extism_plugin_output_data(ExtismPlugin *plugin);
 
 /**
- * Set log file and level
+ * Set log file and level.
+ * The log level can be either one of: info, error, trace, debug, warn or a more
+ * complex filter like `extism=trace,cranelift=debug`
+ * The file will be created if it doesn't exist.
  */
 bool extism_log_file(const char *filename, const char *log_level);
+
+/**
+ * Enable a custom log handler, this will buffer logs until `extism_log_drain` is called
+ * Log level should be one of: info, error, trace, debug, warn
+ */
+bool extism_log_custom(const char *log_level);
+
+/**
+ * Calls the provided callback function for each buffered log line.
+ * This is only needed when `extism_log_custom` is used.
+ */
+void extism_log_drain(ExtismLogDrainFunctionType handler);
+
+/**
+ * Reset the Extism runtime, this will invalidate all allocated memory
+ */
+bool extism_plugin_reset(ExtismPlugin *plugin);
 
 /**
  * Get the Extism version string
  */
 const char *extism_version(void);
 
-void extism_reset(ExtismContext *ctx, ExtismPlugin plugin);
-
-Engine *wasm_otoroshi_create_wasmtime_engine(void);
-
-void wasm_otoroshi_free_engine(Engine *engine);
-
-void wasm_otoroshi_free_template(PluginTemplate *template_);
-
-void wasm_otoroshi_free_memory(ExtismMemory *mem);
-
-/**
- * Remove all plugins from the registry
- */
-void wasm_otoroshi_extism_reset(WasmPlugin *instance_ptr);
-
-int8_t wasm_otoroshi_extism_memory_write_bytes(WasmPlugin *instance_ptr,
-                                               const uint8_t *data,
-                                               ExtismSize data_size,
-                                               uint32_t offset);
-
-uint8_t *wasm_otoroshi_extism_get_memory(WasmPlugin *instance_ptr, const char *name);
-
-ExtismFunction *wasm_otoroshi_extism_function_new(const char *name,
-                                                  const ExtismValType *inputs,
-                                                  ExtismSize n_inputs,
-                                                  const ExtismValType *outputs,
-                                                  ExtismSize n_outputs,
-                                                  OtoroshiFunctionType func,
-                                                  void *user_data,
-                                                  void (*free_user_data)(void *_));
-
-uint64_t wasm_otoroshi_extism_current_plugin_memory_alloc(WasmPlugin *instance_ptr, ExtismSize n);
-
-/**
- * Get the length of an allocated block
- * NOTE: this should only be called from host functions.
- */
-ExtismSize wasm_otoroshi_extism_current_plugin_memory_length(WasmPlugin *instance_ptr,
-                                                             ExtismSize n);
-
-/**
- * Free an allocated memory block
- * NOTE: this should only be called from host functions.
- */
-void wasm_otoroshi_extism_current_plugin_memory_free(WasmPlugin *instance_ptr, uint64_t ptr);
-
-uintptr_t wasm_otoroshi_extism_memory_bytes(WasmPlugin *instance_ptr);
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus

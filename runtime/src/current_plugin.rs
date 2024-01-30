@@ -1,5 +1,7 @@
 use crate::*;
 
+use self::otoroshi::custom_memory::PluginMemory;
+
 /// CurrentPlugin stores data that is available to the caller in PDK functions, this should
 /// only be accessed from inside a host function
 pub struct CurrentPlugin {
@@ -15,6 +17,8 @@ pub struct CurrentPlugin {
     pub(crate) available_pages: Option<u32>,
     pub(crate) memory_limiter: Option<MemoryLimiter>,
     pub(crate) id: uuid::Uuid,
+
+    pub(crate) memory_export: *mut PluginMemory,
 }
 
 unsafe impl Send for CurrentPlugin {}
@@ -64,6 +68,9 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
 impl CurrentPlugin {
     /// Get a `MemoryHandle` from a memory offset
     pub fn memory_handle(&mut self, offs: u64) -> Option<MemoryHandle> {
+        if offs == 0 {
+            return Some(MemoryHandle::null());
+        }
         let len = self.memory_length(offs).unwrap_or_default();
         if len == 0 {
             trace!(
@@ -84,9 +91,15 @@ impl CurrentPlugin {
     }
 
     /// Access memory bytes as `str`
-    pub fn memory_str(&mut self, handle: MemoryHandle) -> Result<&mut str, Error> {
-        let bytes = self.memory_bytes(handle)?;
+    pub fn memory_str_mut(&mut self, handle: MemoryHandle) -> Result<&mut str, Error> {
+        let bytes = self.memory_bytes_mut(handle)?;
         let s = std::str::from_utf8_mut(bytes)?;
+        Ok(s)
+    }
+
+    pub fn memory_str(&mut self, handle: MemoryHandle) -> Result<&str, Error> {
+        let bytes = self.memory_bytes(handle)?;
+        let s = std::str::from_utf8(bytes)?;
         Ok(s)
     }
 
@@ -94,8 +107,11 @@ impl CurrentPlugin {
     pub fn memory_new<'a, T: ToBytes<'a>>(&mut self, t: T) -> Result<MemoryHandle, Error> {
         let data = t.to_bytes()?;
         let data = data.as_ref();
+        if data.is_empty() {
+            return Ok(MemoryHandle::null());
+        }
         let handle = self.memory_alloc(data.len() as u64)?;
-        let bytes = self.memory_bytes(handle)?;
+        let bytes = self.memory_bytes_mut(handle)?;
         bytes.copy_from_slice(data.as_ref());
         Ok(handle)
     }
@@ -141,7 +157,7 @@ impl CurrentPlugin {
         Ok(())
     }
 
-    pub fn memory_bytes(&mut self, handle: MemoryHandle) -> Result<&mut [u8], Error> {
+    pub fn memory_bytes_mut(&mut self, handle: MemoryHandle) -> Result<&mut [u8], Error> {
         let (linker, mut store) = self.linker_and_store();
         if let Some(mem) = linker.get(&mut store, EXTISM_ENV_MODULE, "memory") {
             let mem = mem.into_memory().unwrap();
@@ -150,6 +166,20 @@ impl CurrentPlugin {
                 return Ok(&mut []);
             }
             return Ok(unsafe { std::slice::from_raw_parts_mut(ptr, handle.len()) });
+        }
+
+        anyhow::bail!("{} unable to locate extism memory", self.id)
+    }
+
+    pub fn memory_bytes(&mut self, handle: MemoryHandle) -> Result<&[u8], Error> {
+        let (linker, mut store) = self.linker_and_store();
+        if let Some(mem) = linker.get(&mut store, EXTISM_ENV_MODULE, "memory") {
+            let mem = mem.into_memory().unwrap();
+            let ptr = unsafe { mem.data_ptr(&store).add(handle.offset() as usize) };
+            if ptr.is_null() {
+                return Ok(&[]);
+            }
+            return Ok(unsafe { std::slice::from_raw_parts(ptr, handle.len()) });
         }
 
         anyhow::bail!("{} unable to locate extism memory", self.id)
@@ -220,6 +250,26 @@ impl CurrentPlugin {
         Ok(len)
     }
 
+    pub fn memory_length_unsafe(&mut self, offs: u64) -> Result<u64, Error> {
+        let (linker, mut store) = self.linker_and_store();
+        let output = &mut [Val::I64(0)];
+        if let Some(f) = linker.get(&mut store, EXTISM_ENV_MODULE, "length_unsafe") {
+            f.into_func()
+                .unwrap()
+                .call(&mut store, &[Val::I64(offs as i64)], output)?;
+        } else {
+            anyhow::bail!("unable to locate an extism kernel function: length_unsafe",)
+        }
+        let len = output[0].unwrap_i64() as u64;
+        trace!(
+            plugin = self.id.to_string(),
+            "memory_length_unsafe({}) = {}",
+            offs,
+            len
+        );
+        Ok(len)
+    }
+
     /// Access a plugin's variables
     pub fn vars(&self) -> &std::collections::BTreeMap<String, Vec<u8>> {
         &self.vars
@@ -282,6 +332,7 @@ impl CurrentPlugin {
             vars: BTreeMap::new(),
             linker: std::ptr::null_mut(),
             store: std::ptr::null_mut(),
+            memory_export: std::ptr::null_mut(),
             available_pages,
             memory_limiter,
             id,

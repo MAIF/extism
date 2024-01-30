@@ -1,5 +1,6 @@
 package org.extism.sdk;
 
+import com.google.gson.JsonParser;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.support.JsonSerde;
@@ -11,7 +12,6 @@ import java.util.HashMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static uk.org.webcompere.modelassert.json.JsonAssertions.assertJson;
 
 public class ManifestTests {
 
@@ -23,10 +23,15 @@ public class ManifestTests {
         var json = JsonSerde.toJson(manifest);
         assertNotNull(json);
 
-        assertJson(json).at("/wasm").isArray();
-        assertJson(json).at("/wasm").hasSize(1);
-        assertJson(json).at("/allowed_paths").isObject();
-        assertJson(json).at("/allowed_paths").hasSize(1);
+        var object = JsonParser.parseString(json).getAsJsonObject();
+
+        var arr = object.getAsJsonArray("wasm");
+        assertThat(arr).isNotNull();
+        assertThat(arr.size()).isEqualTo(1);
+
+        var allowedPaths = object.getAsJsonObject("allowed_paths");
+        assertThat(allowedPaths).isNotNull();
+        assertThat(allowedPaths.size()).isEqualTo(1);
     }
 
     @Test
@@ -36,9 +41,14 @@ public class ManifestTests {
         var json = JsonSerde.toJson(manifest);
         assertNotNull(json);
 
-        assertJson(json).at("/wasm").isArray();
-        assertJson(json).at("/wasm").hasSize(1);
-        assertJson(json).at("/memory/max").isEqualTo(4);
+        var object = JsonParser.parseString(json).getAsJsonObject();
+
+        var arr = object.getAsJsonArray("wasm");
+        assertThat(arr).isNotNull();
+        assertThat(arr.size()).isEqualTo(1);
+
+        var memory = object.getAsJsonObject("memory").get("max").getAsInt();
+        assertThat(memory).isEqualTo(4);
     }
 
     @Test

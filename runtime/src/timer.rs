@@ -16,18 +16,38 @@ pub(crate) enum TimerAction {
 }
 
 pub(crate) struct Timer {
-    pub tx: std::sync::mpsc::SyncSender<TimerAction>,
+    pub tx: std::sync::mpsc::Sender<TimerAction>,
     pub thread: Option<std::thread::JoinHandle<()>>,
 }
 
 #[cfg(not(target_family = "windows"))]
 extern "C" fn cleanup_timer() {
-    drop(Context::timer().take())
+    let mut timer = match unsafe { TIMER.lock() } {
+        Ok(x) => x,
+        Err(e) => e.into_inner(),
+    };
+    drop(timer.take());
 }
 
+static mut TIMER: std::sync::Mutex<Option<Timer>> = std::sync::Mutex::new(None);
+
 impl Timer {
-    pub fn init(timer: &mut Option<Timer>) -> std::sync::mpsc::SyncSender<TimerAction> {
-        let (tx, rx) = std::sync::mpsc::sync_channel(128);
+    pub(crate) fn tx() -> std::sync::mpsc::Sender<TimerAction> {
+        let mut timer = match unsafe { TIMER.lock() } {
+            Ok(x) => x,
+            Err(e) => e.into_inner(),
+        };
+
+        let timer = &mut *timer;
+
+        match timer {
+            None => Timer::init(timer),
+            Some(t) => t.tx.clone(),
+        }
+    }
+
+    pub fn init(timer: &mut Option<Timer>) -> std::sync::mpsc::Sender<TimerAction> {
+        let (tx, rx) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
             let mut plugins = std::collections::BTreeMap::new();
 
@@ -39,20 +59,29 @@ impl Timer {
                             engine,
                             duration,
                         } => {
-                            let duration = duration.map(|x| std::time::Instant::now() + x);
-                            plugins.insert(id, (engine, duration));
+                            let timeout = duration.map(|x| std::time::Instant::now() + x);
+                            trace!(
+                                plugin = id.to_string(),
+                                "start event with timeout: {:?}",
+                                duration
+                            );
+                            plugins.insert(id, (engine, timeout));
                         }
                         TimerAction::Stop { id } => {
+                            trace!(plugin = id.to_string(), "handling stop event");
                             plugins.remove(&id);
                         }
                         TimerAction::Cancel { id } => {
-                            if let Some((engine, _)) = plugins.remove(&id) {
-                                engine.increment_epoch();
+                            trace!(plugin = id.to_string(), "handling cancel event");
+                            if let Some((_engine, _)) = plugins.remove(&id) {
+                                // engine.increment_epoch();
                             }
                         }
                         TimerAction::Shutdown => {
-                            for (_, (engine, _)) in plugins.iter() {
-                                engine.increment_epoch();
+                            trace!("Shutting down timer");
+                            for (id, (_engine, _)) in plugins.iter() {
+                                trace!(plugin = id.to_string(), "handling shutdown event");
+                                // engine.increment_epoch();
                             }
                             return;
                         }
@@ -69,11 +98,11 @@ impl Timer {
 
                 plugins = plugins
                     .into_iter()
-                    .filter(|(_k, (engine, end))| {
+                    .filter(|(_k, (_engine, end))| {
                         if let Some(end) = end {
                             let now = std::time::Instant::now();
                             if end <= &now {
-                                engine.increment_epoch();
+                                // engine.increment_epoch();
                                 return false;
                             }
                         }
@@ -90,6 +119,7 @@ impl Timer {
             thread: Some(thread),
             tx: tx.clone(),
         });
+        trace!("Extism timer created");
 
         #[cfg(not(target_family = "windows"))]
         unsafe {

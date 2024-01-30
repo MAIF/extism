@@ -10,6 +10,8 @@ public class HostFunction<T extends HostUserData> {
 
     private final LibExtism.InternalExtismFunction callback;
 
+    private boolean freed;
+
     public final Pointer pointer;
 
     public final String name;
@@ -22,6 +24,7 @@ public class HostFunction<T extends HostUserData> {
 
     public HostFunction(String name, LibExtism.ExtismValType[] params, LibExtism.ExtismValType[] returns, ExtismFunction f, Optional<T> userData) {
 
+        this.freed = false;
         this.name = name;
         this.params = params;
         this.returns = returns;
@@ -97,8 +100,15 @@ public class HostFunction<T extends HostUserData> {
         }
     }
 
-    public HostFunction withNamespace(String name) {
+    public HostFunction<T> withNamespace(String name) {
         this.setNamespace(name);
         return this;
+    }
+
+    public void free() {
+        if (!this.freed) {
+            LibExtism.INSTANCE.extism_function_free(this.pointer);
+            this.freed = true;
+        }
     }
 }

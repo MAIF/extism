@@ -19,10 +19,6 @@ public class ExtismCurrentPlugin {
         return LibExtism.INSTANCE.extism_current_plugin_memory_alloc(this.pointer, n);
     }
 
-    public Pointer getLinearMemory(int instanceIndex, String memoryName) {
-        return LibExtism.INSTANCE.extism_get_lineary_memory_from_host_functions(this.pointer, instanceIndex, memoryName);
-    }
-
     public void free(long offset) {
         LibExtism.INSTANCE.extism_current_plugin_memory_free(this.pointer, offset);
     }
@@ -87,4 +83,36 @@ public class ExtismCurrentPlugin {
     public String inputString(LibExtism.ExtismVal input) {
         return new String(this.inputBytes(input));
     }
+
+    public Pointer customMemoryGet() {
+        return LibExtism.INSTANCE.custom_memory_get(this.pointer);
+    }
+
+    public int customMemoryAlloc(int n) {
+        return LibExtism.INSTANCE.custom_memory_alloc(this.pointer, n);
+    }
+
+    public void customMemoryFree(long offset) {
+        LibExtism.INSTANCE.custom_memory_free(this.pointer, offset);
+    }
+
+    public long customMemoryLength(long offset) {
+        return LibExtism.INSTANCE.custom_memory_length(this.pointer, offset);
+    }
+
+    public Pointer linearMemoryGet(String namespace, String name) {
+        return LibExtism.INSTANCE.linear_memory_get(this.pointer, namespace, name);
+    }
+
+    public int linearMemorySize(String namespace, String name, long n) {
+        return LibExtism.INSTANCE.linear_memory_size(this.pointer, namespace, name, n);
+    }
+
+    /*public int linearMemoryAlloc(String namespace, String name, long n) {
+        return LibExtism.INSTANCE.linear_memory_alloc(this.pointer, namespace, name, n);
+    }*/
+
+//    public void linearMemoryFree(String namespace, String name, long ptr) {
+//        LibExtism.INSTANCE.linear_memory_free(this.pointer, namespace, name, ptr);
+//    }
 }
