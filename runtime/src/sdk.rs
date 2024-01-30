@@ -476,6 +476,9 @@ pub unsafe extern "C" fn extism_plugin_call(
     if plugin.is_null() {
         return -1;
     }
+    let plugin = &mut *plugin;
+    let lock = plugin.instance.clone();
+    let mut lock = lock.lock().unwrap();
 
     let plugin = &mut *plugin;
     let lock = plugin.instance.clone();

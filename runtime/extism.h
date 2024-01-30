@@ -56,7 +56,9 @@ typedef struct ExtismCancelHandle ExtismCancelHandle;
  * CurrentPlugin stores data that is available to the caller in PDK functions, this should
  * only be accessed from inside a host function
  */
-typedef struct ExtismCurrentPlugin ExtismCurrentPlugin;
+typedef struct ExtismPlugin ExtismPlugin;
+
+typedef uint64_t ExtismMemoryHandle;
 
 typedef struct ExtismFunction ExtismFunction;
 

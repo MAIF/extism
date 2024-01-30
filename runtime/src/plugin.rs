@@ -32,6 +32,36 @@ impl CancelHandle {
     }
 }
 
+pub const EXTISM_ENV_MODULE: &str = "extism:host/env";
+pub const EXTISM_USER_MODULE: &str = "extism:host/user";
+pub(crate) const MAIN_KEY: &str = "main";
+
+#[derive(Default, Clone)]
+pub(crate) struct Output {
+    pub(crate) offset: u64,
+    pub(crate) length: u64,
+    pub(crate) error_offset: u64,
+    pub(crate) error_length: u64,
+}
+
+/// A `CancelHandle` can be used to cancel a running plugin from another thread
+#[derive(Clone)]
+pub struct CancelHandle {
+    pub(crate) timer_tx: std::sync::mpsc::Sender<TimerAction>,
+    pub id: uuid::Uuid,
+}
+
+unsafe impl Sync for CancelHandle {}
+unsafe impl Send for CancelHandle {}
+
+impl CancelHandle {
+    pub fn cancel(&self) -> Result<(), Error> {
+        debug!(plugin = self.id.to_string(), "sending cancel event");
+        self.timer_tx.send(TimerAction::Cancel { id: self.id })?;
+        Ok(())
+    }
+}
+
 /// Plugin contains everything needed to execute a WASM function
 pub struct Plugin {
     /// A unique ID for each plugin
@@ -343,7 +373,6 @@ impl Plugin {
 
         plugin.current_plugin_mut().store = &mut plugin.store;
         plugin.current_plugin_mut().linker = &mut plugin.linker;
-
         if available_pages.is_some() {
             plugin
                 .store
@@ -424,7 +453,6 @@ impl Plugin {
         if let Some(limiter) = &mut self.current_plugin_mut().memory_limiter {
             limiter.reset();
         }
-
         self.detect_guest_runtime(instance_lock);
         self.initialize_guest_runtime()?;
         Ok(())
@@ -475,7 +503,6 @@ impl Plugin {
         {
             let store = &mut self.store as *mut _;
             let linker = &mut self.linker as *mut _;
-
             let current_plugin = self.current_plugin_mut();
             current_plugin.store = store;
             current_plugin.linker = linker;
