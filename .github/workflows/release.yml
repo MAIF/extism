@@ -73,13 +73,13 @@ jobs:
             static-dll-artifact: 'libextism.dll.a'
             pc-in: 'extism.pc.in'
             static-pc-in: 'extism-static.pc.in'
-          - os: 'windows'
-            target: 'x86_64-pc-windows-msvc'
-            artifact: 'extism.dll'
-            static-artifact: 'extism.lib'
-            static-dll-artifact: 'extism.dll.lib'
-            pc-in: ''
-            static-pc-in: ''
+          # - os: 'windows'
+          #   target: 'x86_64-pc-windows-msvc'
+          #   artifact: 'extism.dll'
+          #   static-artifact: 'extism.lib'
+          #   static-dll-artifact: 'extism.dll.lib'
+          #   pc-in: ''
+          #   static-pc-in: ''
 
     steps:
       - name: Checkout
