@@ -36,6 +36,10 @@ public enum TestWasmSources {
         public Path getWasmWaf() {
             return Paths.get(WASM_LOCATION, "coraza-proxy-wasm-v0.5.0.wasm");
         }
+
+        public Path getLogginPath() {
+            return Paths.get(WASM_LOCATION, "logging.wasm");
+        }
     };
 
     public static final String WASM_LOCATION = "src/test/resources";
@@ -49,6 +53,8 @@ public enum TestWasmSources {
     public abstract Path getMajorReleasePath();
 
     public abstract Path getOPAPath();
+
+    public abstract Path getLogginPath();
 
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
@@ -70,6 +76,10 @@ public enum TestWasmSources {
 
     public PathWasmSource getOPA() {
         return resolvePathWasmSource(getOPAPath());
+    }
+
+    public PathWasmSource getLogging() {
+        return resolvePathWasmSource(getLogginPath());
     }
 
     public abstract Path getWasmWaf();

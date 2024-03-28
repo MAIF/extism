@@ -16,7 +16,6 @@ mod plugin;
 mod plugin_builder;
 mod timer;
 pub(crate) mod extension;
-
 /// Extism C API
 pub mod sdk;
 

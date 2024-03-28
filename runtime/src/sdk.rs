@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::os::raw::c_char;
+use std::{io::Read, os::raw::c_char};
 
 use crate::*;
 
@@ -47,30 +47,22 @@ pub type ExtismLogDrainFunctionType = extern "C" fn(data: *const std::ffi::c_cha
 
 impl From<&wasmtime::Val> for ExtismVal {
     fn from(value: &wasmtime::Val) -> Self {
-        match value.ty() {
-            wasmtime::ValType::I32 => ExtismVal {
+        match value {
+            wasmtime::Val::I32(value) => ExtismVal {
                 t: ValType::I32,
-                v: ValUnion {
-                    i32: value.unwrap_i32(),
-                },
+                v: ValUnion { i32: *value },
             },
-            wasmtime::ValType::I64 => ExtismVal {
+            wasmtime::Val::I64(value) => ExtismVal {
                 t: ValType::I64,
-                v: ValUnion {
-                    i64: value.unwrap_i64(),
-                },
+                v: ValUnion { i64: *value },
             },
-            wasmtime::ValType::F32 => ExtismVal {
+            wasmtime::Val::F32(value) => ExtismVal {
                 t: ValType::F32,
-                v: ValUnion {
-                    f32: value.unwrap_f32(),
-                },
+                v: ValUnion { f32: *value as f32 },
             },
-            wasmtime::ValType::F64 => ExtismVal {
+            wasmtime::Val::F64(value) => ExtismVal {
                 t: ValType::F64,
-                v: ValUnion {
-                    f64: value.unwrap_f64(),
-                },
+                v: ValUnion { f64: *value as f64 },
             },
             // t => todo!("{}", t),
             _ => ExtismVal {
@@ -171,6 +163,7 @@ pub unsafe extern "C" fn extism_current_plugin_memory_free(
 /// Returns a new `ExtismFunction` or `null` if the `name` argument is invalid.
 #[no_mangle]
 pub unsafe extern "C" fn extism_function_new(
+    engine: *mut Engine,
     name: *const std::ffi::c_char,
     inputs: *const ValType,
     n_inputs: Size,
@@ -201,8 +194,10 @@ pub unsafe extern "C" fn extism_function_new(
     }
     .to_vec();
 
+    let engine = &mut *engine;
     let user_data: UserData<()> = UserData::new_pointer(user_data, free_user_data);
     let f = Function::new(
+        &engine,
         name,
         inputs,
         output_types.clone(),
@@ -274,7 +269,7 @@ pub unsafe extern "C" fn extism_function_set_namespace(
 /// `n_functions`: the number of functions provided
 /// `with_wasi`: enables/disables WASI
 #[no_mangle]
-pub unsafe extern "C" fn extism_plugin_new(
+pub async unsafe extern "C" fn extism_plugin_new(
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -306,7 +301,7 @@ pub unsafe extern "C" fn extism_plugin_new(
         }
     }
 
-    let plugin = Plugin::new(data, funcs, with_wasi);
+    let plugin = Plugin::new(data, funcs, with_wasi).await;
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
@@ -376,57 +371,57 @@ pub unsafe extern "C" fn extism_plugin_config(
     json: *const u8,
     json_size: Size,
 ) -> bool {
-    if plugin.is_null() {
-        return false;
-    }
-    let plugin = &mut *plugin;
-    let _lock = plugin.instance.clone();
-    let mut lock = _lock.lock().unwrap();
+    // if plugin.is_null() {
+    //     return false;
+    // }
+    // let plugin = &mut *plugin;
+    // let _lock = plugin.instance.clone();
+    // let mut lock = _lock.lock().unwrap();
 
-    trace!(
-        plugin = plugin.id.to_string(),
-        "call to extism_plugin_config with pointer {:?}",
-        json
-    );
-    let data = std::slice::from_raw_parts(json, json_size as usize);
-    let json: std::collections::BTreeMap<String, Option<String>> =
-        match serde_json::from_slice(data) {
-            Ok(x) => x,
-            Err(e) => {
-                return plugin.return_error(&mut lock, e, false);
-            }
-        };
+    // trace!(
+    //     plugin = plugin.id.to_string(),
+    //     "call to extism_plugin_config with pointer {:?}",
+    //     json
+    // );
+    // let data = std::slice::from_raw_parts(json, json_size as usize);
+    // let json: std::collections::BTreeMap<String, Option<String>> =
+    //     match serde_json::from_slice(data) {
+    //         Ok(x) => x,
+    //         Err(e) => {
+    //             return plugin.return_error(&mut lock, e, false);
+    //         }
+    //     };
 
-    let wasi = &mut plugin.current_plugin_mut().wasi;
-    if let Some(Wasi { ctx, .. }) = wasi {
-        for (k, v) in json.iter() {
-            match v {
-                Some(v) => {
-                    let _ = ctx.push_env(k, v);
-                }
-                None => {
-                    let _ = ctx.push_env(k, "");
-                }
-            }
-        }
-    }
+    // let wasi = &mut plugin.current_plugin_mut().wasi;
+    // if let Some(Wasi { ctx, .. }) = wasi {
+    //     for (k, v) in json.iter() {
+    //         match v {
+    //             Some(v) => {
+    //                 let _ = ctx.push_env(k, v);
+    //             }
+    //             None => {
+    //                 let _ = ctx.push_env(k, "");
+    //             }
+    //         }
+    //     }
+    // }
 
-    let id = plugin.id;
-    let config = &mut plugin.current_plugin_mut().manifest.config;
-    for (k, v) in json.into_iter() {
-        match v {
-            Some(v) => {
-                trace!(plugin = id.to_string(), "config, adding {k}");
-                config.insert(k, v);
-            }
-            None => {
-                trace!(plugin = id.to_string(), "config, removing {k}");
-                config.remove(&k);
-            }
-        }
-    }
+    // let id = plugin.id;
+    // let config = &mut plugin.current_plugin_mut().manifest.config;
+    // for (k, v) in json.into_iter() {
+    //     match v {
+    //         Some(v) => {
+    //             trace!(plugin = id.to_string(), "config, adding {k}");
+    //             config.insert(k, v);
+    //         }
+    //         None => {
+    //             trace!(plugin = id.to_string(), "config, removing {k}");
+    //             config.remove(&k);
+    //         }
+    //     }
+    // }
 
-    let _ = plugin.clear_error();
+    // let _ = plugin.clear_error();
     true
 }
 
@@ -467,7 +462,7 @@ pub unsafe extern "C" fn extism_plugin_function_exists(
 /// `data`: is the input data
 /// `data_len`: is the length of `data`
 #[no_mangle]
-pub unsafe extern "C" fn extism_plugin_call(
+pub async unsafe extern "C" fn extism_plugin_call(
     plugin: *mut Plugin,
     func_name: *const c_char,
     data: *const u8,
@@ -494,7 +489,9 @@ pub unsafe extern "C" fn extism_plugin_call(
         name
     );
     let input = std::slice::from_raw_parts(data, data_len as usize);
-    let res = plugin.raw_call(&mut lock, name, input, true, None, None);
+    let res = plugin
+        .raw_call(&mut lock, name, input, true, None, None)
+        .await;
 
     match res {
         Err((e, rc)) => plugin.return_error(&mut lock, e, rc),
@@ -742,4 +739,14 @@ pub unsafe extern "C" fn extism_plugin_reset(plugin: *mut Plugin) -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn extism_version() -> *const c_char {
     VERSION.as_ptr() as *const _
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn restore_stdout(plugin: *mut Plugin) {
+    let mut stdout = std::fs::File::create("stdout.txt").unwrap();
+
+    let mut buffer = String::from("");
+    let _ = stdout.read_to_string(&mut buffer);
+
+    panic!("{}", buffer);
 }

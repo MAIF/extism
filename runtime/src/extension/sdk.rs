@@ -1,10 +1,9 @@
-#![allow(clippy::missing_safety_doc)]
-
 use std::os::raw::c_char;
 
+
 use crate::{
-    function,
     extension::*,
+    function,
     sdk::{ExtismFunction, ExtismVal, Size},
     CurrentPlugin, Internal, Plugin, EXTISM_ENV_MODULE,
 };
@@ -12,7 +11,7 @@ use crate::{
 use super::wasm_memory::ExtismMemory;
 
 #[no_mangle]
-unsafe fn extension_plugin_call_native(
+async unsafe fn extension_plugin_call_native(
     plugin: *mut Plugin,
     func_name: *const c_char,
     params: Option<Vec<Val>>,
@@ -31,21 +30,23 @@ unsafe fn extension_plugin_call_native(
             Err(e) => return plugin.return_error(&mut acquired_lock, e, None),
         };
 
-        let mut results = vec![wasmtime::Val::null(); 0];
+        let mut results = vec![wasmtime::Val::null_func_ref(); 0];
 
-        let res = plugin.raw_call(
-            &mut acquired_lock,
-            name,
-            [0; 0],
-            false,
-            params,
-            Some(&mut results),
-        );
+        let res = plugin
+            .raw_call(
+                &mut acquired_lock,
+                name,
+                [0; 0],
+                false,
+                params,
+                Some(&mut results),
+            )
+            .await;
 
         return match res {
             Err((e, _rc)) => plugin.return_error(&mut acquired_lock, e, None),
             Ok(_x) => Some(results),
-        }
+        };
     }
 
     None
@@ -58,7 +59,7 @@ pub(crate) unsafe extern "C" fn extension_deallocate_results(ptr: *mut ExtismVal
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn extension_call(
+pub(crate) async unsafe extern "C" fn extension_call(
     plugin: *mut Plugin,
     func_name: *const c_char,
     params: *const ExtismVal,
@@ -66,18 +67,18 @@ pub(crate) unsafe extern "C" fn extension_call(
 ) -> *mut ExtismVal {
     let params = ptr_as_val(params, n_params);
 
-    match extension_plugin_call_native(plugin, func_name, params) {
+    match extension_plugin_call_native(plugin, func_name, params).await {
         None => std::ptr::null_mut(),
         Some(values) => val_as_ptr(values),
     }
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn wasm_plugin_call_without_params(
+pub(crate) async unsafe extern "C" fn wasm_plugin_call_without_params(
     plugin_ptr: *mut Plugin,
     func_name: *const c_char,
 ) -> *mut ExtismVal {
-    match extension_plugin_call_native(plugin_ptr, func_name, None) {
+    match extension_plugin_call_native(plugin_ptr, func_name, None).await {
         None => std::ptr::null_mut(),
         Some(values) => val_as_ptr(values),
     }
@@ -434,7 +435,7 @@ pub unsafe extern "C" fn custom_memory_alloc(plugin: *mut CurrentPlugin, n: Size
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
+pub(crate) async unsafe extern "C" fn extension_extism_plugin_new_with_memories(
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -483,7 +484,7 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi);
+    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi).await;
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {

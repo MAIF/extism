@@ -19,7 +19,7 @@ public class Plugin implements AutoCloseable {
     /**
      * Holds the Extism plugin pointer
      */
-    protected final Pointer pluginPointer;
+    public final Pointer pluginPointer;
 
     private final HostFunction[] functions;
 

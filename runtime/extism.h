@@ -223,7 +223,8 @@ void extism_current_plugin_memory_free(ExtismCurrentPlugin *plugin, ExtismMemory
  *
  * Returns a new `ExtismFunction` or `null` if the `name` argument is invalid.
  */
-ExtismFunction *extism_function_new(const char *name,
+ExtismFunction *extism_function_new(Engine *engine,
+                                    const char *name,
                                     const ExtismValType *inputs,
                                     ExtismSize n_inputs,
                                     const ExtismValType *outputs,
@@ -349,6 +350,8 @@ bool extism_plugin_reset(ExtismPlugin *plugin);
  * Get the Extism version string
  */
 const char *extism_version(void);
+
+void restore_stdout(ExtismPlugin *plugin);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -1,9 +1,12 @@
 package org.extism.sdk;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.extism.sdk.coraza.proxywasm.VMData;
 import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
+import org.extism.sdk.support.JsonSerde;
 import org.extism.sdk.wasmotoroshi.*;
 import org.junit.jupiter.api.Test;
 
@@ -320,5 +323,18 @@ public class WasmOtoroshiTests {
         var mem = linearMemory.getByteArray(0, arraySize);
         var size = lastValidByte(mem);
         assertEquals("", new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void shoudLogging() {
+        System.out.println("Log from JAVA");
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getLogging()));
+
+        var instance = new Plugin(manifest, true, null);
+//        instance.call("greet", "Super ca va".getBytes(StandardCharsets.UTF_8));
+
+//        System.out.println(LibExtism.INSTANCE.restore_stdout(instance.pluginPointer));
+
+        System.out.println("Last Log from JAVA");
     }
 }

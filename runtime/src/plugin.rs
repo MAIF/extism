@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use crate::{extension::{custom_memory::PluginMemory, WasmMemory}, *};
+use crate::{
+    extension::{custom_memory::PluginMemory, WasmMemory},
+    *,
+};
 
 pub const EXTISM_ENV_MODULE: &str = "extism:host/env";
 pub const EXTISM_USER_MODULE: &str = "extism:host/user";
@@ -180,7 +183,7 @@ impl<'a> From<&'a Vec<u8>> for WasmInput<'a> {
 impl Plugin {
     /// Create a new plugin from a Manifest or WebAssembly module, and host functions. The `with_wasi`
     /// parameter determines whether or not the module should be executed with WASI enabled.
-    pub fn new<'a>(
+    pub async fn new<'a>(
         wasm: impl Into<WasmInput<'a>>,
         imports: impl IntoIterator<Item = Function>,
         with_wasi: bool,
@@ -192,10 +195,10 @@ impl Plugin {
             with_wasi,
             Default::default(),
             None,
-        )
+        ).await
     }
 
-    pub fn new_with_memories<'a>(
+    pub async fn new_with_memories<'a>(
         wasm: impl Into<WasmInput<'a>>,
         imports: impl IntoIterator<Item = Function>,
         memories: Vec<&WasmMemory>,
@@ -208,10 +211,10 @@ impl Plugin {
             with_wasi,
             Default::default(),
             None,
-        )
+        ).await
     }
 
-    pub(crate) fn build_new(
+    pub(crate) async fn build_new(
         wasm: WasmInput<'_>,
         imports: impl IntoIterator<Item = Function>,
         memories: Vec<&WasmMemory>,
@@ -227,7 +230,8 @@ impl Plugin {
             .coredump_on_trap(debug_options.coredump.is_some())
             .profiler(debug_options.profiling_strategy)
             .wasm_tail_call(true)
-            .wasm_function_references(true);
+            .wasm_function_references(true)
+            .async_support(true);
 
         match cache_dir {
             Some(None) => (),
@@ -268,15 +272,16 @@ impl Plugin {
 
         // If wasi is enabled then add it to the linker
         if with_wasi {
-            wasmtime_wasi::add_to_linker(&mut linker, |x: &mut CurrentPlugin| {
-                &mut x.wasi.as_mut().unwrap().ctx
-            })?;
+            wasmtime_wasi::preview1::wasi_snapshot_preview1::add_to_linker(
+                &mut linker,
+                |x: &mut CurrentPlugin| &mut x.wasi.as_mut().unwrap().ctx,
+            )?;
         }
 
         let main = &modules[MAIN_KEY];
         for (name, module) in modules.iter() {
             if name != MAIN_KEY {
-                linker.module(&mut store, name, module)?;
+                linker.module_async(&mut store, name, module).await?;
             }
         }
 
@@ -285,7 +290,7 @@ impl Plugin {
         macro_rules! add_funcs {
             ($($name:ident($($args:expr),*) $(-> $($r:expr),*)?);* $(;)?) => {
                 $(
-                    let t = FuncType::new([$($args),*], [$($($r),*)?]);
+                    let t = FuncType::new(&engine, [$($args),*], [$($($r),*)?]);
                     linker.func_new(EXTISM_ENV_MODULE, stringify!($name), t, pdk::$name)?;
                 )*
             };
@@ -338,7 +343,7 @@ impl Plugin {
             output: Output::default(),
             store_needs_reset: false,
             debug_options,
-            _functions: imports
+            _functions: imports,
         };
 
         plugin.current_plugin_mut().store = &mut plugin.store;
@@ -398,21 +403,20 @@ impl Plugin {
 
     // Instantiate the module. This is done lazily to avoid running any code outside of the `call` function,
     // since wasmtime may execute a start function (if configured) at instantiation time,
-    pub(crate) fn instantiate(
+    pub(crate) async fn instantiate(
         &mut self,
-        instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
+        instance_lock: &mut std::sync::MutexGuard<'_, Option<Instance>>,
     ) -> Result<(), Error> {
         if instance_lock.is_some() {
             return Ok(());
         }
 
-        let instance = self.instance_pre.instantiate(&mut self.store)?;
+        let instance = self.instance_pre.instantiate_async(&mut self.store).await?;
 
-        if let Some(memory) = instance.get_memory(&mut self.store, "memory")  {
+        if let Some(memory) = instance.get_memory(&mut self.store, "memory") {
             let store = &mut self.store as *mut _;
-            self.current_plugin_mut().memory_export = Box::into_raw(Box::new(
-                PluginMemory::new(store, memory)
-            ));
+            self.current_plugin_mut().memory_export =
+                Box::into_raw(Box::new(PluginMemory::new(store, memory)));
         }
 
         trace!(
@@ -451,7 +455,7 @@ impl Plugin {
                 if let Some(f) = x.func() {
                     let (params, mut results) = (f.params(), f.results());
                     match (params.len(), results.len()) {
-                        (0, 1) => results.next() == Some(wasmtime::ValType::I32),
+                        (0, 1) => results.next().map(|f| f.is_i32()).unwrap_or(false),
                         (0, 0) => true,
                         _ => false,
                     }
@@ -590,7 +594,7 @@ impl Plugin {
                     if let Some(reactor_init) = reactor_init {
                         reactor_init.call(&mut store, &[], &mut [])?;
                     }
-                    let mut results = vec![Val::null(); init.ty(&store).results().len()];
+                    let mut results = vec![Val::null_extern_ref(); init.ty(&store).results().len()];
                     init.call(
                         &mut store,
                         &[Val::I32(0), Val::I32(0)],
@@ -670,9 +674,9 @@ impl Plugin {
 
     // Implements the build of the `call` function, `raw_call` is also used in the SDK
     // code
-    pub(crate) fn raw_call(
+    pub(crate) async fn raw_call(
         &mut self,
-        lock: &mut std::sync::MutexGuard<Option<Instance>>,
+        lock: &mut std::sync::MutexGuard<'_, Option<Instance>>,
         name: impl AsRef<str>,
         input: impl AsRef<[u8]>,
         use_extism: bool,
@@ -691,7 +695,7 @@ impl Plugin {
             }
         }
 
-        self.instantiate(lock).map_err(|e| (e, -1))?;
+        self.instantiate(lock).await.map_err(|e| (e, -1))?;
 
         if use_extism {
             self.set_input(input.as_ptr(), input.len())
@@ -730,7 +734,7 @@ impl Plugin {
         self.store.epoch_deadline_trap();
         self.store.set_epoch_deadline(1);
 
-        let mut results = vec![wasmtime::Val::null(); n_results];
+        let mut results = vec![wasmtime::Val::null_extern_ref(); n_results];
         // Call the function
 
         let mut res: Result<()> = if use_extism {
@@ -835,13 +839,7 @@ impl Plugin {
                     }
                 }
 
-                let wasi_exit_code = e
-                    .downcast_ref::<wasmtime_wasi::I32Exit>()
-                    .map(|e| e.0)
-                    .or_else(|| {
-                        e.downcast_ref::<wasmtime_wasi::preview2::I32Exit>()
-                            .map(|e| e.0)
-                    });
+                let wasi_exit_code = e.downcast_ref::<wasmtime_wasi::I32Exit>().map(|e| e.0);
                 if let Some(exit_code) = wasi_exit_code {
                     debug!(
                         plugin = self.id.to_string(),
@@ -896,7 +894,7 @@ impl Plugin {
     /// let output = plugin.call::<&str, &str>("greet", "Benjamin")?;
     /// assert_eq!(output, "Hello, Benjamin!");
     /// ```
-    pub fn call<'a, 'b, T: ToBytes<'a>, U: FromBytes<'b>>(
+    pub async fn call<'a, 'b, T: ToBytes<'a>, U: FromBytes<'b>>(
         &'b mut self,
         name: impl AsRef<str>,
         input: T,
@@ -905,6 +903,7 @@ impl Plugin {
         let mut lock = lock.lock().unwrap();
         let data = input.to_bytes()?;
         self.raw_call(&mut lock, name, data, true, None, None)
+            .await
             .map_err(|e| e.0)
             .and_then(move |_| self.output())
     }
@@ -915,7 +914,7 @@ impl Plugin {
     /// All Extism plugin calls return an error code, `Plugin::call` consumes the error code,
     /// while `Plugin::call_get_error_code` preserves it - this function should only be used
     /// when you need to inspect the actual return value of a plugin function when it fails.
-    pub fn call_get_error_code<'a, 'b, T: ToBytes<'a>, U: FromBytes<'b>>(
+    pub async fn call_get_error_code<'a, 'b, T: ToBytes<'a>, U: FromBytes<'b>>(
         &'b mut self,
         name: impl AsRef<str>,
         input: T,
@@ -924,6 +923,7 @@ impl Plugin {
         let mut lock = lock.lock().unwrap();
         let data = input.to_bytes().map_err(|e| (e, -1))?;
         self.raw_call(&mut lock, name, data, true, None, None)
+            .await
             .and_then(move |_| self.output().map_err(|e| (e, -1)))
     }
 

@@ -87,6 +87,8 @@ public interface LibExtism extends Library {
 
     void extism_function_free(Pointer function);
 
+    String restore_stdout(Pointer plugin);
+
     Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
 
     /**

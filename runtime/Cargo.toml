@@ -9,8 +9,8 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmtime = ">= 14.0.0, < 18.0.0"
-wasmtime-wasi = ">= 14.0.0, < 18.0.0"
+wasmtime = "19.0.0"
+wasmtime-wasi = "19.0.0"
 anyhow = "1"
 serde = {version = "1", features = ["derive"]}
 serde_json = "1"
@@ -25,6 +25,8 @@ extism-manifest = { workspace = true }
 extism-convert = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
+bytes = "1.6.0"
+cap-std = "2.0.1"
 
 [features]
 default = ["http", "register-http", "register-filesystem"]

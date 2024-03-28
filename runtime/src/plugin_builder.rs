@@ -62,6 +62,7 @@ impl<'a> PluginBuilder<'a> {
     /// Add a single host function
     pub fn with_function<T: 'static, F>(
         mut self,
+        engine: &wasmtime::Engine,
         name: impl Into<String>,
         args: impl IntoIterator<Item = ValType>,
         returns: impl IntoIterator<Item = ValType>,
@@ -75,13 +76,14 @@ impl<'a> PluginBuilder<'a> {
             + Send,
     {
         self.functions
-            .push(Function::new(name, args, returns, user_data, f));
+            .push(Function::new(&engine, name, args, returns, user_data, f));
         self
     }
 
     /// Add a single host function in a specific namespace
     pub fn with_function_in_namespace<T: 'static, F>(
         mut self,
+        engine: &wasmtime::Engine,
         namespace: impl Into<String>,
         name: impl Into<String>,
         args: impl IntoIterator<Item = ValType>,
@@ -96,7 +98,7 @@ impl<'a> PluginBuilder<'a> {
             + Send,
     {
         self.functions
-            .push(Function::new(name, args, returns, user_data, f).with_namespace(namespace));
+            .push(Function::new(&engine, name, args, returns, user_data, f).with_namespace(namespace));
         self
     }
 
@@ -149,7 +151,7 @@ impl<'a> PluginBuilder<'a> {
     }
 
     /// Generate a new plugin with the configured settings
-    pub fn build(self) -> Result<Plugin, Error> {
+    pub async fn build(self) -> Result<Plugin, Error> {
         Plugin::build_new(
             self.source,
             self.functions,
@@ -157,6 +159,6 @@ impl<'a> PluginBuilder<'a> {
             self.wasi,
             self.debug_options,
             self.cache_config,
-        )
+        ).await
     }
 }

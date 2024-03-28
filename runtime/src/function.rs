@@ -52,8 +52,9 @@ impl From<ValType> for wasmtime::ValType {
             F32 => wasmtime::ValType::F32,
             F64 => wasmtime::ValType::F64,
             V128 => wasmtime::ValType::V128,
-            FuncRef => wasmtime::ValType::FuncRef,
-            ExternRef => wasmtime::ValType::ExternRef,
+            _ =>  todo!()
+            // FuncRef => wasmtime::ValType::FuncRef,
+            // ExternRef => wasmtime::ValType::ExternRef,
         }
     }
 }
@@ -181,6 +182,7 @@ pub struct Function {
 impl Function {
     /// Create a new host function
     pub fn new<T: 'static, F>(
+        engine: &wasmtime::Engine,
         name: impl Into<String>,
         args: impl IntoIterator<Item = ValType>,
         returns: impl IntoIterator<Item = ValType>,
@@ -197,7 +199,7 @@ impl Function {
         let name = name.into();
         let args = args.into_iter().map(wasmtime::ValType::from);
         let returns = returns.into_iter().map(wasmtime::ValType::from);
-        let ty = wasmtime::FuncType::new(args, returns);
+        let ty = wasmtime::FuncType::new(&engine, args, returns);
         trace!("Creating function {name}: type={ty:?}");
         Function {
             name,

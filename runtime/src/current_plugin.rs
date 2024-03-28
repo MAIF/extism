@@ -1,3 +1,6 @@
+
+use wasmtime_wasi::pipe::MemoryOutputPipe;
+
 use crate::*;
 
 use self::extension::custom_memory::PluginMemory;
@@ -292,25 +295,50 @@ impl CurrentPlugin {
         id: uuid::Uuid,
     ) -> Result<Self, Error> {
         let wasi = if wasi {
-            let auth = wasmtime_wasi::ambient_authority();
+            // let auth = wasmtime_wasi::with_ambient_tokio_runtime();
+            // let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
             let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
-            for (k, v) in manifest.config.iter() {
-                ctx.env(k, v)?;
-            }
+            // for (k, v) in manifest.config.iter() {
+            //     ctx.env(k, v)?;
+            // }
 
-            if let Some(a) = &manifest.allowed_paths {
-                for (k, v) in a.iter() {
-                    let d = wasmtime_wasi::Dir::open_ambient_dir(k, auth)?;
-                    ctx.preopened_dir(d, v)?;
-                }
-            }
+            // if let Some(a) = &manifest.allowed_paths {
+            //     for (k, v) in a.iter() {
+            //         let d = wasmtime_wasi::Dir::open_ambient_dir(k, auth)?;
+            //         ctx.preopened_dir(d, v)?;
+            //     }
+            // }
 
             // Enable WASI output, typically used for debugging purposes
             if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {
-                ctx.inherit_stdout().inherit_stderr();
+                // ctx.inherit_stdout().inherit_stderr();
+
+                // let saved_stdout = unsafe { libc::dup(libc::STDOUT_FILENO) };
+
+                // let stdout = std::fs::File::create("stdout.txt").unwrap();
+
+                // unsafe { libc::dup2(stdout.as_fd().as_raw_fd(), libc::STDOUT_FILENO) };
+
+                // let stdout = cap_std::fs::File::from_std(stdout) as cap_std::fs::File;
+                // let stdout = wasmtime_wasi::file::File::from_cap_std(stdout);
+
+                let stdout = MemoryOutputPipe::new(4096);
+                let stderr = MemoryOutputPipe::new(4096);
+
+                ctx.stdout(stdout.clone()).stderr(stderr.clone());
+
+                // let stderr = std::fs::File::create("stderr.txt").unwrap();
+                // let stderr = cap_std::fs::File::from_std(stderr) as cap_std::fs::File;
+                // let stderr = wasmtime_wasi::file::File::from_cap_std(stderr);
+                // ctx.stderr(Box::new(stderr));
+
+                // let stdin = std::fs::File::create("stdin.txt").unwrap();
+                // let stdin = cap_std::fs::File::from_std(stdin) as cap_std::fs::File;
+                // let stdin = wasmtime_wasi::file::File::from_cap_std(stdin);
+                // ctx.stdin(Box::new(stdin));
             }
 
-            Some(Wasi { ctx: ctx.build() })
+            Some(Wasi { ctx: ctx.build_p1() })
         } else {
             None
         };
