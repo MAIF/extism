@@ -11,7 +11,7 @@ use crate::{
 use super::wasm_memory::ExtismMemory;
 
 #[no_mangle]
-async unsafe fn extension_plugin_call_native(
+unsafe fn extension_plugin_call_native(
     plugin: *mut Plugin,
     func_name: *const c_char,
     params: Option<Vec<Val>>,
@@ -40,8 +40,7 @@ async unsafe fn extension_plugin_call_native(
                 false,
                 params,
                 Some(&mut results),
-            )
-            .await;
+            );
 
         return match res {
             Err((e, _rc)) => plugin.return_error(&mut acquired_lock, e, None),
@@ -59,7 +58,7 @@ pub(crate) unsafe extern "C" fn extension_deallocate_results(ptr: *mut ExtismVal
 }
 
 #[no_mangle]
-pub(crate) async unsafe extern "C" fn extension_call(
+pub(crate) unsafe extern "C" fn extension_call(
     plugin: *mut Plugin,
     func_name: *const c_char,
     params: *const ExtismVal,
@@ -67,18 +66,18 @@ pub(crate) async unsafe extern "C" fn extension_call(
 ) -> *mut ExtismVal {
     let params = ptr_as_val(params, n_params);
 
-    match extension_plugin_call_native(plugin, func_name, params).await {
+    match extension_plugin_call_native(plugin, func_name, params) {
         None => std::ptr::null_mut(),
         Some(values) => val_as_ptr(values),
     }
 }
 
 #[no_mangle]
-pub(crate) async unsafe extern "C" fn wasm_plugin_call_without_params(
+pub(crate) unsafe extern "C" fn wasm_plugin_call_without_params(
     plugin_ptr: *mut Plugin,
     func_name: *const c_char,
 ) -> *mut ExtismVal {
-    match extension_plugin_call_native(plugin_ptr, func_name, None).await {
+    match extension_plugin_call_native(plugin_ptr, func_name, None) {
         None => std::ptr::null_mut(),
         Some(values) => val_as_ptr(values),
     }
@@ -435,7 +434,7 @@ pub unsafe extern "C" fn custom_memory_alloc(plugin: *mut CurrentPlugin, n: Size
 }
 
 #[no_mangle]
-pub(crate) async unsafe extern "C" fn extension_extism_plugin_new_with_memories(
+pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -484,7 +483,7 @@ pub(crate) async unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi).await;
+    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {

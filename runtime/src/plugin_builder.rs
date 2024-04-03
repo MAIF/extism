@@ -151,7 +151,7 @@ impl<'a> PluginBuilder<'a> {
     }
 
     /// Generate a new plugin with the configured settings
-    pub async fn build(self) -> Result<Plugin, Error> {
+    pub fn build(self) -> Result<Plugin, Error> {
         Plugin::build_new(
             self.source,
             self.functions,
@@ -159,6 +159,6 @@ impl<'a> PluginBuilder<'a> {
             self.wasi,
             self.debug_options,
             self.cache_config,
-        ).await
+        )
     }
 }

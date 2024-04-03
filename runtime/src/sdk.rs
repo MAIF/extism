@@ -2,6 +2,8 @@
 
 use std::{io::Read, os::raw::c_char};
 
+use wasmtime_wasi::pipe::MemoryOutputPipe;
+
 use crate::*;
 
 pub type ExtismMemoryHandle = u64;
@@ -269,7 +271,7 @@ pub unsafe extern "C" fn extism_function_set_namespace(
 /// `n_functions`: the number of functions provided
 /// `with_wasi`: enables/disables WASI
 #[no_mangle]
-pub async unsafe extern "C" fn extism_plugin_new(
+pub unsafe extern "C" fn extism_plugin_new(
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -301,7 +303,7 @@ pub async unsafe extern "C" fn extism_plugin_new(
         }
     }
 
-    let plugin = Plugin::new(data, funcs, with_wasi).await;
+    let plugin = Plugin::new(data, funcs, with_wasi);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
@@ -462,7 +464,7 @@ pub unsafe extern "C" fn extism_plugin_function_exists(
 /// `data`: is the input data
 /// `data_len`: is the length of `data`
 #[no_mangle]
-pub async unsafe extern "C" fn extism_plugin_call(
+pub unsafe extern "C" fn extism_plugin_call(
     plugin: *mut Plugin,
     func_name: *const c_char,
     data: *const u8,
@@ -489,9 +491,7 @@ pub async unsafe extern "C" fn extism_plugin_call(
         name
     );
     let input = std::slice::from_raw_parts(data, data_len as usize);
-    let res = plugin
-        .raw_call(&mut lock, name, input, true, None, None)
-        .await;
+    let res = plugin.raw_call(&mut lock, name, input, true, None, None);
 
     match res {
         Err((e, rc)) => plugin.return_error(&mut lock, e, rc),
@@ -743,10 +743,27 @@ pub unsafe extern "C" fn extism_version() -> *const c_char {
 
 #[no_mangle]
 pub unsafe extern "C" fn restore_stdout(plugin: *mut Plugin) {
-    let mut stdout = std::fs::File::create("stdout.txt").unwrap();
+    if plugin.is_null() {
+        return;
+    }
 
-    let mut buffer = String::from("");
-    let _ = stdout.read_to_string(&mut buffer);
+    let plugin = &mut *plugin;
+    let plugin: &mut CurrentPlugin = &mut *plugin.current_plugin_mut();
+    let stdout: &mut MemoryOutputPipe = &mut *plugin.stdout;
 
-    panic!("{}", buffer);
+    let offset = 0 as u64;
+
+    let handle = match plugin.memory_handle(offset) {
+        Some(h) => h,
+        None => panic!("invalid handle offset for log message: {offset}"),
+    };
+
+    let buf = plugin.memory_str(handle).unwrap();
+
+    println!("{:?}", buf);
+
+    let stdout = stdout.contents();
+    // if !stdout.is_empty() {
+    println!("[guest] stdout: {:?}", String::from_utf8(stdout.to_vec()));
+    // }
 }

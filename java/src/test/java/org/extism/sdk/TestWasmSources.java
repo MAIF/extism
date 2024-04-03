@@ -37,8 +37,20 @@ public enum TestWasmSources {
             return Paths.get(WASM_LOCATION, "coraza-proxy-wasm-v0.5.0.wasm");
         }
 
+//        public Path getLogginPath() {
+//            return Paths.get(WASM_LOCATION, "logging.wasm");
+//        }
+
+//        public Path getLogginPath() {
+//            return Paths.get(WASM_LOCATION, "logging-1.0.0-dev.wasm");
+//        }
+
+//        public Path getLogginPath() {
+//            return Paths.get(WASM_LOCATION, "log-1.0.0-dev.wasm");
+//        }
+
         public Path getLogginPath() {
-            return Paths.get(WASM_LOCATION, "logging.wasm");
+            return Paths.get(WASM_LOCATION, "logjs-1.0.0-dev.wasm");
         }
     };
 

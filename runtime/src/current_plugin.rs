@@ -1,5 +1,5 @@
-
-use wasmtime_wasi::pipe::MemoryOutputPipe;
+use bytes::Bytes;
+use wasmtime_wasi::{pipe::MemoryOutputPipe, HostOutputStream};
 
 use crate::*;
 
@@ -22,6 +22,8 @@ pub struct CurrentPlugin {
     pub(crate) id: uuid::Uuid,
 
     pub(crate) memory_export: *mut PluginMemory,
+    pub(crate) stdout: *mut MemoryOutputPipe,
+    pub(crate) stderr: *mut MemoryOutputPipe,
 }
 
 unsafe impl Send for CurrentPlugin {}
@@ -294,6 +296,11 @@ impl CurrentPlugin {
         available_pages: Option<u32>,
         id: uuid::Uuid,
     ) -> Result<Self, Error> {
+        let stdout = MemoryOutputPipe::new(4096);
+        let stderr = MemoryOutputPipe::new(4096);
+
+        // stdout.write(Bytes::from("COUCOU"));
+
         let wasi = if wasi {
             // let auth = wasmtime_wasi::with_ambient_tokio_runtime();
             // let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
@@ -311,34 +318,12 @@ impl CurrentPlugin {
 
             // Enable WASI output, typically used for debugging purposes
             if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {
-                // ctx.inherit_stdout().inherit_stderr();
-
-                // let saved_stdout = unsafe { libc::dup(libc::STDOUT_FILENO) };
-
-                // let stdout = std::fs::File::create("stdout.txt").unwrap();
-
-                // unsafe { libc::dup2(stdout.as_fd().as_raw_fd(), libc::STDOUT_FILENO) };
-
-                // let stdout = cap_std::fs::File::from_std(stdout) as cap_std::fs::File;
-                // let stdout = wasmtime_wasi::file::File::from_cap_std(stdout);
-
-                let stdout = MemoryOutputPipe::new(4096);
-                let stderr = MemoryOutputPipe::new(4096);
-
                 ctx.stdout(stdout.clone()).stderr(stderr.clone());
-
-                // let stderr = std::fs::File::create("stderr.txt").unwrap();
-                // let stderr = cap_std::fs::File::from_std(stderr) as cap_std::fs::File;
-                // let stderr = wasmtime_wasi::file::File::from_cap_std(stderr);
-                // ctx.stderr(Box::new(stderr));
-
-                // let stdin = std::fs::File::create("stdin.txt").unwrap();
-                // let stdin = cap_std::fs::File::from_std(stdin) as cap_std::fs::File;
-                // let stdin = wasmtime_wasi::file::File::from_cap_std(stdin);
-                // ctx.stdin(Box::new(stdin));
             }
 
-            Some(Wasi { ctx: ctx.build_p1() })
+            Some(Wasi {
+                ctx: ctx.build_p1(),
+            })
         } else {
             None
         };
@@ -356,6 +341,8 @@ impl CurrentPlugin {
         Ok(CurrentPlugin {
             wasi,
             manifest,
+            stderr: Box::into_raw(Box::new(stderr)),
+            stdout: Box::into_raw(Box::new(stdout)),
             http_status: 0,
             vars: BTreeMap::new(),
             linker: std::ptr::null_mut(),

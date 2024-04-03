@@ -331,9 +331,9 @@ public class WasmOtoroshiTests {
         Manifest manifest = new Manifest(Arrays.asList(CODE.getLogging()));
 
         var instance = new Plugin(manifest, true, null);
-//        instance.call("greet", "Super ca va".getBytes(StandardCharsets.UTF_8));
+        instance.call("greet", "Super ca va".getBytes(StandardCharsets.UTF_8));
 
-//        System.out.println(LibExtism.INSTANCE.restore_stdout(instance.pluginPointer));
+        LibExtism.INSTANCE.restore_stdout(instance.pluginPointer);
 
         System.out.println("Last Log from JAVA");
     }
