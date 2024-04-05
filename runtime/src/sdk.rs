@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{io::Read, os::raw::c_char};
+use std::{io::Read, os::raw::c_char, ptr::null};
 
 use wasmtime_wasi::pipe::MemoryOutputPipe;
 
@@ -742,28 +742,35 @@ pub unsafe extern "C" fn extism_version() -> *const c_char {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn restore_stdout(plugin: *mut Plugin) {
+pub unsafe extern "C" fn stdout(plugin: *mut Plugin) -> *const c_char {
     if plugin.is_null() {
-        return;
+        return null();
     }
 
     let plugin = &mut *plugin;
     let plugin: &mut CurrentPlugin = &mut *plugin.current_plugin_mut();
     let stdout: &mut MemoryOutputPipe = &mut *plugin.stdout;
 
-    let offset = 0 as u64;
-
-    let handle = match plugin.memory_handle(offset) {
-        Some(h) => h,
-        None => panic!("invalid handle offset for log message: {offset}"),
-    };
-
-    let buf = plugin.memory_str(handle).unwrap();
-
-    println!("{:?}", buf);
-
     let stdout = stdout.contents();
-    // if !stdout.is_empty() {
-    println!("[guest] stdout: {:?}", String::from_utf8(stdout.to_vec()));
-    // }
+
+    std::ffi::CString::new(String::from_utf8(stdout.to_vec()).unwrap())
+        .unwrap()
+        .into_raw()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn stderr(plugin: *mut Plugin) -> *const c_char {
+    if plugin.is_null() {
+        return null();
+    }
+
+    let plugin = &mut *plugin;
+    let plugin: &mut CurrentPlugin = &mut *plugin.current_plugin_mut();
+    let stderr: &mut MemoryOutputPipe = &mut *plugin.stderr;
+
+    let stderr = stderr.contents();
+
+    std::ffi::CString::new(String::from_utf8(stderr.to_vec()).unwrap())
+        .unwrap()
+        .into_raw()
 }

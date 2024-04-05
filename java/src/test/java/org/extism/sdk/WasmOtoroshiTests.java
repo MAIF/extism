@@ -7,6 +7,7 @@ import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.support.JsonSerde;
+import org.extism.sdk.wasm.PathWasmSource;
 import org.extism.sdk.wasmotoroshi.*;
 import org.junit.jupiter.api.Test;
 
@@ -325,16 +326,27 @@ public class WasmOtoroshiTests {
         assertEquals("", new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8));
     }
 
+    void runLoggingPlugin(PathWasmSource source, String language) {
+        Manifest manifest = new Manifest(Arrays.asList(source));
+
+        Plugin instance = new Plugin(manifest, true, null);
+            System.out.println(language + " result : " +  new String(
+                    instance.call("greet", "Super ca va !".getBytes(StandardCharsets.UTF_8)))
+            );
+
+        String stdout = LibExtism.INSTANCE.stdout(instance.pluginPointer);
+        System.out.println(language + " stdout: " + stdout);
+
+        String stderr = LibExtism.INSTANCE.stderr(instance.pluginPointer);
+        System.out.println(language + " stderr: " + stderr);
+
+        System.out.println("--------------------");
+    }
+
     @Test
     public void shoudLogging() {
-        System.out.println("Log from JAVA");
-        Manifest manifest = new Manifest(Arrays.asList(CODE.getLogging()));
-
-        var instance = new Plugin(manifest, true, null);
-        instance.call("greet", "Super ca va".getBytes(StandardCharsets.UTF_8));
-
-        LibExtism.INSTANCE.restore_stdout(instance.pluginPointer);
-
-        System.out.println("Last Log from JAVA");
+        runLoggingPlugin(CODE.getJsLogging(), "JS");
+        runLoggingPlugin(CODE.getGoLogging(), "GO");
+        runLoggingPlugin(CODE.getRustLogging(), "RUST");
     }
 }

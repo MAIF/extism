@@ -37,20 +37,16 @@ public enum TestWasmSources {
             return Paths.get(WASM_LOCATION, "coraza-proxy-wasm-v0.5.0.wasm");
         }
 
-//        public Path getLogginPath() {
-//            return Paths.get(WASM_LOCATION, "logging.wasm");
-//        }
+        public Path getGoLogginPath() {
+            return Paths.get(WASM_LOCATION, "logging/go-logging-1.0.0-dev.wasm");
+        }
 
-//        public Path getLogginPath() {
-//            return Paths.get(WASM_LOCATION, "logging-1.0.0-dev.wasm");
-//        }
+        public Path getJsLogginPath() {
+            return Paths.get(WASM_LOCATION, "logging/js-logging-1.0.0-dev.wasm");
+        }
 
-//        public Path getLogginPath() {
-//            return Paths.get(WASM_LOCATION, "log-1.0.0-dev.wasm");
-//        }
-
-        public Path getLogginPath() {
-            return Paths.get(WASM_LOCATION, "logjs-1.0.0-dev.wasm");
+        public Path getRustLogginPath() {
+            return Paths.get(WASM_LOCATION, "logging/rust-logging-1.0.0-dev.wasm");
         }
     };
 
@@ -66,7 +62,11 @@ public enum TestWasmSources {
 
     public abstract Path getOPAPath();
 
-    public abstract Path getLogginPath();
+    public abstract Path getGoLogginPath();
+
+    public abstract Path getJsLogginPath();
+
+    public abstract Path getRustLogginPath();
 
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
@@ -90,8 +90,16 @@ public enum TestWasmSources {
         return resolvePathWasmSource(getOPAPath());
     }
 
-    public PathWasmSource getLogging() {
-        return resolvePathWasmSource(getLogginPath());
+    public PathWasmSource getGoLogging() {
+        return resolvePathWasmSource(getGoLogginPath());
+    }
+
+    public PathWasmSource getJsLogging() {
+        return resolvePathWasmSource(getJsLogginPath());
+    }
+
+    public PathWasmSource getRustLogging() {
+        return resolvePathWasmSource(getRustLogginPath());
     }
 
     public abstract Path getWasmWaf();

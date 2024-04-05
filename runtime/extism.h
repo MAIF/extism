@@ -351,7 +351,9 @@ bool extism_plugin_reset(ExtismPlugin *plugin);
  */
 const char *extism_version(void);
 
-void restore_stdout(ExtismPlugin *plugin);
+const char *stdout(ExtismPlugin *plugin);
+
+const char *stderr(ExtismPlugin *plugin);
 
 #ifdef __cplusplus
 } // extern "C"

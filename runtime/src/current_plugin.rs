@@ -1,5 +1,5 @@
-use bytes::Bytes;
-use wasmtime_wasi::{pipe::MemoryOutputPipe, HostOutputStream};
+use cap_std::ambient_authority;
+use wasmtime_wasi::{pipe::MemoryOutputPipe, DirPerms, FilePerms};
 
 use crate::*;
 
@@ -299,22 +299,24 @@ impl CurrentPlugin {
         let stdout = MemoryOutputPipe::new(4096);
         let stderr = MemoryOutputPipe::new(4096);
 
-        // stdout.write(Bytes::from("COUCOU"));
-
         let wasi = if wasi {
-            // let auth = wasmtime_wasi::with_ambient_tokio_runtime();
-            // let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
+            let auth = ambient_authority();
             let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
-            // for (k, v) in manifest.config.iter() {
-            //     ctx.env(k, v)?;
-            // }
+            for (k, v) in manifest.config.iter() {
+                ctx.env(k, v);
+            }
 
-            // if let Some(a) = &manifest.allowed_paths {
-            //     for (k, v) in a.iter() {
-            //         let d = wasmtime_wasi::Dir::open_ambient_dir(k, auth)?;
-            //         ctx.preopened_dir(d, v)?;
-            //     }
-            // }
+            if let Some(a) = &manifest.allowed_paths {
+                for (k, v) in a.iter() {
+                    let d = cap_std::fs::Dir::open_ambient_dir(k, auth)?;
+                    ctx.preopened_dir(
+                        d,
+                        DirPerms::MUTATE,
+                        FilePerms::WRITE,
+                        v.as_os_str().to_str().unwrap_or(""),
+                    );
+                }
+            }
 
             // Enable WASI output, typically used for debugging purposes
             if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {

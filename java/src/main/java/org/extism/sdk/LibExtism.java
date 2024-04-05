@@ -87,7 +87,9 @@ public interface LibExtism extends Library {
 
     void extism_function_free(Pointer function);
 
-    void restore_stdout(Pointer plugin);
+    String stdout(Pointer plugin);
+
+    String stderr(Pointer plugin);
 
     Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
 
@@ -183,13 +185,13 @@ public interface LibExtism extends Library {
     int extism_plugin_call(Pointer pluginPointer, String function_name, byte[] data, int dataLength);
 
     /**
-     * Returns 
+     * Returns
      * @return the length of the output data in bytes.
      */
     int extism_plugin_output_length(Pointer pluginPointer);
 
     /**
-   
+
      * @return
      */
     Pointer extism_plugin_output_data(Pointer pluginPointer);
@@ -234,10 +236,10 @@ public interface LibExtism extends Library {
      ################################### */
 
     Pointer extension_create_wasmtime_memory(String name, String namespace, int minPages, int maxPages);
-    
-    
+
+
     void extension_deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
-    
+
     Pointer extension_extism_plugin_new_with_memories(byte[] wasm,
                                             long wasmSize,
                                             Pointer[] functions,
@@ -246,7 +248,7 @@ public interface LibExtism extends Library {
                                             int nMemories,
                                             boolean withWASI,
                                             Pointer[] errmsg);
-    
+
     LibExtism.ExtismVal.ByReference extension_call(Pointer pluginPointer, String functionName, LibExtism.ExtismVal.ByReference inputs, int length);
     int extension_extism_memory_write_bytes(Pointer pluginPointer, byte[] data, int n, int offset, String namespace, String name);
 
