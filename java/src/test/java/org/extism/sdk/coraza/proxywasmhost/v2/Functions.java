@@ -1,5 +1,6 @@
 package org.extism.sdk.coraza.proxywasmhost.v2;
 
+import com.sun.jna.Pointer;
 import org.extism.sdk.HostFunction;
 import org.extism.sdk.LibExtism;
 import org.extism.sdk.coraza.proxywasm.VMData;
@@ -11,9 +12,10 @@ public class Functions {
 
     private HostFunction[] functions;
 
-    public Functions(VMData vmData, ProxyWasmState state) {
+    public Functions(Pointer engine, VMData vmData, ProxyWasmState state) {
         functions = new HostFunction[]{
                 new HostFunction<>(
+                        engine,
                         "proxy_log",
                         this.parameters(3),
                         this.parameters(1),
@@ -22,6 +24,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_get_buffer_bytes",
                         this.parameters(5),
                         this.parameters(1),
@@ -35,6 +38,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_set_effective_context",
                         this.parameters(1),
                         this.parameters(1),
@@ -43,6 +47,7 @@ public class Functions {
                         Optional.empty()
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_get_header_map_pairs",
                         this.parameters(3),
                         this.parameters(1),
@@ -51,6 +56,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_set_buffer_bytes",
                         this.parameters(5),
                         this.parameters(1),
@@ -64,6 +70,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_get_header_map_value",
                         this.parameters(5),
                         this.parameters(1),
@@ -78,6 +85,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_get_property",
                         this.parameters(4),
                         this.parameters(1),
@@ -86,6 +94,7 @@ public class Functions {
                     Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                     "proxy_increment_metric",
                         new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I64},
                         this.parameters(1),
@@ -94,6 +103,7 @@ public class Functions {
                     Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_define_metric",
                         this.parameters(4),
                         this.parameters(1),
@@ -102,6 +112,7 @@ public class Functions {
                         Optional.empty()
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_set_tick_period_milliseconds",
                         this.parameters(1),
                         this.parameters(1),
@@ -110,6 +121,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                         "proxy_replace_header_map_value",
                         this.parameters(5),
                         this.parameters(1),
@@ -124,6 +136,7 @@ public class Functions {
                         Optional.of(vmData)
                 ).withNamespace("env"),
                 new HostFunction<>(
+                        engine,
                     "proxy_send_local_response",
                         this.parameters(8),
                         this.parameters(1),

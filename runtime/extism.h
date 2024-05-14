@@ -168,7 +168,8 @@ void custom_memory_free(ExtismCurrentPlugin *plugin, uint64_t ptr);
 
 uint64_t custom_memory_alloc(ExtismCurrentPlugin *plugin, ExtismSize n);
 
-ExtismPlugin *extension_extism_plugin_new_with_memories(const uint8_t *wasm,
+ExtismPlugin *extension_extism_plugin_new_with_memories(Engine *engine,
+                                                        const uint8_t *wasm,
                                                         ExtismSize wasm_size,
                                                         const ExtismFunction **functions,
                                                         ExtismSize n_functions,
@@ -176,6 +177,8 @@ ExtismPlugin *extension_extism_plugin_new_with_memories(const uint8_t *wasm,
                                                         int8_t n_memories,
                                                         bool with_wasi,
                                                         char **errmsg);
+
+Engine *create_engine(void);
 
 /**
  * Get a plugin's ID, the returned bytes are a 16 byte buffer that represent a UUIDv4
@@ -252,7 +255,8 @@ void extism_function_set_namespace(ExtismFunction *ptr, const char *namespace_);
  * `n_functions`: the number of functions provided
  * `with_wasi`: enables/disables WASI
  */
-ExtismPlugin *extism_plugin_new(const uint8_t *wasm,
+ExtismPlugin *extism_plugin_new(Engine *engine,
+                                const uint8_t *wasm,
                                 ExtismSize wasm_size,
                                 const ExtismFunction **functions,
                                 ExtismSize n_functions,

@@ -184,11 +184,13 @@ impl Plugin {
     /// Create a new plugin from a Manifest or WebAssembly module, and host functions. The `with_wasi`
     /// parameter determines whether or not the module should be executed with WASI enabled.
     pub fn new<'a>(
+        engine: &Engine,
         wasm: impl Into<WasmInput<'a>>,
         imports: impl IntoIterator<Item = Function>,
         with_wasi: bool,
     ) -> Result<Plugin, Error> {
         Self::build_new(
+            engine,
             wasm.into(),
             imports,
             [].to_vec(),
@@ -199,12 +201,14 @@ impl Plugin {
     }
 
     pub fn new_with_memories<'a>(
+        engine: &Engine,
         wasm: impl Into<WasmInput<'a>>,
         imports: impl IntoIterator<Item = Function>,
         memories: Vec<&WasmMemory>,
         with_wasi: bool,
     ) -> Result<Plugin, Error> {
         Self::build_new(
+            engine,
             wasm.into(),
             imports,
             memories,
@@ -215,6 +219,7 @@ impl Plugin {
     }
 
     pub(crate) fn build_new(
+        engine: &Engine,
         wasm: WasmInput<'_>,
         imports: impl IntoIterator<Item = Function>,
         memories: Vec<&WasmMemory>,
@@ -223,33 +228,33 @@ impl Plugin {
         cache_dir: Option<Option<PathBuf>>,
     ) -> Result<Plugin, Error> {
         // Setup wasmtime types
-        let mut config = Config::new();
-        config
-            .epoch_interruption(true)
-            .debug_info(debug_options.debug_info)
-            .coredump_on_trap(debug_options.coredump.is_some())
-            .profiler(debug_options.profiling_strategy)
-            .wasm_tail_call(true)
-            .wasm_function_references(true);
-            // .async_support(true);
+        // let mut config = Config::new();
+        // config
+        //     .epoch_interruption(true)
+        //     .debug_info(debug_options.debug_info)
+        //     .coredump_on_trap(debug_options.coredump.is_some())
+        //     .profiler(debug_options.profiling_strategy)
+        //     .wasm_tail_call(true)
+        //     .wasm_function_references(true);
+        //     // .async_support(true);
 
-        match cache_dir {
-            Some(None) => (),
-            Some(Some(path)) => {
-                config.cache_config_load(path)?;
-            }
-            None => {
-                if let Ok(env) = std::env::var("EXTISM_CACHE_CONFIG") {
-                    if !env.is_empty() {
-                        config.cache_config_load(&env)?;
-                    }
-                } else {
-                    config.cache_config_load_default()?;
-                }
-            }
-        }
+        // match cache_dir {
+        //     Some(None) => (),
+        //     Some(Some(path)) => {
+        //         config.cache_config_load(path)?;
+        //     }
+        //     None => {
+        //         if let Ok(env) = std::env::var("EXTISM_CACHE_CONFIG") {
+        //             if !env.is_empty() {
+        //                 config.cache_config_load(&env)?;
+        //             }
+        //         } else {
+        //             config.cache_config_load_default()?;
+        //         }
+        //     }
+        // }
 
-        let engine = Engine::new(&config)?;
+        // let engine = Engine::new(&config)?;
         let (manifest, modules) = manifest::load(&engine, wasm)?;
         if modules.len() <= 1 {
             anyhow::bail!("No wasm modules provided");

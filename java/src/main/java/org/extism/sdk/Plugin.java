@@ -25,7 +25,8 @@ public class Plugin implements AutoCloseable {
 
     private boolean freed = false;
 
-    public Plugin(byte[] manifestBytes,
+    public Plugin(Pointer engine,
+                  byte[] manifestBytes,
                   boolean withWASI,
                   HostFunction[] functions) {
 
@@ -34,7 +35,9 @@ public class Plugin implements AutoCloseable {
         Pointer[] functionsPtr = HostFunction.arrayToPointer(functions);
 
         Pointer[] errormsg = new Pointer[1];
-        Pointer p = LibExtism.INSTANCE.extism_plugin_new(manifestBytes,
+        Pointer p = LibExtism.INSTANCE.extism_plugin_new(
+                engine,
+                manifestBytes,
                 manifestBytes.length,
                 functionsPtr,
                 functions == null ? 0 : functions.length,
@@ -54,7 +57,8 @@ public class Plugin implements AutoCloseable {
         this.pluginPointer = p;
     }
 
-    public Plugin(byte[] manifestBytes,
+    public Plugin(Pointer engine,
+                  byte[] manifestBytes,
                   boolean withWASI,
                   HostFunction[] functions,
                   LinearMemory[] memories) {
@@ -65,7 +69,8 @@ public class Plugin implements AutoCloseable {
         Pointer[] memoriesPtr = LinearMemory.arrayToPointer(memories);
 
         Pointer[] errormsg = new Pointer[1];
-        Pointer p = LibExtism.INSTANCE.extension_extism_plugin_new_with_memories(manifestBytes,
+        Pointer p = LibExtism.INSTANCE.extension_extism_plugin_new_with_memories(engine,
+                manifestBytes,
                 manifestBytes.length,
                 functionsPtr,
                 functions == null ? 0 : functions.length,
@@ -87,15 +92,16 @@ public class Plugin implements AutoCloseable {
         this.pluginPointer = p;
     }
 
-    public Plugin(Manifest manifest,
+    public Plugin(Pointer engine,
+                  Manifest manifest,
                   boolean withWASI,
                   HostFunction[] functions,
                   LinearMemory[] memories) {
-        this(serialize(manifest), withWASI, functions, memories);
+        this(engine, serialize(manifest), withWASI, functions, memories);
     }
 
-    public Plugin(Manifest manifest, boolean withWASI, HostFunction[] functions) {
-        this(serialize(manifest), withWASI, functions);
+    public Plugin(Pointer engine, Manifest manifest, boolean withWASI, HostFunction[] functions) {
+        this(engine, serialize(manifest), withWASI, functions);
     }
 
     private static byte[] serialize(Manifest manifest) {

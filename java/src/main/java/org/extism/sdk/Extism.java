@@ -1,5 +1,6 @@
 package org.extism.sdk;
 
+import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 
 import java.nio.file.Path;
@@ -41,7 +42,8 @@ public class Extism {
      * @throws ExtismException if the call fails
      */
     public static String invokeFunction(Manifest manifest, String function, String input) throws ExtismException {
-        try (var plugin = new Plugin(manifest, false, null)) {
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+        try (var plugin = new Plugin(engine, manifest, false, null)) {
             return plugin.call(function, input);
         } catch (Exception e) {
             throw new ExtismException(e.getMessage());

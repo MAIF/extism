@@ -1,5 +1,6 @@
 package org.extism.sdk.coraza.proxywasmhost;
 
+import com.sun.jna.Pointer;
 import org.extism.sdk.ExtismException;
 import org.extism.sdk.HostFunction;
 import org.extism.sdk.LibExtism;
@@ -109,7 +110,8 @@ public class ProxyWasmPlugin {
     }
 
     public ProxyWasmPlugin start() {
-        this.plugin = new Plugin(manifest, true, new Functions(vmData, state).all());
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+        this.plugin = new Plugin(engine, manifest, true, new Functions(engine, vmData, state).all());
 
         proxyStart();
 

@@ -1,6 +1,5 @@
 use std::os::raw::c_char;
 
-
 use crate::{
     extension::*,
     function,
@@ -32,15 +31,14 @@ unsafe fn extension_plugin_call_native(
 
         let mut results = vec![wasmtime::Val::null_func_ref(); 0];
 
-        let res = plugin
-            .raw_call(
-                &mut acquired_lock,
-                name,
-                [0; 0],
-                false,
-                params,
-                Some(&mut results),
-            );
+        let res = plugin.raw_call(
+            &mut acquired_lock,
+            name,
+            [0; 0],
+            false,
+            params,
+            Some(&mut results),
+        );
 
         return match res {
             Err((e, _rc)) => plugin.return_error(&mut acquired_lock, e, None),
@@ -435,6 +433,7 @@ pub unsafe extern "C" fn custom_memory_alloc(plugin: *mut CurrentPlugin, n: Size
 
 #[no_mangle]
 pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
+    engine: *mut Engine,
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -444,6 +443,8 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
     with_wasi: bool,
     errmsg: *mut *mut std::ffi::c_char,
 ) -> *mut Plugin {
+    let engine = &*engine;
+
     let mut mems: Vec<&WasmMemory> = vec![];
 
     if !memories.is_null() {
@@ -483,7 +484,7 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi);
+    let plugin = Plugin::new_with_memories(engine, data, funcs, mems, with_wasi);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
@@ -495,4 +496,19 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
         Ok(p) => Box::into_raw(Box::new(p)),
     }
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn create_engine() -> *mut Engine {
+    let mut config = Config::new();
+    config
+        .epoch_interruption(true)
+        // .debug_info(debug_options.debug_info)
+        // .coredump_on_trap(debug_options.coredump.is_some())
+        // .profiler(debug_options.profiling_strategy)
+        .wasm_tail_call(true)
+        .wasm_function_references(true);
+    // .async_support(true);
+
+    Box::into_raw(Box::new(Engine::new(&config).unwrap()))
 }

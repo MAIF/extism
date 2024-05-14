@@ -23,7 +23,7 @@ pub struct CurrentPlugin {
 
     pub(crate) memory_export: *mut PluginMemory,
     pub(crate) stdout: *mut MemoryOutputPipe,
-    pub(crate) stderr: *mut MemoryOutputPipe,
+    pub(crate) stderr: *mut MemoryOutputPipe
 }
 
 unsafe impl Send for CurrentPlugin {}
@@ -294,7 +294,7 @@ impl CurrentPlugin {
         manifest: extism_manifest::Manifest,
         wasi: bool,
         available_pages: Option<u32>,
-        id: uuid::Uuid,
+        id: uuid::Uuid
     ) -> Result<Self, Error> {
         let stdout = MemoryOutputPipe::new(4096);
         let stderr = MemoryOutputPipe::new(4096);

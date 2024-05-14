@@ -22,8 +22,12 @@ public class HostFunction<T extends HostUserData> {
 
     public final Optional<T> userData;
 
-    public HostFunction(String name, LibExtism.ExtismValType[] params, LibExtism.ExtismValType[] returns, ExtismFunction f, Optional<T> userData) {
-
+    public HostFunction(Pointer engine,
+                        String name,
+                        LibExtism.ExtismValType[] params,
+                        LibExtism.ExtismValType[] returns,
+                        ExtismFunction f,
+                        Optional<T> userData) {
         this.freed = false;
         this.name = name;
         this.params = params;
@@ -51,6 +55,7 @@ public class HostFunction<T extends HostUserData> {
         };
 
         this.pointer = LibExtism.INSTANCE.extism_function_new(
+                engine,
                 this.name,
                 Arrays.stream(this.params).mapToInt(r -> r.v).toArray(),
                 this.params.length,

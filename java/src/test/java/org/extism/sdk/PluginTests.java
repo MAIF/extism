@@ -77,7 +77,9 @@ public class PluginTests {
         var functionName = "count_vowels";
         var input = "Hello World";
 
-        try (var plugin = new Plugin(manifest, false, null)) {
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        try (var plugin = new Plugin(engine, manifest, false, null)) {
             var output = plugin.call(functionName, input);
             assertThat(output).isEqualTo("{\"count\":3,\"total\":3,\"vowels\":\"aeiouAEIOU\"}");
         }
@@ -111,7 +113,10 @@ public class PluginTests {
             data.ifPresent(d -> System.out.println(String.format("Host user data, %s, %d", d.data1, d.data2)));
         };
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         HostFunction helloWorld = new HostFunction<>(
+                engine,
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
@@ -124,7 +129,7 @@ public class PluginTests {
         Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
         String functionName = "count_vowels";
 
-        try (var plugin = new Plugin(manifest, true, functions)) {
+        try (var plugin = new Plugin(engine, manifest, true, functions)) {
             var output = plugin.call(functionName, "this is a test");
             assertThat(output).isEqualTo("test");
         } catch (Exception e) {
@@ -150,7 +155,10 @@ public class PluginTests {
             assertThat(data.isEmpty());
         };
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         HostFunction f = new HostFunction<>(
+                engine,
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
@@ -160,6 +168,7 @@ public class PluginTests {
                 .withNamespace("extism:host/user");
 
         HostFunction g = new HostFunction<>(
+                engine,
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
@@ -173,7 +182,7 @@ public class PluginTests {
         Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
         String functionName = "count_vowels";
 
-        try (var plugin = new Plugin(manifest, true, functions)) {
+        try (var plugin = new Plugin(engine, manifest, true, functions)) {
             var output = plugin.call(functionName, "this is a test");
             assertThat(output).isEqualTo("test");
         }
@@ -185,8 +194,10 @@ public class PluginTests {
         Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmFunctionsSource()));
         String functionName = "count_vowels";
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         try {
-            var plugin = new Plugin(manifest, true, null);
+            var plugin = new Plugin(engine, manifest, true, null);
             plugin.call(functionName, "this is a test");
         }  catch (ExtismException e) {
             assertThat(e.getMessage()).contains("Unable to create Extism plugin: unknown import: `extism:host/user::hello_world` has not been defined");

@@ -34,6 +34,7 @@ impl Default for DebugOptions {
 
 /// PluginBuilder is used to configure and create `Plugin` instances
 pub struct PluginBuilder<'a> {
+    engine: Engine,
     source: WasmInput<'a>,
     wasi: bool,
     functions: Vec<Function>,
@@ -43,8 +44,9 @@ pub struct PluginBuilder<'a> {
 
 impl<'a> PluginBuilder<'a> {
     /// Create a new `PluginBuilder` from a `Manifest` or raw Wasm bytes
-    pub fn new(plugin: impl Into<WasmInput<'a>>) -> Self {
+    pub fn new(engine: Engine, plugin: impl Into<WasmInput<'a>>) -> Self {
         PluginBuilder {
+            engine,
             source: plugin.into(),
             wasi: false,
             functions: vec![],
@@ -153,6 +155,7 @@ impl<'a> PluginBuilder<'a> {
     /// Generate a new plugin with the configured settings
     pub fn build(self) -> Result<Plugin, Error> {
         Plugin::build_new(
+            &self.engine,
             self.source,
             self.functions,
             Vec::with_capacity(0),

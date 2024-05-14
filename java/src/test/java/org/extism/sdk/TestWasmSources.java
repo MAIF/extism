@@ -48,6 +48,10 @@ public enum TestWasmSources {
         public Path getRustLogginPath() {
             return Paths.get(WASM_LOCATION, "logging/rust-logging-1.0.0-dev.wasm");
         }
+
+        public Path getLogPath() {
+            return Paths.get(WASM_LOCATION, "log.wasm");
+        }
     };
 
     public static final String WASM_LOCATION = "src/test/resources";
@@ -67,6 +71,8 @@ public enum TestWasmSources {
     public abstract Path getJsLogginPath();
 
     public abstract Path getRustLogginPath();
+
+    public abstract Path getLogPath();
 
     public abstract Path getWasmWebAssemblyFunctionFilePath();
 
@@ -100,6 +106,10 @@ public enum TestWasmSources {
 
     public PathWasmSource getRustLogging() {
         return resolvePathWasmSource(getRustLogginPath());
+    }
+
+    public PathWasmSource getLog() {
+        return resolvePathWasmSource(getLogPath());
     }
 
     public abstract Path getWasmWaf();

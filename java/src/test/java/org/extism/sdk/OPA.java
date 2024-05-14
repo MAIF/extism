@@ -17,7 +17,7 @@ import java.util.Optional;
 public class OPA {
     private Plugin plugin;
 
-    public OPA(WasmSource regoWasm) {
+    public OPA(Pointer engine, WasmSource regoWasm) {
         Manifest manifest = new Manifest(Collections.singletonList(regoWasm), new MemoryOptions(2000));
 
         ExtismFunction opaAbortFunction = (plugin, params, returns, data) -> {
@@ -46,6 +46,7 @@ public class OPA {
         var resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
         HostFunction opa_abort = new HostFunction<>(
+                engine,
                 "opa_abort",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[0],
@@ -53,6 +54,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_println = new HostFunction<>(
+                engine,
                 "opa_println",
                 parametersTypes,
                 resultsTypes,
@@ -60,6 +62,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_builtin0 = new HostFunction<>(
+                engine,
                 "opa_builtin0",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
@@ -67,6 +70,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_builtin1 = new HostFunction<>(
+                engine,
                 "opa_builtin1",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
@@ -74,6 +78,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_builtin2 = new HostFunction<>(
+                engine,
                 "opa_builtin2",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
@@ -81,6 +86,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_builtin3 = new HostFunction<>(
+                engine,
                 "opa_builtin3",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
@@ -88,6 +94,7 @@ public class OPA {
                 Optional.empty()
         ).withNamespace("env");
         HostFunction opa_builtin4 = new HostFunction<>(
+                engine,
                 "opa_builtin4",
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
                 new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
@@ -109,7 +116,7 @@ public class OPA {
                 new LinearMemory("memory", "env", new LinearMemoryOptions(4, Optional.of(100)))
         };
 
-        this.plugin = new Plugin(manifest, true, functions, memories);
+        this.plugin = new Plugin(engine, manifest, true, functions, memories);
     }
 
     String loadJSON(byte[] value) {

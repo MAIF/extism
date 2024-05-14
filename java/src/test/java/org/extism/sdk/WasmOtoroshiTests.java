@@ -2,6 +2,7 @@ package org.extism.sdk;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.sun.jna.Pointer;
 import org.extism.sdk.coraza.proxywasm.VMData;
 import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
 import org.extism.sdk.manifest.Manifest;
@@ -30,7 +31,10 @@ public class WasmOtoroshiTests {
             System.out.println("Hello from Java Host Function!");
         };
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         var f = new HostFunction<>(
+                engine,
                 "hello_world",
                 parametersTypes,
                 resultsTypes,
@@ -45,7 +49,7 @@ public class WasmOtoroshiTests {
             test.add(i);
         }
 
-        try(var instance = new Plugin(manifest, true, functions)) {
+        try(var instance = new Plugin(engine, manifest, true, functions)) {
             test.parallelStream().forEach(number -> {
                 try(var params = new Parameters(2)
                         .pushInts(2, 3)) {
@@ -64,8 +68,11 @@ public class WasmOtoroshiTests {
         LibExtism.ExtismValType[] parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         LibExtism.ExtismValType[] resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         var functions = new HostFunction[]{
                 new HostFunction<>(
+                        engine,
                         "hello_world",
                         parametersTypes,
                         resultsTypes,
@@ -75,7 +82,7 @@ public class WasmOtoroshiTests {
                 ).withNamespace("env")
         };
 
-        try (var instance = new Plugin(manifest, true, functions)) {
+        try (var instance = new Plugin(engine, manifest, true, functions)) {
             instance.call("execute", "".getBytes(StandardCharsets.UTF_8));
         }
     }
@@ -89,7 +96,9 @@ public class WasmOtoroshiTests {
         Parameters params = new Parameters(2)
                 .pushInts(2, 3);
 
-        try (var instance = new Plugin(manifest, true, null, null)) {
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        try (var instance = new Plugin(engine, manifest, true, null, null)) {
             Results result = instance.call(functionName, params, 1);
             assertEquals(result.getValues()[0].v.i32, 5);
 
@@ -160,8 +169,11 @@ public class WasmOtoroshiTests {
         LibExtism.ExtismValType[] parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         LibExtism.ExtismValType[] resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         HostFunction[] functions = {
                 new HostFunction<>(
+                        engine,
                         "hello_world",
                         parametersTypes,
                         resultsTypes,
@@ -172,7 +184,7 @@ public class WasmOtoroshiTests {
                 ).withNamespace("env")
         };
 
-        var instance = new Plugin(manifest, true, functions, new LinearMemory[0]);
+        var instance = new Plugin(engine, manifest, true, functions, new LinearMemory[0]);
         instance.call("execute", "".getBytes(StandardCharsets.UTF_8));
         instance.free();
     }
@@ -183,8 +195,11 @@ public class WasmOtoroshiTests {
         LibExtism.ExtismValType[] parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         LibExtism.ExtismValType[] resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         var functions = new HostFunction[]{
                 new HostFunction<>(
+                        engine,
                         "hello_world",
                         parametersTypes,
                         resultsTypes,
@@ -197,7 +212,7 @@ public class WasmOtoroshiTests {
 
         var memory = new LinearMemory("huge-memory", new LinearMemoryOptions(0, Optional.of(2)));
 
-        var instance = new Plugin(manifest, true, functions, new LinearMemory[]{memory});
+        var instance = new Plugin(engine, manifest, true, functions, new LinearMemory[]{memory});
         instance.call("execute", "".getBytes(StandardCharsets.UTF_8));
         instance.free();
     }
@@ -206,14 +221,18 @@ public class WasmOtoroshiTests {
     public void shouldPluginWithNewVersionRun() {
         var manifest = new Manifest(Collections.singletonList(CODE.getMajorRelease()), new MemoryOptions(50));
 
-        var instance = new Plugin(manifest, true, null);
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        var instance = new Plugin(engine, manifest, true, null);
         instance.call("execute", "{}".getBytes(StandardCharsets.UTF_8));
         instance.free();
     }
 
     @Test
     public void shouldOPAWorks() {
-        var opa = new OPA(CODE.getOPA());
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        var opa = new OPA(engine, CODE.getOPA());
 
         var values = opa.initialize();
         var result = opa.evaluate(
@@ -285,8 +304,11 @@ public class WasmOtoroshiTests {
         var parametersTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
         var resultsTypes = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64};
 
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
         var functions = new HostFunction[]{
                 new HostFunction<>(
+                        engine,
                         "hello_world",
                         parametersTypes,
                         resultsTypes,
@@ -305,7 +327,7 @@ public class WasmOtoroshiTests {
 
         var memory = new LinearMemory(name, namespace, new LinearMemoryOptions(1, Optional.empty()));
 
-        try(var instance = new Plugin(manifest, true, functions, new LinearMemory[]{
+        try(var instance = new Plugin(engine, manifest, true, functions, new LinearMemory[]{
                 memory
         })) {
             instance.writeBytes(message.getBytes(StandardCharsets.UTF_8), message.length(), 0, namespace, name);
@@ -329,7 +351,11 @@ public class WasmOtoroshiTests {
     void runLoggingPlugin(PathWasmSource source, String language) {
         Manifest manifest = new Manifest(Arrays.asList(source));
 
-        Plugin instance = new Plugin(manifest, true, null);
+        LibExtism.INSTANCE.extism_log_custom("info");
+
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        Plugin instance = new Plugin(engine, manifest, true, null);
             System.out.println(language + " result : " +  new String(
                     instance.call("greet", "Super ca va !".getBytes(StandardCharsets.UTF_8)))
             );
@@ -340,6 +366,10 @@ public class WasmOtoroshiTests {
         String stderr = LibExtism.INSTANCE.stderr(instance.pluginPointer);
         System.out.println(language + " stderr: " + stderr);
 
+        LibExtism.INSTANCE.extism_log_drain((data, size) -> {
+            System.out.println(data);
+            System.out.println(size);
+        });
         System.out.println("--------------------");
     }
 
@@ -348,5 +378,16 @@ public class WasmOtoroshiTests {
         runLoggingPlugin(CODE.getJsLogging(), "JS");
         runLoggingPlugin(CODE.getGoLogging(), "GO");
         runLoggingPlugin(CODE.getRustLogging(), "RUST");
+    }
+
+    @Test
+    public void testHttpWasm() {
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getLog()));
+
+        Pointer engine = LibExtism.INSTANCE.create_engine();
+
+        Plugin instance = new Plugin(engine, manifest, true, null);
+
+
     }
 }

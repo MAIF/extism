@@ -24,6 +24,10 @@ public interface LibExtism extends Library {
         );
     }
 
+    interface ExtismLogDrainFunction extends Callback {
+        void invoke(String data, int size);
+    }
+
     @Structure.FieldOrder({"t", "v"})
     class ExtismVal extends Structure {
         public static class ByReference extends ExtismVal implements Structure.ByReference {
@@ -76,7 +80,8 @@ public interface LibExtism extends Library {
         }
     }
 
-    Pointer extism_function_new(String name,
+    Pointer extism_function_new(Pointer engine,
+                                String name,
                                 int[] inputs,
                                 int nInputs,
                                 int[] outputs,
@@ -90,6 +95,12 @@ public interface LibExtism extends Library {
     String stdout(Pointer plugin);
 
     String stderr(Pointer plugin);
+
+    Pointer create_engine();
+
+    Boolean extism_log_custom(String level);
+
+    void extism_log_drain(ExtismLogDrainFunction level);
 
     Pointer extism_memory_new(String name, String namespace, int minPages, int maxPages);
 
@@ -154,7 +165,8 @@ public interface LibExtism extends Library {
      * @return id of the plugin or {@literal -1} in case of error
      */
 
-    Pointer extism_plugin_new(byte[] wasm,
+    Pointer extism_plugin_new(Pointer engine,
+                          byte[] wasm,
                           long wasmSize,
                           Pointer[] functions,
                           int nFunctions,
@@ -240,7 +252,8 @@ public interface LibExtism extends Library {
 
     void extension_deallocate_results(LibExtism.ExtismVal.ByReference results, int length);
 
-    Pointer extension_extism_plugin_new_with_memories(byte[] wasm,
+    Pointer extension_extism_plugin_new_with_memories(Pointer engine,
+                                            byte[] wasm,
                                             long wasmSize,
                                             Pointer[] functions,
                                             int nFunctions,

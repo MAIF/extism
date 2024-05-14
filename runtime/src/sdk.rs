@@ -272,6 +272,7 @@ pub unsafe extern "C" fn extism_function_set_namespace(
 /// `with_wasi`: enables/disables WASI
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_new(
+    engine: *mut Engine,
     wasm: *const u8,
     wasm_size: Size,
     functions: *mut *const ExtismFunction,
@@ -280,6 +281,9 @@ pub unsafe extern "C" fn extism_plugin_new(
     errmsg: *mut *mut std::ffi::c_char,
 ) -> *mut Plugin {
     trace!("Call to extism_plugin_new with wasm pointer {:?}", wasm);
+
+    let engine = &*engine;
+
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
     let mut funcs = vec![];
 
@@ -303,7 +307,7 @@ pub unsafe extern "C" fn extism_plugin_new(
         }
     }
 
-    let plugin = Plugin::new(data, funcs, with_wasi);
+    let plugin = Plugin::new(engine, data, funcs, with_wasi);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
