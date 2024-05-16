@@ -2,6 +2,9 @@ package org.extism.sdk;
 
 import com.sun.jna.*;
 
+import java.lang.reflect.Field;
+import java.util.List;
+
 /**
  * Wrapper around the Extism library.
  */
@@ -33,6 +36,10 @@ public interface LibExtism extends Library {
 
             public ByReference() {}
         }
+
+//         public static class ByValue extends ExtismVal implements Structure.ByValue {
+//
+//        }
 
         public ExtismVal() {}
 

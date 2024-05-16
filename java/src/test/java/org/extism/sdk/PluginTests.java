@@ -4,13 +4,12 @@ import com.sun.jna.Pointer;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasm.WasmSourceResolver;
+import org.extism.sdk.wasmotoroshi.Parameters;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.extism.sdk.TestWasmSources.CODE;
@@ -191,5 +190,125 @@ public class PluginTests {
         }  catch (ExtismException e) {
             assertThat(e.getMessage()).contains("Unable to create Extism plugin: unknown import: `extism:host/user::hello_world` has not been defined");
         }
+    }
+
+    @Test
+    public void shouldHttpWasmWorking() {
+
+        var getUriParamaters    = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32};
+        var getUriReturns       = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32};
+
+        ExtismFunction getUriFunction = (plugin, params, returns, data) -> {
+            System.out.println(params[0]);
+            String foo = "/foo";
+            System.out.println("get_uri");
+
+            var memory = plugin.memory();
+            memory.write(params[0].v.i32, foo.getBytes(StandardCharsets.UTF_8), 0, foo.length());
+
+            System.out.println(new String(memory.getByteArray(params[0].v.i32, 4)));
+
+            returns[0].v.i32 = foo.length();
+            System.out.println("ending get_uri");
+        };
+
+        var functions = new HostFunction[]{
+                new HostFunction<>(
+                        "log_enabled",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                        (plugin, params, returns, data) -> {
+                            System.out.println("log_enabled");
+
+//                            returns[0].v.i32 = 0;
+                            // We expect debug logging to be disabled. Panic otherwise!
+                            if (params[0].v.i32 != -1) {
+                                returns[0].v.i32 = 1;
+                            } else {
+                                returns[0].v.i32 = 0;
+                            }
+                            System.out.println("Ending log_enabled");
+                }, Optional.empty()
+                ).withNamespace("http_handler"),
+
+                new HostFunction<>(
+                        "log",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> {
+                            System.out.println("LOGGING at : " + params[0].v.i32);
+
+
+                        }, Optional.empty()
+                ).withNamespace("http_handler"),
+
+                new HostFunction<>(
+                        "get_config",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                        (plugin, params, returns, data) -> {
+                            System.out.println("get_config");
+
+                            var offset = params[0].v.i32;
+                            var limit = params[1].v.i32;
+
+//                            val vLen = v.length
+//                            if (vLen > limit || vLen == 0) {
+//                              return vLen
+//                            }
+
+//                            var memory = plugin.customMemoryGet();
+//                            memory.write(offset, v.toArray, 0, vLen);
+
+                            returns[0].v.i32 = 8;
+
+                        }, Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "enable_features",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+                        (plugin, params, returns, data) -> {
+                            System.out.println("enable_features");
+
+                            returns[0].v.i32 = 0;
+
+                        }, Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "get_uri",
+                        getUriParamaters,
+                        getUriReturns,
+                        getUriFunction, Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "set_uri",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> System.out.println("set_uri"), Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "set_header_value",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> System.out.println("set_header_value"), Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "write_body",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> System.out.println("write_body"), Optional.empty()
+                ).withNamespace("http_handler")
+        };
+
+
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getLog()));
+
+        var plugin = new Plugin(manifest, false, functions);
+        System.out.println(plugin.callWithoutParams("handle_request", 1));
+
+//        System.out.println(plugin.callWithoutParams("handle_response", 1));
+
+        System.out.println("ending test");
     }
 }

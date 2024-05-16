@@ -28,7 +28,9 @@ unsafe fn extension_plugin_call_native(
         let name = std::ffi::CStr::from_ptr(func_name);
         let name = match name.to_str() {
             Ok(name) => name,
-            Err(e) => return plugin.return_error(&mut acquired_lock, e, None),
+            Err(e) => 
+            panic!("{}", e)
+            // return plugin.return_error(&mut acquired_lock, e, None),
         };
 
         let mut results = vec![wasmtime::Val::null(); 0];
@@ -43,7 +45,9 @@ unsafe fn extension_plugin_call_native(
         );
 
         return match res {
-            Err((e, _rc)) => plugin.return_error(&mut acquired_lock, e, None),
+            Err((e, _rc)) => 
+            panic!("{}", e),
+                //plugin.return_error(&mut acquired_lock, e, None),
             Ok(_x) => Some(results),
         }
     }
