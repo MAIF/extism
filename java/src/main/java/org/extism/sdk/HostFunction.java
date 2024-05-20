@@ -36,7 +36,10 @@ public class HostFunction<T extends HostUserData> {
                          int nOutputs,
                          Pointer data) -> {
 
-            LibExtism.ExtismVal[] outputs = (LibExtism.ExtismVal []) outs.toArray(nOutputs);
+            LibExtism.ExtismVal[] outputs = null;
+
+            if(outs != null)
+                outputs = (LibExtism.ExtismVal []) outs.toArray(nOutputs);
 
             f.invoke(
                     new ExtismCurrentPlugin(currentPlugin),
@@ -45,8 +48,10 @@ public class HostFunction<T extends HostUserData> {
                     userData
             );
 
-            for (LibExtism.ExtismVal output : outputs) {
-                convertOutput(output, output);
+            if(outputs != null) {
+                for (LibExtism.ExtismVal output : outputs) {
+                    convertOutput(output, output);
+                }
             }
         };
 

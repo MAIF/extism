@@ -199,113 +199,236 @@ public class PluginTests {
         var getUriReturns       = new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32};
 
         ExtismFunction getUriFunction = (plugin, params, returns, data) -> {
-            System.out.println(params[0]);
-            String foo = "/foo";
+//            System.out.println(params[0]);
+            String foo = "/host";
             System.out.println("get_uri");
-
-            var memory = plugin.memory();
+//
+            var memory = plugin.customMemoryGet();
             memory.write(params[0].v.i32, foo.getBytes(StandardCharsets.UTF_8), 0, foo.length());
 
-            System.out.println(new String(memory.getByteArray(params[0].v.i32, 4)));
-
             returns[0].v.i32 = foo.length();
+
+//            this.values[length].t = 0;
+//            this.values[length].v.setType(java.lang.Integer.TYPE);
+//            this.values[length].v.i32 = value;
+
             System.out.println("ending get_uri");
         };
 
         var functions = new HostFunction[]{
-                new HostFunction<>(
-                        "log_enabled",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
-                        (plugin, params, returns, data) -> {
-                            System.out.println("log_enabled");
-
-//                            returns[0].v.i32 = 0;
-                            // We expect debug logging to be disabled. Panic otherwise!
-                            if (params[0].v.i32 != -1) {
-                                returns[0].v.i32 = 1;
-                            } else {
-                                returns[0].v.i32 = 0;
-                            }
-                            System.out.println("Ending log_enabled");
-                }, Optional.empty()
-                ).withNamespace("http_handler"),
-
-                new HostFunction<>(
-                        "log",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{},
-                        (plugin, params, returns, data) -> {
-                            System.out.println("LOGGING at : " + params[0].v.i32);
-
-
-                        }, Optional.empty()
-                ).withNamespace("http_handler"),
-
-                new HostFunction<>(
-                        "get_config",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
-                        (plugin, params, returns, data) -> {
-                            System.out.println("get_config");
-
-                            var offset = params[0].v.i32;
-                            var limit = params[1].v.i32;
-
-//                            val vLen = v.length
-//                            if (vLen > limit || vLen == 0) {
-//                              return vLen
+//                new HostFunction<>(
+//                        "log_enabled",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("log_enabled");
+//
+////                            returns[0].v.i32 = 0;
+//                            // We expect debug logging to be disabled. Panic otherwise!
+//                            if (params[0].v.i32 != -1) {
+//                                returns[0].v.i32 = 1;
+//                            } else {
+//                                returns[0].v.i32 = 0;
 //                            }
-
-//                            var memory = plugin.customMemoryGet();
-//                            memory.write(offset, v.toArray, 0, vLen);
-
-                            returns[0].v.i32 = 8;
-
-                        }, Optional.empty()
-                ).withNamespace("http_handler"),
-                new HostFunction<>(
-                        "enable_features",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
-                        (plugin, params, returns, data) -> {
-                            System.out.println("enable_features");
-
-                            returns[0].v.i32 = 0;
-
-                        }, Optional.empty()
-                ).withNamespace("http_handler"),
-                new HostFunction<>(
-                        "get_uri",
-                        getUriParamaters,
-                        getUriReturns,
-                        getUriFunction, Optional.empty()
-                ).withNamespace("http_handler"),
+//                            System.out.println("Ending log_enabled");
+//                }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//
+//                new HostFunction<>(
+//                        "log",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("LOGGING at : " + params[0].v.i32);
+//
+//
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//
+//                new HostFunction<>(
+//                        "get_config",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_config");
+//
+//                            var offset = params[0].v.i32;
+//                            var limit = params[1].v.i32;
+//
+////                            val vLen = v.length
+////                            if (vLen > limit || vLen == 0) {
+////                              return vLen
+////                            }
+//
+////                            var memory = plugin.customMemoryGet();
+////                            memory.write(offset, v.toArray, 0, vLen);
+//
+//                            returns[0].v.i32 = 8;
+//
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "enable_features",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("enable_features");
+//
+//                            returns[0].v.i32 = 1;
+//
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_uri",
+//                        getUriParamaters,
+//                        getUriReturns,
+//                        getUriFunction, Optional.empty()
+//                ).withNamespace("http_handler"),
                 new HostFunction<>(
                         "set_uri",
                         new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
                         new LibExtism.ExtismValType[]{},
-                        (plugin, params, returns, data) -> System.out.println("set_uri"), Optional.empty()
+                        (plugin, params, returns, data) -> {
+                            System.out.println("set_uri coucou");
+                            System.out.println("Ending set_uri");
+                }, Optional.empty()
                 ).withNamespace("http_handler"),
-                new HostFunction<>(
-                        "set_header_value",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{},
-                        (plugin, params, returns, data) -> System.out.println("set_header_value"), Optional.empty()
-                ).withNamespace("http_handler"),
-                new HostFunction<>(
-                        "write_body",
-                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
-                        new LibExtism.ExtismValType[]{},
-                        (plugin, params, returns, data) -> System.out.println("write_body"), Optional.empty()
-                ).withNamespace("http_handler")
+//                new HostFunction<>(
+//                        "set_header_value",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> System.out.println("set_header_value"), Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "write_body",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> System.out.println("write_body"), Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "read_body",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("read_body");
+//
+////                            returns[0].v.i64 = 1 << 32 | 10;
+//                            returns[0].v.i64 = 1<<32|0;
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_method",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_method");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "set_method",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("set_method");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_protocol_version",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_protocol_version");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_header_names",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_header_names");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_header_values",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_header_values");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "add_header_value",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("add_header_value");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "remove_header",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("remove_header");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "set_status_code",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("set_status_code");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_source_addr",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_source_addr");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_method",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_method");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_header_names",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_header_names");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                new HostFunction<>(
+//                        "get_header_values",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I64},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("get_header_values");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler"),
+//                 new HostFunction<>(
+//                        "add_header_value",
+//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
+//                        new LibExtism.ExtismValType[]{},
+//                        (plugin, params, returns, data) -> {
+//                            System.out.println("add_header_value");
+//                        }, Optional.empty()
+//                ).withNamespace("http_handler")
         };
 
+        Manifest manifest = new Manifest(Arrays.asList(CODE.getLog()), new MemoryOptions(20));
 
-        Manifest manifest = new Manifest(Arrays.asList(CODE.getLog()));
+        var plugin = new Plugin(manifest, true, functions);
 
-        var plugin = new Plugin(manifest, false, functions);
-        System.out.println(plugin.callWithoutParams("handle_request", 1));
+        var res = plugin.call("handle_request", new Parameters(0), 1);
+
+        System.out.println(res.getValue(0));
 
 //        System.out.println(plugin.callWithoutParams("handle_response", 1));
 

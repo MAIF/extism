@@ -38,7 +38,7 @@ public enum TestWasmSources {
         }
 
         public Path getLogPath() {
-            return Paths.get(WASM_LOCATION, "httpwasm/router.wasm");
+            return Paths.get(WASM_LOCATION, "httpwasm/test.wasm");
         }
     };
 

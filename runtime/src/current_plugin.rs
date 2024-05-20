@@ -42,7 +42,7 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
         maximum: Option<usize>,
     ) -> Result<bool> {
         if let Some(max) = maximum {
-            if desired >= max {
+            if desired > max { // TODO - >= failed comparing 65536 and 65536 value
                 return Err(Error::msg("oom"));
             }
         }
@@ -345,6 +345,8 @@ impl CurrentPlugin {
             let (_, store) = self.linker_and_store();
             return mem.data_ptr(store);
         }
+
+        // let (linker, mut store) = self.linker_and_store();
 
         std::ptr::null_mut()
     }

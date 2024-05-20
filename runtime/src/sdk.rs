@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::os::raw::c_char;
+use std::{os::raw::c_char, ptr::null_mut};
 
 use crate::*;
 
@@ -221,7 +221,7 @@ pub unsafe extern "C" fn extism_function_new(
                 plugin,
                 inputs.as_ptr(),
                 inputs.len() as Size,
-                output_tmp.as_mut_ptr(),
+                if output_types.is_empty() { null_mut() } else { output_tmp.as_mut_ptr()},
                 output_tmp.len() as Size,
                 user_data.as_ptr(),
             );
