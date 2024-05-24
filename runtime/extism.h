@@ -148,6 +148,8 @@ uint8_t *linear_memory_get_from_plugin(ExtismPlugin *plugin,
                                        const char *namespace_,
                                        const char *name);
 
+const char *extension_plugin_error(ExtismPlugin *plugin);
+
 uintptr_t linear_memory_size(ExtismPlugin *instance_ptr, const char *namespace_, const char *name);
 
 void linear_memory_reset_from_plugin(ExtismPlugin *instance_ptr,

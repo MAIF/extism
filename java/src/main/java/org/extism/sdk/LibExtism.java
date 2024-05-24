@@ -135,6 +135,8 @@ public interface LibExtism extends Library {
      */
     String extism_plugin_error(Pointer pluginPointer);
 
+    String extension_plugin_error(Pointer pluginPointer);
+
     /**
      *
      * @param pluginPointer

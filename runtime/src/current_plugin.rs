@@ -19,6 +19,7 @@ pub struct CurrentPlugin {
     pub(crate) id: uuid::Uuid,
 
     pub(crate) memory_export: *mut PluginMemory,
+    pub(crate) extension_error: Option<Error>
 }
 
 unsafe impl Send for CurrentPlugin {}
@@ -336,6 +337,7 @@ impl CurrentPlugin {
             available_pages,
             memory_limiter,
             id,
+            extension_error: None
         })
     }
 

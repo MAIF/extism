@@ -164,9 +164,9 @@ public class Plugin implements AutoCloseable {
         );
 
         if (results == null && resultsLength > 0) {
-            // String error = error();
-            // throw new ExtismException(error);
-            return new Results(0);
+             String error = LibExtism.INSTANCE.extension_plugin_error(this.pluginPointer);
+             throw new ExtismException(error);
+             //return new Results(0);
         }
 
         if (results == null) {

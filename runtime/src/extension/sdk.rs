@@ -3,8 +3,8 @@
 use std::os::raw::c_char;
 
 use crate::{
-    function,
     extension::*,
+    function,
     sdk::{ExtismFunction, ExtismVal, Size},
     CurrentPlugin, Internal, Plugin, EXTISM_ENV_MODULE,
 };
@@ -28,9 +28,10 @@ unsafe fn extension_plugin_call_native(
         let name = std::ffi::CStr::from_ptr(func_name);
         let name = match name.to_str() {
             Ok(name) => name,
-            Err(e) => 
-            panic!("{}", e)
-            // return plugin.return_error(&mut acquired_lock, e, None),
+            Err(e) => {
+                plugin.current_plugin_mut().extension_error = Some(Error::new(e));
+                return None;
+            }
         };
 
         let mut results = vec![wasmtime::Val::null(); 0];
@@ -45,11 +46,12 @@ unsafe fn extension_plugin_call_native(
         );
 
         return match res {
-            Err((e, _rc)) => 
-            panic!("{}", e),
-                //plugin.return_error(&mut acquired_lock, e, None),
+            Err((e, _rc)) => {
+                plugin.current_plugin_mut().extension_error = Some(e);
+                None
+            }
             Ok(_x) => Some(results),
-        }
+        };
     }
 
     None
@@ -236,6 +238,28 @@ pub unsafe extern "C" fn linear_memory_get_from_plugin(
     let (linker, store) = plugin.linker_and_store();
 
     internal_linear_memory_get(linker, store, namespace, name)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extension_plugin_error(plugin: *mut Plugin) -> *const c_char {
+    if plugin.is_null() {
+        return std::ptr::null();
+    }
+    let plugin = &mut *plugin;
+    let _lock = plugin.instance.clone();
+    let _lock = _lock.lock().unwrap();
+
+    // panic!("{:?}", plugin.current_plugin_mut().extension_error);
+    let err = plugin
+        .current_plugin_mut()
+        .extension_error
+        .as_mut()
+        .unwrap();
+    let backtrace_string = format!("{:?}", err);
+    let c_string = std::ffi::CString::new(backtrace_string).unwrap();
+    c_string.into_raw()
+    // .backtrace()
+    // .as_ptr() as *const _
 }
 
 unsafe fn internal_linear_memory_get(

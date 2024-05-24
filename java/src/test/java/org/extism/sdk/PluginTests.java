@@ -203,14 +203,12 @@ public class PluginTests {
             String foo = "/host";
             System.out.println("get_uri");
 //
+            System.out.println("vLen " + foo.length());
             var memory = plugin.customMemoryGet();
+            System.out.println(memory);
             memory.write(params[0].v.i32, foo.getBytes(StandardCharsets.UTF_8), 0, foo.length());
 
             returns[0].v.i32 = foo.length();
-
-//            this.values[length].t = 0;
-//            this.values[length].v.setType(java.lang.Integer.TYPE);
-//            this.values[length].v.i32 = value;
 
             System.out.println("ending get_uri");
         };
@@ -278,33 +276,39 @@ public class PluginTests {
 //
 //                        }, Optional.empty()
 //                ).withNamespace("http_handler"),
-//                new HostFunction<>(
-//                        "get_uri",
-//                        getUriParamaters,
-//                        getUriReturns,
-//                        getUriFunction, Optional.empty()
-//                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "get_uri",
+                        getUriParamaters,
+                        getUriReturns,
+                        getUriFunction, Optional.empty()
+                ).withNamespace("http_handler"),
                 new HostFunction<>(
                         "set_uri",
                         new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32},
                         new LibExtism.ExtismValType[]{},
                         (plugin, params, returns, data) -> {
-                            System.out.println("set_uri coucou");
+                            System.out.println("set_uri");
+                             var memory = plugin.customMemoryGet();
+
+                             var offset = params[0].v.i32;
+                             var byteCount = params[1].v.i32;
+
+                            System.out.println(Arrays.toString(memory.share(offset).getByteArray(0, byteCount)));
                             System.out.println("Ending set_uri");
                 }, Optional.empty()
                 ).withNamespace("http_handler"),
-//                new HostFunction<>(
-//                        "set_header_value",
-//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
-//                        new LibExtism.ExtismValType[]{},
-//                        (plugin, params, returns, data) -> System.out.println("set_header_value"), Optional.empty()
-//                ).withNamespace("http_handler"),
-//                new HostFunction<>(
-//                        "write_body",
-//                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
-//                        new LibExtism.ExtismValType[]{},
-//                        (plugin, params, returns, data) -> System.out.println("write_body"), Optional.empty()
-//                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "set_header_value",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32, LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> System.out.println("set_header_value"), Optional.empty()
+                ).withNamespace("http_handler"),
+                new HostFunction<>(
+                        "write_body",
+                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
+                        new LibExtism.ExtismValType[]{},
+                        (plugin, params, returns, data) -> System.out.println("write_body"), Optional.empty()
+                ).withNamespace("http_handler"),
 //                new HostFunction<>(
 //                        "read_body",
 //                        new LibExtism.ExtismValType[]{LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32,LibExtism.ExtismValType.I32},
