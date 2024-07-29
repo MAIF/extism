@@ -47,7 +47,7 @@ public class ManifestTests {
         assertThat(arr).isNotNull();
         assertThat(arr.size()).isEqualTo(1);
 
-        var memory = object.getAsJsonObject("memory").get("max").getAsInt();
+        var memory = object.getAsJsonObject("memory").get("max_pages").getAsInt();
         assertThat(memory).isEqualTo(4);
     }
 

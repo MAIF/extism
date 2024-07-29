@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void log_handler(const char *line, uintptr_t length) {
+void log_handler(const char *line, ExtismSize length) {
   fwrite(line, length, 1, stderr);
 }
 
@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
 
   size_t len = 0;
   uint8_t *data = read_file("../wasm/code-functions.wasm", &len);
-  ExtismValType inputs[] = {PTR};
-  ExtismValType outputs[] = {PTR};
+  ExtismValType inputs[] = {EXTISM_PTR};
+  ExtismValType outputs[] = {EXTISM_PTR};
   ExtismFunction *f =
       extism_function_new("hello_world", inputs, 1, outputs, 1, hello_world,
                           "Hello, again!", free_data);

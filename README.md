@@ -8,7 +8,7 @@
 
 [![Discord](https://img.shields.io/discord/1011124058408112148?color=%23404eed&label=Community%20Chat&logo=Discord&logoColor=%23404eed)](https://extism.org/discord)
 ![GitHub Org's stars](https://img.shields.io/github/stars/extism)
-![GitHub all releases](https://img.shields.io/github/downloads/extism/extism/total)
+![Downloads](https://img.shields.io/crates/d/extism)
 ![GitHub License](https://img.shields.io/github/license/extism/extism)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/extism/extism)
 
@@ -51,6 +51,7 @@ started:
 | Java SDK    | <img alt="Java SDK" src="https://extism.org/img/sdk-languages/java-android.svg" width="50px"/> | https://github.com/extism/java-sdk                                      | [Sonatype](https://central.sonatype.com/artifact/org.extism.sdk/extism) |
 | .NET SDK    | <img alt=".NET SDK" src="https://extism.org/img/sdk-languages/dotnet.svg" width="50px"/>       | https://github.com/extism/dotnet-sdk <br/>(supports C# & F#!)           | [Nuget](https://www.nuget.org/packages/Extism.Sdk)                      |
 | OCaml SDK   | <img alt="OCaml SDK" src="https://extism.org/img/sdk-languages/ocaml.svg" width="50px"/>       | https://github.com/extism/ocaml-sdk                                     | [opam](https://opam.ocaml.org/packages/extism/)                         |
+| Perl SDK    | <img alt="Perl SDK" src="https://extism.org/img/sdk-languages/perl.svg" width="50px"/>         | https://github.com/extism/perl-sdk                                      | [CPAN](https://metacpan.org/pod/Extism)                                 |
 | PHP SDK     | <img alt="PHP SDK" src="https://extism.org/img/sdk-languages/php.svg" width="50px"/>           | https://github.com/extism/php-sdk                                       | [Packagist](https://packagist.org/packages/extism/extism)               |
 | Python SDK  | <img alt="Python SDK" src="https://extism.org/img/sdk-languages/python.svg" width="50px"/>     | https://github.com/extism/python-sdk                                    | [PyPi](https://pypi.org/project/extism/)                                |
 | Ruby SDK    | <img alt="Ruby SDK" src="https://extism.org/img/sdk-languages/ruby.svg" width="50px"/>         | https://github.com/extism/ruby-sdk                                      | [RubyGems](https://rubygems.org/gems/extism)                            |

@@ -17,9 +17,9 @@ pub struct CurrentPlugin {
     pub(crate) available_pages: Option<u32>,
     pub(crate) memory_limiter: Option<MemoryLimiter>,
     pub(crate) id: uuid::Uuid,
-
     pub(crate) memory_export: *mut PluginMemory,
-    pub(crate) extension_error: Option<Error>
+    pub(crate) extension_error: Option<Error>,
+    pub(crate) start_time: std::time::Instant,
 }
 
 unsafe impl Send for CurrentPlugin {}
@@ -67,6 +67,11 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
 }
 
 impl CurrentPlugin {
+    /// Gets `Plugin`'s ID
+    pub fn id(&self) -> uuid::Uuid {
+        self.id
+    }
+
     /// Get a `MemoryHandle` from a memory offset
     pub fn memory_handle(&mut self, offs: u64) -> Option<MemoryHandle> {
         if offs == 0 {
@@ -186,6 +191,23 @@ impl CurrentPlugin {
         anyhow::bail!("{} unable to locate extism memory", self.id)
     }
 
+    pub fn host_context<T: Clone + 'static>(&mut self) -> Result<T, Error> {
+        let (linker, mut store) = self.linker_and_store();
+        let Some(Extern::Global(xs)) = linker.get(&mut store, EXTISM_ENV_MODULE, "extism_context")
+        else {
+            anyhow::bail!("unable to locate an extism kernel global: extism_context",)
+        };
+
+        let Val::ExternRef(Some(xs)) = xs.get(&mut store) else {
+            anyhow::bail!("expected extism_context to be an externref value",)
+        };
+
+        match xs.data(&mut store)?.downcast_ref::<T>().cloned() {
+            Some(xs) => Ok(xs.clone()),
+            None => anyhow::bail!("could not downcast extism_context",),
+        }
+    }
+
     pub fn memory_alloc(&mut self, n: u64) -> Result<MemoryHandle, Error> {
         if n == 0 {
             return Ok(MemoryHandle {
@@ -293,25 +315,40 @@ impl CurrentPlugin {
         id: uuid::Uuid,
     ) -> Result<Self, Error> {
         let wasi = if wasi {
-            let auth = wasmtime_wasi::ambient_authority();
-            let mut ctx = wasmtime_wasi::WasiCtxBuilder::new();
-            for (k, v) in manifest.config.iter() {
-                ctx.env(k, v)?;
-            }
+            let auth = wasi_common::sync::ambient_authority();
+            let random = wasi_common::sync::random_ctx();
+            let clocks = wasi_common::sync::clocks_ctx();
+            let sched = wasi_common::sync::sched_ctx();
+            let table = wasi_common::Table::new();
+            let ctx = wasi_common::WasiCtx::new(random, clocks, sched, table);
 
             if let Some(a) = &manifest.allowed_paths {
                 for (k, v) in a.iter() {
-                    let d = wasmtime_wasi::Dir::open_ambient_dir(k, auth)?;
-                    ctx.preopened_dir(d, v)?;
+                    let readonly = k.starts_with("ro:");
+
+                    let dir_path = if readonly { &k[3..] } else { k };
+
+                    let dir = wasi_common::sync::dir::Dir::from_cap_std(
+                        wasi_common::sync::Dir::open_ambient_dir(dir_path, auth)?,
+                    );
+
+                    let file: Box<dyn wasi_common::dir::WasiDir> = if readonly {
+                        Box::new(readonly_dir::ReadOnlyDir::new(dir))
+                    } else {
+                        Box::new(dir)
+                    };
+
+                    ctx.push_preopened_dir(file, v)?;
                 }
             }
 
             // Enable WASI output, typically used for debugging purposes
             if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {
-                ctx.inherit_stdout().inherit_stderr();
+                ctx.set_stderr(Box::new(wasi_common::sync::stdio::stderr()));
+                ctx.set_stdout(Box::new(wasi_common::sync::stdio::stdout()));
             }
 
-            Some(Wasi { ctx: ctx.build() })
+            Some(Wasi { ctx })
         } else {
             None
         };
@@ -337,7 +374,8 @@ impl CurrentPlugin {
             available_pages,
             memory_limiter,
             id,
-            extension_error: None
+            extension_error: None,
+            start_time: std::time::Instant::now(),
         })
     }
 
@@ -450,6 +488,18 @@ impl CurrentPlugin {
         let length = self.memory_length(offs).unwrap_or_default();
         (offs, length)
     }
+
+    /// Returns the remaining time before a plugin will timeout, or
+    /// `None` if no timeout is configured in the manifest
+    pub fn time_remaining(&self) -> Option<std::time::Duration> {
+        if let Some(x) = &self.manifest.timeout_ms {
+            let elapsed = &self.start_time.elapsed().as_millis();
+            let ms_left = x.saturating_sub(*elapsed as u64);
+            return Some(std::time::Duration::from_millis(ms_left));
+        }
+
+        None
+    }
 }
 
 impl Internal for CurrentPlugin {
@@ -459,14 +509,6 @@ impl Internal for CurrentPlugin {
 
     fn store_mut(&mut self) -> &mut Store<CurrentPlugin> {
         unsafe { &mut *self.store }
-    }
-
-    fn linker(&self) -> &Linker<CurrentPlugin> {
-        unsafe { &*self.linker }
-    }
-
-    fn linker_mut(&mut self) -> &mut Linker<CurrentPlugin> {
-        unsafe { &mut *self.linker }
     }
 
     fn linker_and_store(&mut self) -> (&mut Linker<CurrentPlugin>, &mut Store<CurrentPlugin>) {

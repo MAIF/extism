@@ -16,7 +16,7 @@ unsafe fn extension_plugin_call_native(
     plugin: *mut Plugin,
     func_name: *const c_char,
     params: Option<Vec<Val>>,
-) -> Option<Vec<Val>> {
+) -> Option<*mut ExtismVal> {
     if plugin as usize == 0 {
         return None;
     }
@@ -34,12 +34,13 @@ unsafe fn extension_plugin_call_native(
             }
         };
 
-        let mut results = vec![wasmtime::Val::null(); 0];
+        let mut results = vec![wasmtime::Val::I32(0); 0];
 
         let res = plugin.raw_call(
             &mut acquired_lock,
             name,
             [0; 0],
+            None,
             false,
             params,
             Some(&mut results),
@@ -50,7 +51,16 @@ unsafe fn extension_plugin_call_native(
                 plugin.current_plugin_mut().extension_error = Some(e);
                 None
             }
-            Ok(_x) => Some(results),
+            Ok(_x) => {
+                let mut v = results
+                    .iter()
+                    .map(|x| ExtismVal::from_val(x, &plugin.store))
+                    .collect::<Vec<ExtismVal>>();
+            
+                let ptr = v.as_mut_ptr() as *mut _;
+                std::mem::forget(v);
+                Some(ptr)
+            }
         };
     }
 
@@ -74,7 +84,7 @@ pub(crate) unsafe extern "C" fn extension_call(
 
     match extension_plugin_call_native(plugin, func_name, params) {
         None => std::ptr::null_mut(),
-        Some(values) => val_as_ptr(values),
+        Some(values) => values,
     }
 }
 
@@ -85,19 +95,8 @@ pub(crate) unsafe extern "C" fn wasm_plugin_call_without_params(
 ) -> *mut ExtismVal {
     match extension_plugin_call_native(plugin_ptr, func_name, None) {
         None => std::ptr::null_mut(),
-        Some(values) => val_as_ptr(values),
+        Some(values) => values,
     }
-}
-
-fn val_as_ptr(values: Vec<Val>) -> *mut ExtismVal {
-    let mut v = values
-        .iter()
-        .map(|x| ExtismVal::from(x))
-        .collect::<Vec<ExtismVal>>();
-
-    let ptr = v.as_mut_ptr() as *mut _;
-    std::mem::forget(v);
-    ptr
 }
 
 unsafe fn ptr_as_val(params: *const ExtismVal, n_params: Size) -> Option<Vec<Val>> {
@@ -345,9 +344,15 @@ pub unsafe extern "C" fn linear_memory_reset_from_plugin(
         Some(external) => match external.into_memory() {
             None => (),
             Some(memory) => {
-                let memory_type = memory.ty(&store);
-                let mem = wasmtime::Memory::new(&mut *store, memory_type).unwrap();
-                let _ = linker.define(&mut *store, namespace, name, mem);
+                // let memory_type = memory.ty(&store);
+                // let mem = wasmtime::Memory::new(&mut *store, memory_type).unwrap();
+                // let res = linker.define(&mut *store, namespace, name, mem);
+
+                let size = memory.data_size(&store);
+                let buffer = vec![0; size];
+                let _ = memory.write(store, 0, &buffer);
+
+                // panic!("{:#?}", res.er());
             }
         },
     };

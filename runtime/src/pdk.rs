@@ -97,19 +97,13 @@ pub(crate) fn var_set(
 ) -> Result<(), Error> {
     let data: &mut CurrentPlugin = caller.data_mut();
 
-    let mut size = 0;
-    for v in data.vars.values() {
-        size += v.len();
+    if data.manifest.memory.max_var_bytes.is_some_and(|x| x == 0) {
+        anyhow::bail!("Vars are disabled by this host")
     }
 
     let voffset = args!(input, 1, i64) as u64;
-
-    // If the store is larger than 100MB then stop adding things
-    if size > 1024 * 1024 * 100 && voffset != 0 {
-        return Err(Error::msg("Variable store is full"));
-    }
-
     let key_offs = args!(input, 0, i64) as u64;
+
     let key = {
         let handle = match data.memory_handle(key_offs) {
             Some(h) => h,
@@ -131,6 +125,22 @@ pub(crate) fn var_set(
         Some(h) => h,
         None => anyhow::bail!("invalid handle offset for var value: {voffset}"),
     };
+
+    let mut size = std::mem::size_of::<String>()
+        + std::mem::size_of::<Vec<u8>>()
+        + key.len()
+        + handle.length as usize;
+
+    for (k, v) in data.vars.iter() {
+        size += k.len();
+        size += v.len();
+        size += std::mem::size_of::<String>() + std::mem::size_of::<Vec<u8>>();
+    }
+
+    // If the store is larger than the configured size, or 1mb by default, then stop adding things
+    if size > data.manifest.memory.max_var_bytes.unwrap_or(1024 * 1024) as usize && voffset != 0 {
+        return Err(Error::msg("Variable store is full"));
+    }
 
     let value = data.memory_bytes(handle)?.to_vec();
 
@@ -207,6 +217,11 @@ pub(crate) fn http_request(
             r = r.set(k, v);
         }
 
+        // Set HTTP timeout to respect the manifest timeout
+        if let Some(remaining) = data.time_remaining() {
+            r = r.timeout(remaining);
+        }
+
         let res = if body_offset > 0 {
             let handle = match data.memory_handle(body_offset) {
                 Some(h) => h,
@@ -226,20 +241,35 @@ pub(crate) fn http_request(
                 Some(res.into_reader())
             }
             Err(e) => {
+                // Catch timeout and return
+                if let Some(d) = data.time_remaining() {
+                    if e.kind() == ureq::ErrorKind::Io && d.as_nanos() == 0 {
+                        anyhow::bail!("timeout");
+                    }
+                }
+                let msg = e.to_string();
                 if let Some(res) = e.into_response() {
                     data.http_status = res.status();
                     Some(res.into_reader())
                 } else {
-                    None
+                    return Err(Error::msg(msg));
                 }
             }
         };
 
         if let Some(reader) = reader {
             let mut buf = Vec::new();
-            reader
-                .take(1024 * 1024 * 50) // TODO: make this limit configurable
-                .read_to_end(&mut buf)?;
+            let max = if let Some(max) = &data.manifest.memory.max_http_response_bytes {
+                reader.take(*max + 1).read_to_end(&mut buf)?;
+                *max
+            } else {
+                reader.take(1024 * 1024 * 50 + 1).read_to_end(&mut buf)?;
+                1024 * 1024 * 50
+            };
+
+            if buf.len() > max as usize {
+                anyhow::bail!("HTTP response exceeds the configured maximum number of bytes: {max}")
+            }
 
             let mem = data.memory_new(&buf)?;
             output[0] = Val::I64(mem.offset() as i64);

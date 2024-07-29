@@ -10,8 +10,45 @@ pub type ManifestMemory = MemoryOptions;
 #[serde(deny_unknown_fields)]
 pub struct MemoryOptions {
     /// The max number of WebAssembly pages that should be allocated
-    #[serde(alias = "max")]
     pub max_pages: Option<u32>,
+
+    /// The maximum number of bytes allowed in an HTTP response
+    #[serde(default)]
+    pub max_http_response_bytes: Option<u64>,
+
+    /// The maximum number of bytes allowed to be used by plugin vars. Setting this to 0
+    /// will disable Extism vars. The default value is 1mb.
+    #[serde(default = "default_var_bytes")]
+    pub max_var_bytes: Option<u64>,
+}
+
+impl MemoryOptions {
+    /// Create an empty `MemoryOptions` value
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Set max pages
+    pub fn with_max_pages(mut self, pages: u32) -> Self {
+        self.max_pages = Some(pages);
+        self
+    }
+
+    /// Set max HTTP response size
+    pub fn with_max_http_response_bytes(mut self, bytes: u64) -> Self {
+        self.max_http_response_bytes = Some(bytes);
+        self
+    }
+
+    /// Set max size of Extism vars
+    pub fn with_max_var_bytes(mut self, bytes: u64) -> Self {
+        self.max_var_bytes = Some(bytes);
+        self
+    }
+}
+
+fn default_var_bytes() -> Option<u64> {
+    Some(1024 * 1024)
 }
 
 /// Generic HTTP request structure
@@ -24,7 +61,6 @@ pub struct HttpRequest {
 
     /// Request headers
     #[serde(default)]
-    #[serde(alias = "header")]
     pub headers: std::collections::BTreeMap<String, String>,
 
     /// Request method
@@ -225,6 +261,7 @@ pub struct Manifest {
     /// WebAssembly modules, the `main` module should be named `main` or listed last
     #[serde(default)]
     pub wasm: Vec<Wasm>,
+
     /// Memory options
     #[serde(default)]
     pub memory: MemoryOptions,
@@ -242,9 +279,9 @@ pub struct Manifest {
     /// the path on disk to the path it should be available inside the plugin.
     /// For example, `".": "/tmp"` would mount the current directory as `/tmp` inside the module
     #[serde(default)]
-    pub allowed_paths: Option<BTreeMap<PathBuf, PathBuf>>,
+    pub allowed_paths: Option<BTreeMap<String, PathBuf>>,
 
-    /// The plugin timeout, by default this is set to 30s
+    /// The plugin timeout in milliseconds
     #[serde(default)]
     pub timeout_ms: Option<u64>,
 }
@@ -300,8 +337,7 @@ impl Manifest {
     }
 
     /// Add a path to `allowed_paths`
-    pub fn with_allowed_path(mut self, src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Self {
-        let src = src.as_ref().to_path_buf();
+    pub fn with_allowed_path(mut self, src: String, dest: impl AsRef<Path>) -> Self {
         let dest = dest.as_ref().to_path_buf();
         match &mut self.allowed_paths {
             Some(p) => {
@@ -318,7 +354,7 @@ impl Manifest {
     }
 
     /// Set `allowed_paths`
-    pub fn with_allowed_paths(mut self, paths: impl Iterator<Item = (PathBuf, PathBuf)>) -> Self {
+    pub fn with_allowed_paths(mut self, paths: impl Iterator<Item = (String, PathBuf)>) -> Self {
         self.allowed_paths = Some(paths.collect());
         self
     }

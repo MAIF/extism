@@ -45,9 +45,9 @@ pub type ExtismFunctionType = extern "C" fn(
 /// Log drain callback
 pub type ExtismLogDrainFunctionType = extern "C" fn(data: *const std::ffi::c_char, size: Size);
 
-impl From<&wasmtime::Val> for ExtismVal {
-    fn from(value: &wasmtime::Val) -> Self {
-        match value.ty() {
+impl ExtismVal {
+    pub fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Self {
+        match value.ty(ctx) {
             wasmtime::ValType::I32 => ExtismVal {
                 t: ValType::I32,
                 v: ValUnion {
@@ -90,6 +90,24 @@ pub unsafe extern "C" fn extism_plugin_id(plugin: *mut Plugin) -> *const u8 {
 
     let plugin = &mut *plugin;
     plugin.id.as_bytes().as_ptr()
+}
+
+/// Get the current plugin's associated host context data. Returns null if call was made without
+/// host context.
+#[no_mangle]
+pub unsafe extern "C" fn extism_current_plugin_host_context(
+    plugin: *mut CurrentPlugin,
+) -> *mut std::ffi::c_void {
+    if plugin.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let plugin = &mut *plugin;
+    if let Ok(CVoidContainer(ptr)) = plugin.host_context::<CVoidContainer>() {
+        ptr
+    } else {
+        std::ptr::null_mut()
+    }
 }
 
 /// Returns a pointer to the memory of the currently running plugin
@@ -208,7 +226,11 @@ pub unsafe extern "C" fn extism_function_new(
         output_types.clone(),
         user_data,
         move |plugin, inputs, outputs, user_data| {
-            let inputs: Vec<_> = inputs.iter().map(ExtismVal::from).collect();
+            let store = &*plugin.store;
+            let inputs: Vec<_> = inputs
+                .iter()
+                .map(|x| ExtismVal::from_val(x, store))
+                .collect();
             let mut output_tmp: Vec<_> = output_types
                 .iter()
                 .map(|t| ExtismVal {
@@ -397,20 +419,6 @@ pub unsafe extern "C" fn extism_plugin_config(
             }
         };
 
-    let wasi = &mut plugin.current_plugin_mut().wasi;
-    if let Some(Wasi { ctx, .. }) = wasi {
-        for (k, v) in json.iter() {
-            match v {
-                Some(v) => {
-                    let _ = ctx.push_env(k, v);
-                }
-                None => {
-                    let _ = ctx.push_env(k, "");
-                }
-            }
-        }
-    }
-
     let id = plugin.id;
     let config = &mut plugin.current_plugin_mut().manifest.config;
     for (k, v) in json.into_iter() {
@@ -473,6 +481,31 @@ pub unsafe extern "C" fn extism_plugin_call(
     data: *const u8,
     data_len: Size,
 ) -> i32 {
+    extism_plugin_call_with_host_context(plugin, func_name, data, data_len, std::ptr::null_mut())
+}
+
+#[derive(Clone)]
+#[repr(transparent)]
+struct CVoidContainer(*mut std::ffi::c_void);
+
+// "You break it, you buy it."
+unsafe impl Send for CVoidContainer {}
+unsafe impl Sync for CVoidContainer {}
+
+/// Call a function with host context.
+///
+/// `func_name`: is the function to call
+/// `data`: is the input data
+/// `data_len`: is the length of `data`
+/// `host_context`: a pointer to context data that will be available in host functions
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_call_with_host_context(
+    plugin: *mut Plugin,
+    func_name: *const c_char,
+    data: *const u8,
+    data_len: Size,
+    host_context: *mut std::ffi::c_void,
+) -> i32 {
     if plugin.is_null() {
         return -1;
     }
@@ -480,6 +513,8 @@ pub unsafe extern "C" fn extism_plugin_call(
     let plugin = &mut *plugin;
     let lock = plugin.instance.clone();
     let mut lock = lock.lock().unwrap();
+
+    plugin.error_msg = None;
 
     // Get function name
     let name = std::ffi::CStr::from_ptr(func_name);
@@ -494,8 +529,13 @@ pub unsafe extern "C" fn extism_plugin_call(
         name
     );
     let input = std::slice::from_raw_parts(data, data_len as usize);
-    let res = plugin.raw_call(&mut lock, name, input, true, None, None);
 
+    let r = match ExternRef::new(&mut plugin.store, CVoidContainer(host_context)) {
+        Err(e) => return plugin.return_error(&mut lock, e, -1),
+        Ok(x) => x,
+    };
+
+    let res = plugin.raw_call(&mut lock, name, input, Some(r), true, None, None);
     match res {
         Err((e, rc)) => plugin.return_error(&mut lock, e, rc),
         Ok(x) => x,
@@ -524,10 +564,19 @@ pub unsafe extern "C" fn extism_plugin_error(plugin: *mut Plugin) -> *const c_ch
         return std::ptr::null();
     }
 
-    plugin
+    let offs = plugin.output.error_offset;
+
+    let ptr = plugin.current_plugin_mut().memory_ptr().add(offs as usize) as *const _;
+
+    let len = plugin
         .current_plugin_mut()
-        .memory_ptr()
-        .add(plugin.output.error_offset as usize) as *const _
+        .memory_length(offs)
+        .unwrap_or_default();
+
+    let mut data = std::slice::from_raw_parts(ptr, len as usize).to_vec();
+    data.push(0);
+    plugin.error_msg = Some(data);
+    plugin.error_msg.as_ref().unwrap().as_ptr() as *const _
 }
 
 /// Get the length of a plugin's output data
@@ -680,7 +729,7 @@ unsafe fn set_log_buffer(filter: &str) -> Result<(), Error> {
 /// Calls the provided callback function for each buffered log line.
 /// This is only needed when `extism_log_custom` is used.
 pub unsafe extern "C" fn extism_log_drain(handler: ExtismLogDrainFunctionType) {
-    if let Some(buf) = &mut LOG_BUFFER {
+    if let Some(buf) = LOG_BUFFER.as_mut() {
         if let Ok(mut buf) = buf.buffer.lock() {
             for (line, len) in buf.drain(..) {
                 handler(line.as_ptr(), len as u64);

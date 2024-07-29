@@ -11,8 +11,8 @@ use base64::Engine;
 /// extism_convert::encoding!(MyJson, serde_json::to_vec, serde_json::from_slice);
 /// ```
 ///
-/// This will create a struct `struct MyJson<T>(pub T)` and implement `ToBytes` using `serde_json::to_vec`
-/// and `FromBytesOwned` using `serde_json::from_vec`
+/// This will create a struct `struct MyJson<T>(pub T)` and implement [`ToBytes`] using [`serde_json::to_vec`]
+/// and [`FromBytesOwned`] using [`serde_json::from_slice`]
 #[macro_export]
 macro_rules! encoding {
     ($pub:vis $name:ident, $to_vec:expr, $from_slice:expr) => {

@@ -1,3 +1,5 @@
+use extism_manifest::MemoryOptions;
+
 use crate::*;
 use std::{io::Write, time::Instant};
 
@@ -7,6 +9,7 @@ const WASM_LOOP: &[u8] = include_bytes!("../../../wasm/loop.wasm");
 const WASM_GLOBALS: &[u8] = include_bytes!("../../../wasm/globals.wasm");
 const WASM_REFLECT: &[u8] = include_bytes!("../../../wasm/reflect.wasm");
 const WASM_HTTP: &[u8] = include_bytes!("../../../wasm/http.wasm");
+const WASM_FS: &[u8] = include_bytes!("../../../wasm/read_write.wasm");
 
 host_fn!(pub hello_world (a: String) -> String { Ok(a) });
 
@@ -238,6 +241,34 @@ fn test_timeout() {
     assert!(err == "timeout");
 }
 
+#[test]
+fn test_http_timeout() {
+    let f = Function::new(
+        "hello_world",
+        [PTR],
+        [PTR],
+        UserData::default(),
+        hello_world,
+    );
+
+    let manifest = Manifest::new([extism_manifest::Wasm::data(WASM_HTTP)])
+        .with_timeout(std::time::Duration::from_millis(1))
+        .with_allowed_host("www.extism.org");
+    let mut plugin = Plugin::new(manifest, [f], true).unwrap();
+
+    let start = std::time::Instant::now();
+    let output: Result<&[u8], Error> =
+        plugin.call("http_request", r#"{"url": "https://www.extism.org"}"#);
+    let end = std::time::Instant::now();
+    let time = end - start;
+    let err = output.unwrap_err().root_cause().to_string();
+    println!(
+        "Timed out plugin ran for {:?}, with error: {:?}",
+        time, &err
+    );
+    assert!(err == "timeout");
+}
+
 typed_plugin!(pub TestTypedPluginGenerics {
     count_vowels<T: FromBytes<'a>>(&str) -> T
 });
@@ -303,6 +334,42 @@ fn test_toml_manifest() {
     let output = plugin.call("count_vowels", "abc123").unwrap();
     let count: serde_json::Value = serde_json::from_slice(output).unwrap();
     assert_eq!(count.get("count").unwrap().as_i64().unwrap(), 1);
+}
+
+#[test]
+fn test_call_with_host_context() {
+    #[derive(Clone)]
+    struct Foo {
+        message: String,
+    }
+
+    let f = Function::new(
+        "host_reflect",
+        [PTR],
+        [PTR],
+        UserData::default(),
+        |current_plugin, _val, ret, _user_data: UserData<()>| {
+            let foo = current_plugin.host_context::<Foo>()?;
+            let hnd = current_plugin.memory_new(foo.message)?;
+            ret[0] = current_plugin.memory_to_val(hnd);
+            Ok(())
+        },
+    );
+
+    let mut plugin = Plugin::new(WASM_REFLECT, [f], true).unwrap();
+
+    let message = "hello world";
+    let output: String = plugin
+        .call_with_host_context(
+            "reflect",
+            "anything, really",
+            Foo {
+                message: message.to_string(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(output, message);
 }
 
 #[test]
@@ -592,4 +659,118 @@ fn test_manifest_ptr_len() {
     let output = plugin.call("count_vowels", "abc123").unwrap();
     let count: serde_json::Value = serde_json::from_slice(output).unwrap();
     assert_eq!(count.get("count").unwrap().as_i64().unwrap(), 1);
+}
+
+#[test]
+fn test_no_vars() {
+    let data = br#"
+(module
+    (import "extism:host/env" "var_set" (func $var_set (param i64 i64)))
+    (import "extism:host/env" "input_offset" (func $input_offset (result i64)))
+    (func (export "test") (result i32)
+        (call $input_offset)
+        (call $input_offset)
+        (call $var_set)
+        (i32.const 0)
+    )
+)
+    "#;
+    let manifest = Manifest::new([Wasm::data(data)])
+        .with_memory_options(MemoryOptions::new().with_max_var_bytes(1));
+    let mut plugin = Plugin::new(manifest, [], true).unwrap();
+    let output: Result<(), Error> = plugin.call("test", b"A".repeat(1024));
+    assert!(output.is_err());
+    let output: Result<(), Error> = plugin.call("test", vec![]);
+    assert!(output.is_ok());
+}
+
+#[test]
+fn test_linking() {
+    let manifest = Manifest::new([
+        Wasm::Data {
+            data: br#"
+                (module
+                    (import "wasi_snapshot_preview1" "random_get" (func $random (param i32 i32) (result i32)))
+                    (import "extism:host/env" "alloc" (func $alloc (param i64) (result i64)))
+                    (import "extism:host/user" "hello" (func $hello))
+                    (global $counter (mut i32) (i32.const 0))
+                    (func $start (export "_start")
+                        (global.set $counter (i32.add (global.get $counter) (i32.const 1)))
+                    )
+                    (func (export "read_counter") (result i32)
+                        (global.get $counter)
+                    )
+                    (start $start)
+                )
+            "#.to_vec(),
+            meta: WasmMetadata {
+                name: Some("commander".to_string()),
+                hash: None,
+            },
+        },
+        Wasm::Data {
+            data: br#"
+                (module
+                    (import "commander" "_start" (func $commander_start))
+                    (import "commander" "read_counter" (func $commander_read_counter (result i32)))
+                    (import "extism:host/env" "store_u64" (func $store_u64 (param i64 i64)))
+                    (import "extism:host/env" "alloc" (func $alloc (param i64) (result i64)))
+                    (import "extism:host/user" "hello" (func $hello))
+                    (import "extism:host/env" "output_set" (func $output_set (param i64 i64)))
+                    (func (export "run") (result i32)
+                        (local $output i64)
+                        (local.set $output (call $alloc (i64.const 8)))
+
+                        (call $commander_start)
+                        (call $commander_start)
+                        (call $commander_start)
+                        (call $commander_start)
+                        (call $hello)
+                        (call $store_u64 (local.get $output) (i64.extend_i32_u (call $commander_read_counter)))
+                        (call $output_set (local.get $output) (i64.const 8))
+                        i32.const 0
+                    )
+                )
+            "#.to_vec(),
+            meta: WasmMetadata {
+                name: Some("main".to_string()),
+                hash: None,
+            },
+        },
+    ]);
+    let mut plugin = PluginBuilder::new(manifest)
+        .with_wasi(true)
+        .with_function("hello", [], [], UserData::new(()), |_, _, _, _| {
+            eprintln!("hello!");
+            Ok(())
+        })
+        .build()
+        .unwrap();
+
+    for _ in 0..5 {
+        assert_eq!(plugin.call::<&str, i64>("run", "Hello, world!").unwrap(), 1);
+    }
+}
+
+#[test]
+fn test_readonly_dirs() {
+    let wasm = Wasm::data(WASM_FS);
+    let manifest = Manifest::new([wasm])
+        .with_allowed_path("ro:src/tests/data".to_string(), "/data")
+        .with_config_key("path", "/data/data.txt");
+
+    let mut plugin = PluginBuilder::new(manifest)
+        .with_wasi(true)
+        .build()
+        .unwrap();
+
+    let res = plugin.call::<&str, &str>("try_read", "").unwrap();
+    assert_eq!(res, "hello world!");
+
+    let line = "hello world 2";
+    let res2 = plugin.call::<&str, &str>("try_write", &line);
+    assert!(
+        res2.is_err(),
+        "Expected try_write to fail, but it succeeded."
+    );
 }
