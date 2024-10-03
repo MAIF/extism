@@ -39,6 +39,8 @@ pub struct PluginBuilder<'a> {
     functions: Vec<Function>,
     debug_options: DebugOptions,
     cache_config: Option<Option<PathBuf>>,
+    fuel: Option<u64>,
+    config: Option<wasmtime::Config>,
 }
 
 impl<'a> PluginBuilder<'a> {
@@ -50,6 +52,8 @@ impl<'a> PluginBuilder<'a> {
             functions: vec![],
             debug_options: DebugOptions::default(),
             cache_config: None,
+            fuel: None,
+            config: None,
         }
     }
 
@@ -148,6 +152,30 @@ impl<'a> PluginBuilder<'a> {
         self
     }
 
+    /// Limit the number of instructions that can be executed
+    pub fn with_fuel_limit(mut self, fuel: u64) -> Self {
+        self.fuel = Some(fuel);
+        self
+    }
+
+    /// Configure an initial wasmtime config to be passed to the plugin
+    ///
+    /// **Warning**: some values might be overwritten by the Extism runtime. In particular:
+    /// - async_support
+    /// - epoch_interruption
+    /// - debug_info
+    /// - coredump_on_trap
+    /// - profiler
+    /// - wasm_tail_call
+    /// - wasm_function_references
+    /// - wasm_gc
+    ///
+    /// See the implementation details of [PluginBuilder::build] and [Plugin::build_new] to verify which values are overwritten.
+    pub fn with_wasmtime_config(mut self, config: wasmtime::Config) -> Self {
+        self.config = Some(config);
+        self
+    }
+
     /// Generate a new plugin with the configured settings
     pub fn build(self) -> Result<Plugin, Error> {
         Plugin::build_new(
@@ -157,6 +185,8 @@ impl<'a> PluginBuilder<'a> {
             self.wasi,
             self.debug_options,
             self.cache_config,
+            self.fuel,
+            self.config,
         )
     }
 }

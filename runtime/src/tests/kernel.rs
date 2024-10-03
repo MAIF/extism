@@ -3,36 +3,32 @@ use quickcheck::*;
 
 const KERNEL: &[u8] = include_bytes!("../extism-runtime.wasm");
 
-fn extism_alloc<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, n: u64) -> u64 {
+fn extism_alloc<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, n: u64) -> u64 {
     let out_alloc = &mut [Val::I64(0)];
     instance
-        .get_func(&mut store, "alloc")
+        .get_func(&mut *store, "alloc")
         .unwrap()
-        .call(&mut store, &[Val::I64(n as i64)], out_alloc)
+        .call(store, &[Val::I64(n as i64)], out_alloc)
         .unwrap();
     out_alloc[0].unwrap_i64() as u64
 }
 
-fn extism_length<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u64 {
+fn extism_length<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u64 {
     let out = &mut [Val::I64(0)];
     instance
-        .get_func(&mut store, "length")
+        .get_func(&mut *store, "length")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], out)
+        .call(store, &[Val::I64(p as i64)], out)
         .unwrap();
     out[0].unwrap_i64() as u64
 }
 
-fn extism_length_unsafe<T>(
-    mut store: &mut wasmtime::Store<T>,
-    instance: &mut Instance,
-    p: u64,
-) -> u64 {
+fn extism_length_unsafe<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u64 {
     let out = &mut [Val::I64(0)];
     instance
-        .get_func(&mut store, "length_unsafe")
+        .get_func(&mut *store, "length_unsafe")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], out)
+        .call(store, &[Val::I64(p as i64)], out)
         .unwrap();
     out[0].unwrap_i64() as u64
 }
@@ -47,122 +43,96 @@ fn extism_load_u8<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance
     out[0].unwrap_i32() as u8
 }
 
-fn extism_load_u64<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u64 {
+fn extism_load_u64<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u64 {
     let out = &mut [Val::I32(0)];
     instance
-        .get_func(&mut store, "load_u64")
+        .get_func(&mut *store, "load_u64")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], out)
+        .call(store, &[Val::I64(p as i64)], out)
         .unwrap();
     out[0].unwrap_i64() as u64
 }
 
-fn extism_input_load_u8<T>(
-    mut store: &mut wasmtime::Store<T>,
-    instance: &mut Instance,
-    p: u64,
-) -> u8 {
+fn extism_input_load_u8<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) -> u8 {
     let out = &mut [Val::I32(0)];
     instance
-        .get_func(&mut store, "input_load_u8")
+        .get_func(&mut *store, "input_load_u8")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], out)
+        .call(store, &[Val::I64(p as i64)], out)
         .unwrap();
     out[0].unwrap_i32() as u8
 }
 
 fn extism_input_load_u64<T>(
-    mut store: &mut wasmtime::Store<T>,
+    store: &mut wasmtime::Store<T>,
     instance: &mut Instance,
     p: u64,
 ) -> u64 {
     let out = &mut [Val::I32(0)];
     instance
-        .get_func(&mut store, "input_load_u64")
+        .get_func(&mut *store, "input_load_u64")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], out)
+        .call(store, &[Val::I64(p as i64)], out)
         .unwrap();
     out[0].unwrap_i64() as u64
 }
 
-fn extism_store_u8<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64, x: u8) {
+fn extism_store_u8<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64, x: u8) {
     instance
-        .get_func(&mut store, "store_u8")
+        .get_func(&mut *store, "store_u8")
         .unwrap()
-        .call(
-            &mut store,
-            &[Val::I64(p as i64), Val::I32(x as i32)],
-            &mut [],
-        )
+        .call(store, &[Val::I64(p as i64), Val::I32(x as i32)], &mut [])
         .unwrap();
 }
 
-fn extism_store_u64<T>(
-    mut store: &mut wasmtime::Store<T>,
-    instance: &mut Instance,
-    p: u64,
-    x: u64,
-) {
+fn extism_store_u64<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64, x: u64) {
     instance
-        .get_func(&mut store, "store_u64")
+        .get_func(&mut *store, "store_u64")
         .unwrap()
-        .call(
-            &mut store,
-            &[Val::I64(p as i64), Val::I64(x as i64)],
-            &mut [],
-        )
+        .call(store, &[Val::I64(p as i64), Val::I64(x as i64)], &mut [])
         .unwrap();
 }
 
-fn extism_free<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) {
+fn extism_free<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) {
     instance
-        .get_func(&mut store, "free")
+        .get_func(&mut *store, "free")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], &mut [])
+        .call(store, &[Val::I64(p as i64)], &mut [])
         .unwrap();
 }
 
-fn extism_error_set<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) {
+fn extism_error_set<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64) {
     instance
-        .get_func(&mut store, "error_set")
+        .get_func(&mut *store, "error_set")
         .unwrap()
-        .call(&mut store, &[Val::I64(p as i64)], &mut [])
+        .call(store, &[Val::I64(p as i64)], &mut [])
         .unwrap();
 }
 
-fn extism_error_get<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance) -> u64 {
+fn extism_error_get<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance) -> u64 {
     let out = &mut [Val::I64(0)];
     instance
-        .get_func(&mut store, "error_get")
+        .get_func(&mut *store, "error_get")
         .unwrap()
-        .call(&mut store, &[], out)
+        .call(store, &[], out)
         .unwrap();
 
     out[0].unwrap_i64() as u64
 }
 
-fn extism_reset<T>(mut store: &mut wasmtime::Store<T>, instance: &mut Instance) {
+fn extism_reset<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance) {
     instance
-        .get_func(&mut store, "reset")
+        .get_func(&mut *store, "reset")
         .unwrap()
-        .call(&mut store, &[], &mut [])
+        .call(store, &[], &mut [])
         .unwrap();
 }
 
-fn extism_input_set<T>(
-    mut store: &mut wasmtime::Store<T>,
-    instance: &mut Instance,
-    p: u64,
-    l: u64,
-) {
+fn extism_input_set<T>(store: &mut wasmtime::Store<T>, instance: &mut Instance, p: u64, l: u64) {
     instance
-        .get_func(&mut store, "input_set")
+        .get_func(&mut *store, "input_set")
         .unwrap()
-        .call(
-            &mut store,
-            &[Val::I64(p as i64), Val::I64(l as i64)],
-            &mut [],
-        )
+        .call(store, &[Val::I64(p as i64), Val::I64(l as i64)], &mut [])
         .unwrap();
 }
 
@@ -183,9 +153,29 @@ fn test_kernel_allocations() {
     // Test allocations
     assert_eq!(extism_alloc(&mut store, instance, 0), 0);
 
+    // 512 bytes, test block re-use + splitting
+    let p = extism_alloc(&mut store, instance, 65535);
+    let first_alloc = p;
+    assert_eq!(extism_length(&mut store, instance, p), 65535);
+    assert_eq!(extism_length(&mut store, instance, p + 1), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 2), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 3), 0);
+    assert_eq!(extism_length(&mut store, instance, p + 4), 0);
+    extism_free(&mut store, instance, p);
+
+    // Should re-use the previous block
+    let q = extism_alloc(&mut store, instance, 65535);
+    assert_eq!(q, p);
+    assert_eq!(extism_length(&mut store, instance, q), 65535);
+    extism_free(&mut store, instance, q);
+
+    let r = extism_alloc(&mut store, instance, 65535 - 24);
+    assert_eq!(r, q);
+    assert_eq!(extism_length(&mut store, instance, q), 65535 - 24);
+    extism_free(&mut store, instance, r);
+
     // 1 byte
     let p = extism_alloc(&mut store, instance, 1);
-    let first_alloc = p;
     assert!(p > 0);
     assert_eq!(extism_length(&mut store, instance, p), 1);
     assert_eq!(extism_length_unsafe(&mut store, instance, p), 1);
@@ -205,36 +195,7 @@ fn test_kernel_allocations() {
         assert_eq!(extism_length(&mut store, instance, p), 64 - i);
         assert_eq!(extism_length_unsafe(&mut store, instance, p), 64 - i);
         extism_free(&mut store, instance, p);
-
-        // should re-use the last allocation
-        let q = extism_alloc(&mut store, instance, 64 - i);
-        assert_eq!(p, q);
-        assert_eq!(extism_length(&mut store, instance, q), 64 - i);
-        assert_eq!(extism_length_unsafe(&mut store, instance, q), 64 - i);
-        extism_free(&mut store, instance, q);
     }
-
-    // 512 bytes, test block re-use + splitting
-    let p = extism_alloc(&mut store, instance, 512);
-    assert_eq!(extism_length(&mut store, instance, p), 512);
-    assert_eq!(extism_length(&mut store, instance, p + 1), 0);
-    assert_eq!(extism_length(&mut store, instance, p + 2), 0);
-    assert_eq!(extism_length(&mut store, instance, p + 3), 0);
-    assert_eq!(extism_length(&mut store, instance, p + 4), 0);
-    extism_free(&mut store, instance, p);
-
-    // 128 bytes, should be split off the 512 byte block
-    let q = extism_alloc(&mut store, instance, 128);
-    assert!(p <= q && q < p + 512);
-    assert_eq!(extism_length(&mut store, instance, q), 128);
-    extism_free(&mut store, instance, q);
-
-    // 128 bytes, same as above
-    let r = extism_alloc(&mut store, instance, 128);
-    assert!(p <= r && r < p + 512);
-    assert!(r > p);
-    assert_eq!(extism_length(&mut store, instance, r), 128);
-    extism_free(&mut store, instance, q);
 
     // 100 pages
     let p = extism_alloc(&mut store, instance, 6553600);

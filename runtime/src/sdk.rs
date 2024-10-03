@@ -11,6 +11,12 @@ pub struct ExtismFunction(pub std::cell::Cell<Option<Function>>);
 /// The return code used to specify a successful plugin call
 pub static EXTISM_SUCCESS: i32 = 0;
 
+fn make_error_msg(s: String) -> Vec<u8> {
+    let mut s = s.into_bytes();
+    s.push(0);
+    s
+}
+
 /// A union type for host function argument/return values
 #[repr(C)]
 // TODO - ADDED
@@ -104,7 +110,7 @@ pub unsafe extern "C" fn extism_current_plugin_host_context(
 
     let plugin = &mut *plugin;
     if let Ok(CVoidContainer(ptr)) = plugin.host_context::<CVoidContainer>() {
-        ptr
+        *ptr
     } else {
         std::ptr::null_mut()
     }
@@ -239,12 +245,28 @@ pub unsafe extern "C" fn extism_function_new(
                 })
                 .collect();
 
+            // We cannot simply "get" the Vec's storage pointer because
+            // the underlying storage might be invalid when the Vec is empty.
+            // In that case, we return (null, 0).
+
+            let (inputs_ptr, inputs_len) = if inputs.is_empty() {
+                (core::ptr::null(), 0 as Size)
+            } else {
+                (inputs.as_ptr(), inputs.len() as Size)
+            };
+
+            let (output_ptr, output_len) = if output_tmp.is_empty() {
+                (null_mut(), 0 as Size)
+            } else {
+                (output_tmp.as_mut_ptr(), output_tmp.len() as Size)
+            };
+
             func(
                 plugin,
-                inputs.as_ptr(),
-                inputs.len() as Size,
-                if output_types.is_empty() { null_mut() } else { output_tmp.as_mut_ptr()},
-                output_tmp.len() as Size,
+                inputs_ptr,
+                inputs_len,
+                output_ptr,
+                output_len,
                 user_data.as_ptr(),
             );
 
@@ -342,6 +364,68 @@ pub unsafe extern "C" fn extism_plugin_new(
     }
 }
 
+/// Create a new plugin and set the number of instructions a plugin is allowed to execute
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_new_with_fuel_limit(
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *mut *const ExtismFunction,
+    n_functions: Size,
+    with_wasi: bool,
+    fuel_limit: u64,
+    errmsg: *mut *mut std::ffi::c_char,
+) -> *mut Plugin {
+    trace!(
+        "Call to extism_plugin_new_with_fuel_limit with wasm pointer {:?}",
+        wasm
+    );
+    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
+    let mut funcs = vec![];
+
+    if !functions.is_null() {
+        for i in 0..n_functions {
+            unsafe {
+                let f = *functions.add(i as usize);
+                if f.is_null() {
+                    continue;
+                }
+                if let Some(f) = (*f).0.take() {
+                    funcs.push(f);
+                } else {
+                    let e = std::ffi::CString::new(
+                        "Function cannot be registered with multiple different Plugins",
+                    )
+                    .unwrap();
+                    *errmsg = e.into_raw();
+                }
+            }
+        }
+    }
+
+    let plugin = Plugin::build_new(
+        data.into(),
+        funcs,
+        vec![],
+        with_wasi,
+        Default::default(),
+        None,
+        Some(fuel_limit),
+        None,
+    );
+
+    match plugin {
+        Err(e) => {
+            if !errmsg.is_null() {
+                let e = std::ffi::CString::new(format!("Unable to create Extism plugin: {}", e))
+                    .unwrap();
+                *errmsg = e.into_raw();
+            }
+            std::ptr::null_mut()
+        }
+        Ok(p) => Box::into_raw(Box::new(p)),
+    }
+}
+
 /// Free the error returned by `extism_plugin_new`, errors returned from `extism_plugin_error` don't need to be freed
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_new_error_free(err: *mut std::ffi::c_char) {
@@ -402,8 +486,6 @@ pub unsafe extern "C" fn extism_plugin_config(
         return false;
     }
     let plugin = &mut *plugin;
-    let _lock = plugin.instance.clone();
-    let mut lock = _lock.lock().unwrap();
 
     trace!(
         plugin = plugin.id.to_string(),
@@ -414,8 +496,8 @@ pub unsafe extern "C" fn extism_plugin_config(
     let json: std::collections::BTreeMap<String, Option<String>> =
         match serde_json::from_slice(data) {
             Ok(x) => x,
-            Err(e) => {
-                return plugin.return_error(&mut lock, e, false);
+            Err(_) => {
+                return false;
             }
         };
 
@@ -448,9 +530,6 @@ pub unsafe extern "C" fn extism_plugin_function_exists(
         return false;
     }
     let plugin = &mut *plugin;
-    let _lock = plugin.instance.clone();
-    let mut lock = _lock.lock().unwrap();
-
     let name = std::ffi::CStr::from_ptr(func_name);
     trace!(
         plugin = plugin.id.to_string(),
@@ -460,8 +539,8 @@ pub unsafe extern "C" fn extism_plugin_function_exists(
 
     let name = match name.to_str() {
         Ok(x) => x,
-        Err(e) => {
-            return plugin.return_error(&mut lock, e, false);
+        Err(_) => {
+            return false;
         }
     };
 
@@ -514,13 +593,14 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
     let lock = plugin.instance.clone();
     let mut lock = lock.lock().unwrap();
 
-    plugin.error_msg = None;
-
     // Get function name
     let name = std::ffi::CStr::from_ptr(func_name);
     let name = match name.to_str() {
         Ok(name) => name,
-        Err(e) => return plugin.return_error(&mut lock, e, -1),
+        Err(e) => {
+            plugin.error_msg = Some(make_error_msg(e.to_string()));
+            return -1;
+        }
     };
 
     trace!(
@@ -529,15 +609,17 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
         name
     );
     let input = std::slice::from_raw_parts(data, data_len as usize);
-
-    let r = match ExternRef::new(&mut plugin.store, CVoidContainer(host_context)) {
-        Err(e) => return plugin.return_error(&mut lock, e, -1),
-        Ok(x) => x,
+    let r = if host_context.is_null() {
+        None
+    } else {
+        Some(CVoidContainer(host_context))
     };
-
-    let res = plugin.raw_call(&mut lock, name, input, Some(r), true, None, None);
+    let res = plugin.raw_call(&mut lock, name, input, r, true, None, None);
     match res {
-        Err((e, rc)) => plugin.return_error(&mut lock, e, rc),
+        Err((e, rc)) => {
+            plugin.error_msg = Some(make_error_msg(e.to_string()));
+            rc
+        }
         Ok(x) => x,
     }
 }
@@ -560,6 +642,9 @@ pub unsafe extern "C" fn extism_plugin_error(plugin: *mut Plugin) -> *const c_ch
     let _lock = _lock.lock().unwrap();
 
     if plugin.output.error_offset == 0 {
+        if let Some(err) = &plugin.error_msg {
+            return err.as_ptr() as *const _;
+        }
         trace!(plugin = plugin.id.to_string(), "error is NULL");
         return std::ptr::null();
     }
@@ -651,7 +736,6 @@ pub unsafe extern "C" fn extism_log_file(
 fn set_log_file(log_file: impl Into<std::path::PathBuf>, filter: &str) -> Result<(), Error> {
     let log_file = log_file.into();
     let s = log_file.to_str();
-
     let is_level = tracing::Level::from_str(filter).is_ok();
     let cfg = tracing_subscriber::FmtSubscriber::builder().with_env_filter({
         let x = tracing_subscriber::EnvFilter::builder()
@@ -702,6 +786,7 @@ pub unsafe extern "C" fn extism_log_custom(log_level: *const c_char) -> bool {
     } else {
         "error"
     };
+
     set_log_buffer(level).is_ok()
 }
 

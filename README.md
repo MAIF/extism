@@ -8,7 +8,7 @@
 
 [![Discord](https://img.shields.io/discord/1011124058408112148?color=%23404eed&label=Community%20Chat&logo=Discord&logoColor=%23404eed)](https://extism.org/discord)
 ![GitHub Org's stars](https://img.shields.io/github/stars/extism)
-![Downloads](https://img.shields.io/crates/d/extism)
+![Downloads](https://img.shields.io/crates/d/extism-manifest)
 ![GitHub License](https://img.shields.io/github/license/extism/extism)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/extism/extism)
 
@@ -61,7 +61,7 @@ started:
 
 # Compile WebAssembly to run in Extism Hosts
 
-Extism Hosts (running the SDK) must execute WebAssembly code that has a PDK
+Extism Hosts (running the SDK) must execute WebAssembly code that has a [PDK, or Plug-in Development Kit](https://extism.org/docs/concepts/pdk), 
 library compiled in to the `.wasm` binary. PDKs make it easy for plug-in /
 extension code authors to read input from the host and return data back, read
 provided configuration, set/get variables, make outbound HTTP calls if allowed,

@@ -242,6 +242,23 @@ fn test_timeout() {
 }
 
 #[test]
+fn test_fuel() {
+    let manifest = Manifest::new([extism_manifest::Wasm::data(WASM_LOOP)]);
+    let mut plugin = PluginBuilder::new(manifest)
+        .with_wasi(true)
+        .with_fuel_limit(1)
+        .build()
+        .unwrap();
+    for _ in 0..10001 {
+        let output: Result<&[u8], Error> = plugin.call("loop_forever", "abc123");
+        let err = output.unwrap_err().root_cause().to_string();
+        println!("Fuel limited plugin exited with error: {:?}", &err);
+        assert!(err.contains("fuel"));
+    }
+}
+
+#[test]
+#[cfg(feature = "http")]
 fn test_http_timeout() {
     let f = Function::new(
         "hello_world",
@@ -317,8 +334,10 @@ fn test_multiple_instantiations() {
 #[test]
 fn test_globals() {
     let mut plugin = Plugin::new(WASM_GLOBALS, [], true).unwrap();
-    for i in 0..100000 {
-        let Json(count) = plugin.call::<_, Json<Count>>("globals", "").unwrap();
+    for i in 0..100001 {
+        let Json(count) = plugin
+            .call_with_host_context::<_, Json<Count>, _>("globals", "", ())
+            .unwrap();
         assert_eq!(count.count, i);
     }
 }
@@ -349,7 +368,7 @@ fn test_call_with_host_context() {
         [PTR],
         UserData::default(),
         |current_plugin, _val, ret, _user_data: UserData<()>| {
-            let foo = current_plugin.host_context::<Foo>()?;
+            let foo = current_plugin.host_context::<Foo>()?.clone();
             let hnd = current_plugin.memory_new(foo.message)?;
             ret[0] = current_plugin.memory_to_val(hnd);
             Ok(())
@@ -768,7 +787,7 @@ fn test_readonly_dirs() {
     assert_eq!(res, "hello world!");
 
     let line = "hello world 2";
-    let res2 = plugin.call::<&str, &str>("try_write", &line);
+    let res2 = plugin.call::<&str, &str>("try_write", line);
     assert!(
         res2.is_err(),
         "Expected try_write to fail, but it succeeded."

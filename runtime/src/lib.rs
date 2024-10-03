@@ -1,6 +1,17 @@
 // Makes proc-macros able to resolve `::extism` correctly
 extern crate self as extism;
 
+macro_rules! catch_out_of_fuel {
+    ($store: expr, $x:expr) => {{
+        let y = $x;
+        if y.is_err() && $store.get_fuel().is_ok_and(|x| x == 0) {
+            Err(Error::msg("plugin ran out of fuel"))
+        } else {
+            y
+        }
+    }};
+}
+
 pub(crate) use extism_convert::*;
 pub(crate) use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -79,11 +90,16 @@ pub fn set_log_callback<F: 'static + Clone + Fn(&str)>(
     filter: impl AsRef<str>,
 ) -> Result<(), Error> {
     let filter = filter.as_ref();
-    let cfg = tracing_subscriber::FmtSubscriber::builder().with_env_filter(
-        tracing_subscriber::EnvFilter::builder()
-            .with_default_directive(tracing::Level::ERROR.into())
-            .parse_lossy(filter),
-    );
+    let is_level = tracing::Level::from_str(filter).is_ok();
+    let cfg = tracing_subscriber::FmtSubscriber::builder().with_env_filter({
+        let x = tracing_subscriber::EnvFilter::builder()
+            .with_default_directive(tracing::Level::ERROR.into());
+        if is_level {
+            x.parse_lossy(format!("extism={}", filter))
+        } else {
+            x.parse_lossy(filter)
+        }
+    });
     let w = LogFunction { func };
     cfg.with_ansi(false)
         .with_writer(move || w.clone())

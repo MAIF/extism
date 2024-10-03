@@ -40,7 +40,7 @@ unsafe fn extension_plugin_call_native(
             &mut acquired_lock,
             name,
             [0; 0],
-            None,
+            None::<()>,
             false,
             params,
             Some(&mut results),
