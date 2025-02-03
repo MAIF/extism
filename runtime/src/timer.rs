@@ -22,18 +22,18 @@ pub(crate) struct Timer {
 
 #[cfg(not(target_family = "windows"))]
 extern "C" fn cleanup_timer() {
-    let mut timer = match unsafe { TIMER.lock() } {
+    let mut timer = match TIMER.lock() {
         Ok(x) => x,
         Err(e) => e.into_inner(),
     };
     drop(timer.take());
 }
 
-static mut TIMER: std::sync::Mutex<Option<Timer>> = std::sync::Mutex::new(None);
+static TIMER: std::sync::Mutex<Option<Timer>> = std::sync::Mutex::new(None);
 
 impl Timer {
     pub(crate) fn tx() -> std::sync::mpsc::Sender<TimerAction> {
-        let mut timer = match unsafe { TIMER.lock() } {
+        let mut timer = match TIMER.lock() {
             Ok(x) => x,
             Err(e) => e.into_inner(),
         };
@@ -92,25 +92,39 @@ impl Timer {
             loop {
                 if plugins.is_empty() {
                     if let Ok(x) = rx.recv() {
-                        handle!(x)
+                        handle!(x);
                     }
                 }
 
-                plugins = plugins
-                    .into_iter()
-                    .filter(|(_k, (_engine, end))| {
-                        if let Some(end) = end {
-                            let now = std::time::Instant::now();
-                            if end <= &now {
-                                // engine.increment_epoch();
-                                return false;
+                let mut timeout: Option<std::time::Duration> = None;
+
+                plugins.retain(|_k, (engine, end)| {
+                    if let Some(end) = end {
+                        let now = std::time::Instant::now();
+                        if *end <= now {
+                            // engine.increment_epoch();
+                            return false;
+                        } else {
+                            let time_left =
+                                (*end - now).saturating_sub(std::time::Duration::from_millis(1));
+                            if let Some(t) = &timeout {
+                                if time_left < *t {
+                                    timeout = Some(time_left);
+                                }
+                            } else {
+                                timeout = Some(time_left);
                             }
                         }
-                        true
-                    })
-                    .collect();
+                    }
 
-                for x in rx.try_iter() {
+                    true
+                });
+
+                if let Some(timeout) = timeout {
+                    if let Ok(x) = rx.recv_timeout(timeout) {
+                        handle!(x)
+                    }
+                } else if let Ok(x) = rx.recv() {
                     handle!(x)
                 }
             }

@@ -16,6 +16,7 @@ pub struct CurrentPlugin {
     pub(crate) linker: *mut wasmtime::Linker<CurrentPlugin>,
     pub(crate) wasi: Option<Wasi>,
     pub(crate) http_status: u16,
+    pub(crate) http_headers: Option<std::collections::BTreeMap<String, String>>,
     pub(crate) available_pages: Option<u32>,
     pub(crate) memory_limiter: Option<MemoryLimiter>,
     pub(crate) id: uuid::Uuid,
@@ -59,7 +60,12 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
         Ok(true)
     }
 
-    fn table_growing(&mut self, _current: u32, desired: u32, maximum: Option<u32>) -> Result<bool> {
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        maximum: Option<usize>,
+    ) -> Result<bool> {
         if let Some(max) = maximum {
             return Ok(desired <= max);
         }
@@ -336,6 +342,7 @@ impl CurrentPlugin {
         manifest: extism_manifest::Manifest,
         wasi: bool,
         available_pages: Option<u32>,
+        allow_http_response_headers: bool,
         id: uuid::Uuid,
     ) -> Result<Self, Error> {
         let wasi = if wasi {
@@ -400,6 +407,11 @@ impl CurrentPlugin {
             id,
             extension_error: None,
             start_time: std::time::Instant::now(),
+            http_headers: if allow_http_response_headers {
+                Some(BTreeMap::new())
+            } else {
+                None
+            },
         })
     }
 

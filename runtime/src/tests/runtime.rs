@@ -1,7 +1,7 @@
-use extism_manifest::MemoryOptions;
+use extism_manifest::{HttpRequest, MemoryOptions};
 
 use crate::*;
-use std::{io::Write, time::Instant};
+use std::{collections::HashMap, io::Write, time::Instant};
 
 const WASM: &[u8] = include_bytes!("../../../wasm/code-functions.wasm");
 const WASM_NO_FUNCTIONS: &[u8] = include_bytes!("../../../wasm/code.wasm");
@@ -9,6 +9,7 @@ const WASM_LOOP: &[u8] = include_bytes!("../../../wasm/loop.wasm");
 const WASM_GLOBALS: &[u8] = include_bytes!("../../../wasm/globals.wasm");
 const WASM_REFLECT: &[u8] = include_bytes!("../../../wasm/reflect.wasm");
 const WASM_HTTP: &[u8] = include_bytes!("../../../wasm/http.wasm");
+const WASM_HTTP_HEADERS: &[u8] = include_bytes!("../../../wasm/http_headers.wasm");
 const WASM_FS: &[u8] = include_bytes!("../../../wasm/read_write.wasm");
 
 host_fn!(pub hello_world (a: String) -> String { Ok(a) });
@@ -258,6 +259,23 @@ fn test_fuel() {
 }
 
 #[test]
+fn test_fuel_consumption() {
+    let manifest = Manifest::new([extism_manifest::Wasm::data(WASM_LOOP)]);
+    let mut plugin = PluginBuilder::new(manifest)
+        .with_wasi(true)
+        .with_fuel_limit(10000)
+        .build()
+        .unwrap();
+
+    let output: Result<&[u8], Error> = plugin.call("loop_forever", "abc123");
+    assert!(output.is_err());
+
+    let fuel_consumed = plugin.fuel_consumed().unwrap();
+    println!("Fuel consumed: {}", fuel_consumed);
+    assert!(fuel_consumed > 0);
+}
+
+#[test]
 #[cfg(feature = "http")]
 fn test_http_timeout() {
     let f = Function::new(
@@ -446,7 +464,7 @@ fn hello_world_set_error(
     _user_data: UserData<()>,
 ) -> Result<(), Error> {
     plugin.set_error("TEST")?;
-    outputs[0] = inputs[0].clone();
+    outputs[0] = inputs[0];
     Ok(())
 }
 
@@ -543,7 +561,7 @@ fn hello_world_user_data(
     let mut data = data.lock().unwrap();
     let s = _plugin.memory_get_val(&inputs[0])?;
     data.write_all(s)?;
-    outputs[0] = inputs[0].clone();
+    outputs[0] = inputs[0];
     Ok(())
 }
 
@@ -792,4 +810,34 @@ fn test_readonly_dirs() {
         res2.is_err(),
         "Expected try_write to fail, but it succeeded."
     );
+}
+
+#[test]
+#[cfg(feature = "http")]
+fn test_http_response_headers() {
+    let mut plugin = PluginBuilder::new(
+        Manifest::new([Wasm::data(WASM_HTTP_HEADERS)]).with_allowed_host("extism.org"),
+    )
+    .with_http_response_headers(true)
+    .build()
+    .unwrap();
+    let req = HttpRequest::new("https://extism.org");
+    let Json(res): Json<HashMap<String, String>> = plugin.call("http_get", Json(req)).unwrap();
+    println!("{:?}", res);
+    assert_eq!(res["content-type"], "text/html; charset=utf-8");
+}
+
+#[test]
+#[cfg(feature = "http")]
+fn test_http_response_headers_disabled() {
+    let mut plugin = PluginBuilder::new(
+        Manifest::new([Wasm::data(WASM_HTTP_HEADERS)]).with_allowed_host("extism.org"),
+    )
+    .with_http_response_headers(false)
+    .build()
+    .unwrap();
+    let req = HttpRequest::new("https://extism.org");
+    let Json(res): Json<HashMap<String, String>> = plugin.call("http_get", Json(req)).unwrap();
+    println!("{:?}", res);
+    assert!(res.is_empty());
 }

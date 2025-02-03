@@ -1,10 +1,10 @@
 use std::{
     any::Any,
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
 };
 
 use anyhow::Context;
+use plugin_builder::PluginBuilderOptions;
 
 use crate::{
     extension::{custom_memory::PluginMemory, WasmMemory},
@@ -38,6 +38,66 @@ impl CancelHandle {
         debug!(plugin = self.id.to_string(), "sending cancel event");
         self.timer_tx.send(TimerAction::Cancel { id: self.id })?;
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct CompiledPlugin {
+    pub(crate) manifest: Manifest,
+    pub(crate) modules: BTreeMap<String, Module>,
+    pub(crate) options: PluginBuilderOptions,
+    pub(crate) engine: wasmtime::Engine,
+}
+
+impl CompiledPlugin {
+    /// Create a new pre-compiled plugin
+    pub fn new(builder: PluginBuilder) -> Result<CompiledPlugin, Error> {
+        let mut config = builder.config.unwrap_or_default();
+        config
+            .async_support(false)
+            .epoch_interruption(true)
+            .debug_info(builder.options.debug_options.debug_info)
+            .coredump_on_trap(builder.options.debug_options.coredump.is_some())
+            .profiler(builder.options.debug_options.profiling_strategy)
+            .wasm_tail_call(true)
+            .wasm_function_references(true)
+            .wasm_gc(true);
+
+        if builder.options.fuel.is_some() {
+            config.consume_fuel(true);
+        }
+
+        match &builder.options.cache_config {
+            Some(None) => (),
+            Some(Some(path)) => {
+                config.cache_config_load(path)?;
+            }
+            None => {
+                if let Ok(env) = std::env::var("EXTISM_CACHE_CONFIG") {
+                    if !env.is_empty() {
+                        config.cache_config_load(&env)?;
+                    }
+                } else {
+                    config.cache_config_load_default()?;
+                }
+            }
+        }
+
+        let engine = Engine::new(&config)?;
+
+        let (manifest, modules) = manifest::load(&engine, builder.source)?;
+        if modules.len() <= 1 {
+            anyhow::bail!("No wasm modules provided");
+        } else if !modules.contains_key(MAIN_KEY) {
+            anyhow::bail!("No main module provided");
+        }
+
+        Ok(CompiledPlugin {
+            manifest,
+            modules,
+            options: builder.options,
+            engine,
+        })
     }
 }
 
@@ -142,7 +202,7 @@ pub enum WasmInput<'a> {
     ManifestRef(&'a Manifest),
 }
 
-impl<'a> From<Manifest> for WasmInput<'a> {
+impl From<Manifest> for WasmInput<'_> {
     fn from(value: Manifest) -> Self {
         WasmInput::Manifest(value)
     }
@@ -172,7 +232,7 @@ impl<'a> From<&'a str> for WasmInput<'a> {
     }
 }
 
-impl<'a> From<Vec<u8>> for WasmInput<'a> {
+impl From<Vec<u8>> for WasmInput<'_> {
     fn from(value: Vec<u8>) -> Self {
         WasmInput::Data(value.into())
     }
@@ -260,6 +320,7 @@ fn relink(
         var_set(I64, I64);
         http_request(I64, I64) -> I64;
         http_status_code() -> I32;
+        http_headers() -> I64;
         log_warn(I64);
         log_info(I64);
         log_debug(I64);
@@ -267,6 +328,36 @@ fn relink(
         log_trace(I64);
         get_log_level() -> I32;
     );
+
+    for (name, module) in modules.iter() {
+        if name == EXTISM_ENV_MODULE {
+            continue;
+        }
+
+        for import in module.imports() {
+            if import.module() == EXTISM_ENV_MODULE
+                && modules[EXTISM_ENV_MODULE]
+                    .get_export(import.name())
+                    .is_none()
+                && linker
+                    .get(&mut store, EXTISM_ENV_MODULE, import.name())
+                    .is_none()
+            {
+                let (kind, ty) = match import.ty() {
+                    ExternType::Func(t) => ("function", t.to_string()),
+                    ExternType::Global(t) => ("global", t.content().to_string()),
+                    ExternType::Table(t) => ("table", t.element().to_string()),
+                    ExternType::Memory(_) => ("memory", String::new()),
+                };
+                anyhow::bail!(
+                    "Invalid {kind} import from extism:host/env: {} {ty}\n\n\
+                    Note: This may indicate that the PDK that was used to build this plugin has additional features that aren't \
+                    available in this version of the SDK, try updating the SDK to the latest version.",
+                    import.name(),
+                )
+            }
+        }
+    }
 
     let mut linked = BTreeSet::new();
     linker.module(&mut store, EXTISM_ENV_MODULE, &modules[EXTISM_ENV_MODULE])?;
@@ -320,107 +411,46 @@ impl Plugin {
         imports: impl IntoIterator<Item = Function>,
         with_wasi: bool,
     ) -> Result<Plugin, Error> {
-        Self::build_new(
-            wasm.into(),
-            imports,
-            [].to_vec(),
-            with_wasi,
-            Default::default(),
-            None,
-            None,
-            None,
-        )
+        Self::new_from_compiled(&CompiledPlugin::new(
+            PluginBuilder::new(wasm)
+                .with_functions(imports)
+                .with_wasi(with_wasi),
+        )?)
     }
 
-    pub fn new_with_memories<'a>(
-        wasm: impl Into<WasmInput<'a>>,
-        imports: impl IntoIterator<Item = Function>,
-        memories: Vec<&WasmMemory>,
-        with_wasi: bool,
-    ) -> Result<Plugin, Error> {
-        Self::build_new(
-            wasm.into(),
-            imports,
-            memories,
-            with_wasi,
-            Default::default(),
-            None,
-            None,
-            None,
-        )
-    }
-
-    pub(crate) fn build_new(
-        wasm: WasmInput<'_>,
-        imports: impl IntoIterator<Item = Function>,
-        memories: Vec<&WasmMemory>,
-        with_wasi: bool,
-        debug_options: DebugOptions,
-        cache_dir: Option<Option<PathBuf>>,
-        fuel: Option<u64>,
-        config: Option<Config>,
-    ) -> Result<Plugin, Error> {
-        // Setup wasmtime types
-        let mut config = config.unwrap_or_default();
-        config
-            .async_support(false)
-            .epoch_interruption(true)
-            .debug_info(debug_options.debug_info)
-            .coredump_on_trap(debug_options.coredump.is_some())
-            .profiler(debug_options.profiling_strategy)
-            .wasm_tail_call(true)
-            .wasm_function_references(true)
-            .wasm_gc(true);
-
-        if fuel.is_some() {
-            config.consume_fuel(true);
-        }
-
-        match cache_dir {
-            Some(None) => (),
-            Some(Some(path)) => {
-                config.cache_config_load(path)?;
-            }
-            None => {
-                if let Ok(env) = std::env::var("EXTISM_CACHE_CONFIG") {
-                    if !env.is_empty() {
-                        config.cache_config_load(&env)?;
-                    }
-                } else {
-                    config.cache_config_load_default()?;
-                }
-            }
-        }
-
-        let engine = Engine::new(&config)?;
-        let (manifest, modules) = manifest::load(&engine, wasm)?;
-        if modules.len() <= 1 {
-            anyhow::bail!("No wasm modules provided");
-        } else if !modules.contains_key(MAIN_KEY) {
-            anyhow::bail!("No main module provided");
-        }
-
-        let available_pages = manifest.memory.max_pages;
+    /// Create a new plugin from a pre-compiled plugin
+    pub fn new_from_compiled(compiled: &CompiledPlugin) -> Result<Plugin, Error> {
+        let available_pages = compiled.manifest.memory.max_pages;
         debug!("Available pages: {available_pages:?}");
 
         let id = uuid::Uuid::new_v4();
         let mut store = Store::new(
-            &engine,
-            CurrentPlugin::new(manifest, with_wasi, available_pages, id)?,
+            &compiled.engine,
+            CurrentPlugin::new(
+                compiled.manifest.clone(),
+                compiled.options.wasi,
+                available_pages,
+                compiled.options.http_response_headers,
+                id,
+            )?,
         );
         store.set_epoch_deadline(1);
-        if let Some(fuel) = fuel {
+        if let Some(fuel) = compiled.options.fuel {
             store.set_fuel(fuel)?;
         }
 
-        let imports: Vec<Function> = imports.into_iter().collect();
-        let (instance_pre, linker, host_context) =
-            relink(&engine, &mut store, &imports, &modules, with_wasi, memories)?;
-        // panic!("{:#?}", linker.get(store, EXTISM_ENV_MODULE, "memory"));
-
+        let imports: Vec<Function> = compiled.options.functions.to_vec();
+        let (instance_pre, linker, host_context) = relink(
+            &compiled.engine,
+            &mut store,
+            &imports,
+            &compiled.modules,
+            compiled.options.wasi,
+            compiled.memories
+        )?;
         let timer_tx = Timer::tx();
         let mut plugin = Plugin {
-            modules,
+            modules: compiled.modules.clone(),
             linker,
             instance: std::sync::Arc::new(std::sync::Mutex::new(None)),
             instance_pre,
@@ -432,10 +462,10 @@ impl Plugin {
             instantiations: 0,
             output: Output::default(),
             store_needs_reset: false,
-            debug_options,
+            debug_options: compiled.options.debug_options.clone(),
             _functions: imports,
             error_msg: None,
-            fuel,
+            fuel: compiled.options.fuel,
             host_context,
         };
 
@@ -466,6 +496,7 @@ impl Plugin {
                     internal.manifest.clone(),
                     internal.wasi.is_some(),
                     internal.available_pages,
+                    internal.http_headers.is_some(),
                     self.id,
                 )?,
             );
@@ -551,7 +582,7 @@ impl Plugin {
     }
 
     /// Returns `true` if the given function exists, otherwise `false`
-    pub fn function_exists(&mut self, function: impl AsRef<str>) -> bool {
+    pub fn function_exists(&self, function: impl AsRef<str>) -> bool {
         self.modules[MAIN_KEY]
             .get_export(function.as_ref())
             .map(|x| {
@@ -942,7 +973,6 @@ impl Plugin {
 
         if use_extism && self.store.get_fuel().is_ok_and(|x| x == 0) {
             res = Err(Error::msg("plugin ran out of fuel"));
-            rc = -1;
         } else {
             // Get extism error
             if use_extism {
@@ -954,7 +984,8 @@ impl Plugin {
                 debug!(plugin = self.id.to_string(), "got return code: {}", rc);
             }
 
-            if self.output.error_offset != 0 && self.output.error_length != 0 {
+            // on extism error
+            if output_res.is_ok() && self.extism_error_is_set() {
                 let handle = MemoryHandle {
                     offset: self.output.error_offset,
                     length: self.output.error_length,
@@ -974,11 +1005,19 @@ impl Plugin {
                     }
                     Err(msg) => {
                         res = Err(Error::msg(format!(
-                            "Call to Extism plugin function {name} encountered an error: {}",
+                            "unable to load error message from memory: {}",
                             msg,
                         )));
                     }
                 }
+            // on wasmtime error
+            } else if let Err(e) = &res {
+                if e.is::<wasmtime::Trap>() {
+                    rc = 134; // EXIT_SIGNALED_SIGABRT
+                }
+            // if there was an error retrieving the output
+            } else {
+                output_res?;
             }
         }
 
@@ -1033,11 +1072,12 @@ impl Plugin {
                         plugin = self.id.to_string(),
                         "WASI exit code: {}", exit_code
                     );
-                    if exit_code == 0 {
+
+                    if exit_code == 0 && !self.extism_error_is_set() {
                         return Ok(0);
                     }
 
-                    return Err((e.context("WASI exit code"), exit_code));
+                    return Err((e, exit_code));
                 }
 
                 // Handle timeout interrupts
@@ -1063,6 +1103,10 @@ impl Plugin {
                 Err((e, rc))
             }
         }
+    }
+
+    fn extism_error_is_set(&self) -> bool {
+        self.output.error_offset != 0 && self.output.error_length != 0
     }
 
     /// Call a function by name with the given input, the return value is
@@ -1161,6 +1205,25 @@ impl Plugin {
             anyhow::bail!("Plugin::clear_error failed, extism:host/env::error_set not found")
         }
     }
+
+    /// Returns the amount of fuel consumed by the plugin.
+    ///
+    /// This function calculates the difference between the initial fuel and the remaining fuel.
+    /// If either the initial fuel or the remaining fuel is not set, it returns `None`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u64)` - The amount of fuel consumed.
+    /// * `None` - If the initial fuel or remaining fuel is not set.
+    pub fn fuel_consumed(&self) -> Option<u64> {
+        self.fuel.map(|x| {
+            x.saturating_sub(
+                self.store
+                    .get_fuel()
+                    .expect("fuel support should be enabled to use fuel"),
+            )
+        })
+    }
 }
 
 // Enumerates the PDK languages that need some additional initialization
@@ -1204,7 +1267,7 @@ macro_rules! typed_plugin {
 
         impl TryFrom<$crate::Plugin> for $name {
             type Error = $crate::Error;
-            fn try_from(mut x: $crate::Plugin) -> Result<Self, Self::Error> {
+            fn try_from(x: $crate::Plugin) -> Result<Self, Self::Error> {
                 $(
                     if !x.function_exists(stringify!($f)) {
                         return Err($crate::Error::msg(format!("Invalid function: {}", stringify!($f))));

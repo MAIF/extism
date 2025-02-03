@@ -52,37 +52,37 @@ pub type ExtismFunctionType = extern "C" fn(
 pub type ExtismLogDrainFunctionType = extern "C" fn(data: *const std::ffi::c_char, size: Size);
 
 impl ExtismVal {
-    pub fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Self {
-        match value.ty(ctx) {
-            wasmtime::ValType::I32 => ExtismVal {
+    fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Result<Self, Error> {
+        match value.ty(ctx)? {
+            wasmtime::ValType::I32 => Ok(ExtismVal {
                 t: ValType::I32,
                 v: ValUnion {
                     i32: value.unwrap_i32(),
                 },
-            },
-            wasmtime::ValType::I64 => ExtismVal {
+            }),
+            wasmtime::ValType::I64 => Ok(ExtismVal {
                 t: ValType::I64,
                 v: ValUnion {
                     i64: value.unwrap_i64(),
                 },
-            },
-            wasmtime::ValType::F32 => ExtismVal {
+            }),
+            wasmtime::ValType::F32 => Ok(ExtismVal {
                 t: ValType::F32,
                 v: ValUnion {
                     f32: value.unwrap_f32(),
                 },
-            },
-            wasmtime::ValType::F64 => ExtismVal {
+            }),
+            wasmtime::ValType::F64 => Ok(ExtismVal {
                 t: ValType::F64,
                 v: ValUnion {
                     f64: value.unwrap_f64(),
                 },
-            },
-            // t => todo!("{}", t),
+            }),
             _ => ExtismVal {
                 t: ValType::I32,
                 v: ValUnion { i32: -1 },
             },
+            // t => todo!("{}", t),
         }
     }
 }
@@ -235,7 +235,7 @@ pub unsafe extern "C" fn extism_function_new(
             let store = &*plugin.store;
             let inputs: Vec<_> = inputs
                 .iter()
-                .map(|x| ExtismVal::from_val(x, store))
+                .map(|x| ExtismVal::from_val(x, store).unwrap())
                 .collect();
             let mut output_tmp: Vec<_> = output_types
                 .iter()
@@ -274,8 +274,8 @@ pub unsafe extern "C" fn extism_function_new(
                 match tmp.t {
                     ValType::I32 => *out = Val::I32(tmp.v.i32),
                     ValType::I64 => *out = Val::I64(tmp.v.i64),
-                    ValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
-                    ValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
+                    ValType::F32 => *out = Val::F32(tmp.v.f32.to_bits()),
+                    ValType::F64 => *out = Val::F64(tmp.v.f64.to_bits()),
                     _ => todo!(),
                 }
             }
@@ -310,6 +310,79 @@ pub unsafe extern "C" fn extism_function_set_namespace(
     }
 }
 
+/// Pre-compile an Extism plugin
+#[no_mangle]
+pub unsafe extern "C" fn extism_compiled_plugin_new(
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *mut *const ExtismFunction,
+    n_functions: Size,
+    with_wasi: bool,
+    errmsg: *mut *mut std::ffi::c_char,
+) -> *mut CompiledPlugin {
+    trace!("Call to extism_plugin_new with wasm pointer {:?}", wasm);
+    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
+
+    let mut builder = PluginBuilder::new(data).with_wasi(with_wasi);
+
+    if !functions.is_null() {
+        let funcs = (0..n_functions)
+            .map(|i| unsafe { *functions.add(i as usize) })
+            .map(|ptr| {
+                if ptr.is_null() {
+                    return Err("Cannot pass null pointer");
+                }
+
+                let ExtismFunction(func) = &*ptr;
+                let Some(func) = func.take() else {
+                    return Err("Function cannot be registered with multiple different Plugins");
+                };
+
+                Ok(func)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|e| {
+                if !errmsg.is_null() {
+                    let e = std::ffi::CString::new(e.to_string()).unwrap();
+                    *errmsg = e.into_raw();
+                }
+                Vec::new()
+            });
+
+        if funcs.len() != n_functions as usize {
+            return std::ptr::null_mut();
+        }
+
+        builder = builder.with_functions(funcs);
+    }
+
+    CompiledPlugin::new(builder)
+        .map(|v| Box::into_raw(Box::new(v)))
+        .unwrap_or_else(|e| {
+            if !errmsg.is_null() {
+                let e = std::ffi::CString::new(format!(
+                    "Unable to compile Extism plugin: {}",
+                    e.root_cause(),
+                ))
+                .unwrap();
+                *errmsg = e.into_raw();
+            }
+            std::ptr::null_mut()
+        })
+}
+
+/// Free `ExtismCompiledPlugin`
+#[no_mangle]
+pub unsafe extern "C" fn extism_compiled_plugin_free(plugin: *mut CompiledPlugin) {
+    if plugin.is_null() {
+        return;
+    }
+
+    let plugin = Box::from_raw(plugin);
+    trace!("called extism_compiled_plugin_free");
+    drop(plugin)
+}
+
 /// Create a new plugin with host functions, the functions passed to this function no longer need to be manually freed using
 ///
 /// `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
@@ -326,36 +399,70 @@ pub unsafe extern "C" fn extism_plugin_new(
     with_wasi: bool,
     errmsg: *mut *mut std::ffi::c_char,
 ) -> *mut Plugin {
-    trace!("Call to extism_plugin_new with wasm pointer {:?}", wasm);
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
-    let mut funcs = vec![];
-
-    if !functions.is_null() {
-        for i in 0..n_functions {
-            unsafe {
-                let f = *functions.add(i as usize);
-                if f.is_null() {
-                    continue;
+    let funcs = if functions.is_null() {
+        vec![]
+    } else {
+        let funcs = (0..n_functions)
+            .map(|i| unsafe { *functions.add(i as usize) })
+            .map(|ptr| {
+                if ptr.is_null() {
+                    return Err("Cannot pass null pointer");
                 }
-                if let Some(f) = (*f).0.take() {
-                    funcs.push(f);
-                } else {
-                    let e = std::ffi::CString::new(
-                        "Function cannot be registered with multiple different Plugins",
-                    )
-                    .unwrap();
+
+                let ExtismFunction(func) = &*ptr;
+                let Some(func) = func.take() else {
+                    return Err("Function cannot be registered with multiple different Plugins");
+                };
+
+                Ok(func)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|e| {
+                if !errmsg.is_null() {
+                    let e = std::ffi::CString::new(e.to_string()).unwrap();
                     *errmsg = e.into_raw();
                 }
-            }
-        }
-    }
+                Vec::new()
+            });
 
-    let plugin = Plugin::new(data, funcs, with_wasi);
+        if funcs.len() != n_functions as usize {
+            return std::ptr::null_mut();
+        }
+
+        funcs
+    };
+
+    Plugin::new(data, funcs, with_wasi)
+        .map(|v| Box::into_raw(Box::new(v)))
+        .unwrap_or_else(|e| {
+            if !errmsg.is_null() {
+                let e = std::ffi::CString::new(format!(
+                    "Unable to compile Extism plugin: {}",
+                    e.root_cause(),
+                ))
+                .unwrap();
+                *errmsg = e.into_raw();
+            }
+            std::ptr::null_mut()
+        })
+}
+
+/// Create a new plugin from an `ExtismCompiledPlugin`
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_new_from_compiled(
+    compiled: *const CompiledPlugin,
+    errmsg: *mut *mut std::ffi::c_char,
+) -> *mut Plugin {
+    let plugin = Plugin::new_from_compiled(&*compiled);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
-                let e = std::ffi::CString::new(format!("Unable to create Extism plugin: {}", e))
-                    .unwrap();
+                let e = std::ffi::CString::new(format!(
+                    "Unable to create Extism plugin: {}",
+                    e.root_cause(),
+                ))
+                .unwrap();
                 *errmsg = e.into_raw();
             }
             std::ptr::null_mut()
@@ -380,50 +487,82 @@ pub unsafe extern "C" fn extism_plugin_new_with_fuel_limit(
         wasm
     );
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
-    let mut funcs = vec![];
-
-    if !functions.is_null() {
-        for i in 0..n_functions {
-            unsafe {
-                let f = *functions.add(i as usize);
-                if f.is_null() {
-                    continue;
+    let funcs = if functions.is_null() {
+        vec![]
+    } else {
+        let funcs = (0..n_functions)
+            .map(|i| unsafe { *functions.add(i as usize) })
+            .map(|ptr| {
+                if ptr.is_null() {
+                    return Err("Cannot pass null pointer");
                 }
-                if let Some(f) = (*f).0.take() {
-                    funcs.push(f);
-                } else {
-                    let e = std::ffi::CString::new(
-                        "Function cannot be registered with multiple different Plugins",
-                    )
-                    .unwrap();
+
+                let ExtismFunction(func) = &*ptr;
+                let Some(func) = func.take() else {
+                    return Err("Function cannot be registered with multiple different Plugins");
+                };
+
+                Ok(func)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|e| {
+                if !errmsg.is_null() {
+                    let e = std::ffi::CString::new(e.to_string()).unwrap();
                     *errmsg = e.into_raw();
                 }
-            }
-        }
-    }
+                Vec::new()
+            });
 
-    let plugin = Plugin::build_new(
-        data.into(),
-        funcs,
-        vec![],
-        with_wasi,
-        Default::default(),
-        None,
-        Some(fuel_limit),
-        None,
-    );
+        if funcs.len() != n_functions as usize {
+            return std::ptr::null_mut();
+        }
+
+        funcs
+    };
+
+    let compiled = match CompiledPlugin::new(
+        PluginBuilder::new(data)
+            .with_functions(funcs)
+            .with_wasi(with_wasi)
+            .with_fuel_limit(fuel_limit),
+    ) {
+        Ok(x) => x,
+        Err(e) => {
+            if !errmsg.is_null() {
+                let e = std::ffi::CString::new(format!(
+                    "Unable to compile Extism plugin: {}",
+                    e.root_cause(),
+                ))
+                .unwrap();
+                *errmsg = e.into_raw();
+            }
+            return std::ptr::null_mut();
+        }
+    };
+
+    let plugin = Plugin::new_from_compiled(&compiled);
 
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
-                let e = std::ffi::CString::new(format!("Unable to create Extism plugin: {}", e))
-                    .unwrap();
+                let e = std::ffi::CString::new(format!(
+                    "Unable to create Extism plugin: {}",
+                    e.root_cause(),
+                ))
+                .unwrap();
                 *errmsg = e.into_raw();
             }
             std::ptr::null_mut()
         }
         Ok(p) => Box::into_raw(Box::new(p)),
     }
+}
+
+/// Enable HTTP response headers in plugins using `extism:host/env::http_request`
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_allow_http_response_headers(plugin: *mut Plugin) {
+    let plugin = &mut *plugin;
+    plugin.store.data_mut().http_headers = Some(BTreeMap::new());
 }
 
 /// Free the error returned by `extism_plugin_new`, errors returned from `extism_plugin_error` don't need to be freed
@@ -435,7 +574,7 @@ pub unsafe extern "C" fn extism_plugin_new_error_free(err: *mut std::ffi::c_char
     drop(std::ffi::CString::from_raw(err))
 }
 
-/// Remove a plugin from the registry and free associated memory
+/// Free `ExtismPlugin`
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_free(plugin: *mut Plugin) {
     if plugin.is_null() {
@@ -769,7 +908,7 @@ fn set_log_file(log_file: impl Into<std::path::PathBuf>, filter: &str) -> Result
     Ok(())
 }
 
-static mut LOG_BUFFER: Option<LogBuffer> = None;
+static LOG_BUFFER: std::sync::Mutex<Option<LogBuffer>> = std::sync::Mutex::new(None);
 
 /// Enable a custom log handler, this will buffer logs until `extism_log_drain` is called
 /// Log level should be one of: info, error, trace, debug, warn
@@ -801,8 +940,8 @@ unsafe fn set_log_buffer(filter: &str) -> Result<(), Error> {
             x.parse_lossy(filter)
         }
     });
-    LOG_BUFFER = Some(LogBuffer::default());
-    let buf = LOG_BUFFER.clone().unwrap();
+    *LOG_BUFFER.lock().unwrap() = Some(LogBuffer::default());
+    let buf = LOG_BUFFER.lock().unwrap().clone().unwrap();
     cfg.with_ansi(false)
         .with_writer(move || buf.clone())
         .try_init()
@@ -814,7 +953,7 @@ unsafe fn set_log_buffer(filter: &str) -> Result<(), Error> {
 /// Calls the provided callback function for each buffered log line.
 /// This is only needed when `extism_log_custom` is used.
 pub unsafe extern "C" fn extism_log_drain(handler: ExtismLogDrainFunctionType) {
-    if let Some(buf) = LOG_BUFFER.as_mut() {
+    if let Some(buf) = LOG_BUFFER.lock().unwrap().as_mut() {
         if let Ok(mut buf) = buf.buffer.lock() {
             for (line, len) in buf.drain(..) {
                 handler(line.as_ptr(), len as u64);
