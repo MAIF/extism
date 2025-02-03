@@ -188,7 +188,7 @@ public class PluginTests {
             var plugin = new Plugin(manifest, true, null);
             plugin.call(functionName, "this is a test");
         }  catch (ExtismException e) {
-            assertThat(e.getMessage()).contains("Unable to create Extism plugin: unknown import: `extism:host/user::hello_world` has not been defined");
+            assertThat(e.getMessage()).contains("Unable to compile Extism plugin: unknown import: `extism:host/user::hello_world` has not been defined");
         }
     }
 

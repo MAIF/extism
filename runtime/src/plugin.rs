@@ -404,6 +404,20 @@ fn relink(
 }
 
 impl Plugin {
+    pub fn new_with_memories<'a>(
+        wasm: impl Into<WasmInput<'a>>,
+        imports: impl IntoIterator<Item = Function>,
+        memories: impl IntoIterator<Item = WasmMemory>,
+        with_wasi: bool,
+    ) -> Result<Plugin, Error> {
+        Self::new_from_compiled(&CompiledPlugin::new(
+            PluginBuilder::new(wasm)
+                .with_functions(imports)
+                .with_memories(memories)
+                .with_wasi(with_wasi),
+        )?)
+    }
+
     /// Create a new plugin from a Manifest or WebAssembly module, and host functions. The `with_wasi`
     /// parameter determines whether or not the module should be executed with WASI enabled.
     pub fn new<'a>(
@@ -446,7 +460,7 @@ impl Plugin {
             &imports,
             &compiled.modules,
             compiled.options.wasi,
-            compiled.memories
+            compiled.options.memories.iter().map(|mem| mem).collect(),
         )?;
         let timer_tx = Timer::tx();
         let mut plugin = Plugin {
@@ -984,8 +998,9 @@ impl Plugin {
                 debug!(plugin = self.id.to_string(), "got return code: {}", rc);
             }
 
-            // on extism error
-            if output_res.is_ok() && self.extism_error_is_set() {
+            if self.output.error_offset != 0 && self.output.error_length != 0 {
+                // on extism error
+                // if output_res.is_ok() && self.extism_error_is_set() {
                 let handle = MemoryHandle {
                     offset: self.output.error_offset,
                     length: self.output.error_length,
@@ -1011,14 +1026,15 @@ impl Plugin {
                     }
                 }
             // on wasmtime error
-            } else if let Err(e) = &res {
-                if e.is::<wasmtime::Trap>() {
-                    rc = 134; // EXIT_SIGNALED_SIGABRT
-                }
-            // if there was an error retrieving the output
-            } else {
-                output_res?;
             }
+            //  else if let Err(e) = &res {
+            //     if e.is::<wasmtime::Trap>() {
+            //         rc = 134; // EXIT_SIGNALED_SIGABRT
+            //     }
+            // // if there was an error retrieving the output
+            // } else {
+            //     output_res?;
+            // }
         }
 
         match res {

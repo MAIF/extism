@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{plugin::WasmInput, *};
+use crate::{extension::WasmMemory, plugin::WasmInput, *};
 
 #[derive(Clone)]
 pub struct DebugOptions {
@@ -43,6 +43,7 @@ pub struct PluginBuilder<'a> {
 pub(crate) struct PluginBuilderOptions {
     pub(crate) wasi: bool,
     pub(crate) functions: Vec<Function>,
+    pub(crate) memories: Vec<WasmMemory>,
     pub(crate) debug_options: DebugOptions,
     pub(crate) cache_config: Option<Option<PathBuf>>,
     pub(crate) fuel: Option<u64>,
@@ -58,6 +59,7 @@ impl<'a> PluginBuilder<'a> {
             options: PluginBuilderOptions {
                 wasi: false,
                 functions: vec![],
+                memories: vec![],
                 debug_options: DebugOptions::default(),
                 cache_config: None,
                 fuel: None,
@@ -118,6 +120,12 @@ impl<'a> PluginBuilder<'a> {
     /// Add multiple host functions
     pub fn with_functions(mut self, f: impl IntoIterator<Item = Function>) -> Self {
         self.options.functions.extend(f);
+        self
+    }
+
+    /// Add multiple memories
+    pub fn with_memories(mut self, f: impl IntoIterator<Item = WasmMemory>) -> Self {
+        self.options.memories.extend(f);
         self
     }
 

@@ -52,7 +52,7 @@ pub type ExtismFunctionType = extern "C" fn(
 pub type ExtismLogDrainFunctionType = extern "C" fn(data: *const std::ffi::c_char, size: Size);
 
 impl ExtismVal {
-    fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Result<Self, Error> {
+    pub(crate) fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Result<Self, Error> {
         match value.ty(ctx)? {
             wasmtime::ValType::I32 => Ok(ExtismVal {
                 t: ValType::I32,
@@ -78,10 +78,10 @@ impl ExtismVal {
                     f64: value.unwrap_f64(),
                 },
             }),
-            _ => ExtismVal {
+            _ => Ok(ExtismVal {
                 t: ValType::I32,
                 v: ValUnion { i32: -1 },
-            },
+            }),
             // t => todo!("{}", t),
         }
     }

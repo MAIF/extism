@@ -54,9 +54,9 @@ unsafe fn extension_plugin_call_native(
             Ok(_x) => {
                 let mut v = results
                     .iter()
-                    .map(|x| ExtismVal::from_val(x, &plugin.store))
+                    .map(|x| ExtismVal::from_val(x, &plugin.store).ok().unwrap()) //  TODO - check if ok().wrap() is legit
                     .collect::<Vec<ExtismVal>>();
-            
+
                 let ptr = v.as_mut_ptr() as *mut _;
                 std::mem::forget(v);
                 Some(ptr)
@@ -516,7 +516,14 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let plugin = Plugin::new_with_memories(data, funcs, mems, with_wasi);
+    let memories: Vec<WasmMemory> = mems.iter().map(|mem| WasmMemory::new(
+        mem.name.clone(),
+        mem.namespace.clone(),
+        mem.ty.minimum() as u32,
+        mem.ty.maximum().map(|r| r as u32).unwrap_or(0)
+    )).collect::<Vec<WasmMemory>>();
+
+    let plugin = Plugin::new_with_memories(data, funcs, memories, with_wasi);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
