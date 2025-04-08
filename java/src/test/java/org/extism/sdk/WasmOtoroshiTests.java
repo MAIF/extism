@@ -1,5 +1,7 @@
 package org.extism.sdk;
 
+import com.sun.jna.Memory;
+import com.sun.jna.Pointer;
 import org.extism.sdk.coraza.proxywasm.VMData;
 import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
 import org.extism.sdk.manifest.Manifest;
@@ -7,8 +9,10 @@ import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasmotoroshi.*;
 import org.junit.jupiter.api.Test;
 
+import java.awt.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.List;
 
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -320,5 +324,56 @@ public class WasmOtoroshiTests {
         var mem = linearMemory.getByteArray(0, arraySize);
         var size = lastValidByte(mem);
         assertEquals("", new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void shouldCorazaWithoutSpecWasmWorks() {
+        var manifest = new Manifest(Collections.singletonList(CODE.getCorazaWithoutProxyWasmPath()),
+                new MemoryOptions(500));
+
+//        int bufferSize = 1 << 20;
+//        Pointer mem = new Memory(bufferSize);
+
+//        LibExtism.ExtismVal.ByReference ptr = new LibExtism.ExtismVal.ByReference();
+//        LibExtism.ExtismVal[] values = (LibExtism.ExtismVal[]) ptr.toArray(1);
+//        values[0].t = 0;
+//        values[0].v.setType(java.lang.Long.TYPE);
+//        values[0].v.i64 = Pointer.nativeValue(mem);
+//        var params = new Parameters(1);
+//        params.pushLong(Pointer.nativeValue(mem));
+
+//        var instance = new Plugin(manifest, true, null);
+//        instance.callWithoutParams("_start", 0);
+//        var length = instance.call("foo", params, 1);
+//        var results = LibExtism.INSTANCE.extension_call(
+//                instance.pluginPointer,
+//                "foo",
+//                params.getPtr(),
+//                params.getLength()
+//        );
+//
+//        System.out.println("Results : " + results);
+//
+//        System.out.println(
+//                new String(mem.getByteArray(0, 20), StandardCharsets.UTF_8)
+//        );
+
+//        var mem = mem.getString(results.v.i64);
+//        var length = new String(java.util.Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
+//        System.out.println("received: " +  mem);
+//        instance.free();
+
+        var memory = new LinearMemory("memory", "otoroshi", new LinearMemoryOptions(1, Optional.empty()));
+
+        var instance = new Plugin(manifest, true, null, new LinearMemory[]{memory});
+        LibExtism.INSTANCE.coraza(instance.pluginPointer);
+
+//        if (results == null) {
+//            String error = LibExtism.INSTANCE.extension_plugin_error(instance.pluginPointer);
+//            throw new ExtismException(error);
+//            //return new Results(0);
+//        }
+
+
     }
 }

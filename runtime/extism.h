@@ -120,6 +120,8 @@ ExtismVal *extension_call(ExtismPlugin *plugin,
                           const ExtismVal *params,
                           ExtismSize n_params);
 
+void coraza(ExtismPlugin *plugin);
+
 ExtismVal *wasm_plugin_call_without_params(ExtismPlugin *plugin_ptr, const char *func_name);
 
 void wasm_plugin_call_without_results(ExtismPlugin *plugin_ptr,

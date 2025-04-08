@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::os::raw::c_char;
+use std::{mem, os::raw::c_char};
 
 use crate::{
     extension::*,
@@ -86,6 +86,119 @@ pub(crate) unsafe extern "C" fn extension_call(
         None => std::ptr::null_mut(),
         Some(values) => values,
     }
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza(plugin: *mut Plugin) {
+    sub_call_coraza(plugin, "_start", None);
+
+    // let mut values: Vec<Val> = Vec::new();
+    // let ptr: i32 = 1024;
+    // values.push(Val::I32(ptr));
+
+    // let _ = match (&mut *linker).get(&mut *store, "otoroshi", "memory") {
+    //     None => Err("memory not found"),
+    //     Some(external) => match external.into_memory() {
+    //         None => Err("cant cast to m"),
+    //         Some(memory) => {
+    //             // let mut buffer = [0u8; 64];
+    //             let ptr: i32 = 1024;
+    //             values.push(Val::I32(ptr));
+    //             Ok(memory.write(&mut *store, ptr as usize, &[0; 64]))
+    //         }
+    //     },
+    // };
+
+    // let params: Option<Vec<Val>> = Some(values);
+    let res = sub_call_coraza(plugin, "foo", None);
+
+    let plugin = &mut *plugin;
+    // let (linker, store) = plugin.linker_and_store();
+
+    match plugin.current_plugin_mut().memory() {
+        None => panic!("on s'est fait ken"),
+        Some(memory) => {
+            let mut buffer = [0u8; 64];
+            // let ptr: i32 = 1024;
+
+            match memory.read(
+                &mut plugin.store,
+                res.unwrap().get(0).unwrap().v.i32 as usize,
+                &mut buffer,
+            ) {
+                Err(err) => panic!("error memory access"),
+                Ok(value) => panic!("{:?}", value),
+            }
+        }
+    }
+
+    // match (&mut *linker).get(&mut *store, "", "memory") {
+    //     None => panic!("memory not found"),
+    //     Some(external) => match external.into_memory() {
+    //         None => panic!("cant cast to m"),
+    //         Some(memory) => panic!("je l'ai trouve")
+    //     }
+    // }
+
+    // match (&mut *linker).get(&mut *store, "env", "memory") {
+    //     None => panic!("memory not found"),
+    //     Some(external) => match external.into_memory() {
+    //         None => panic!("cant cast to m"),
+    //         Some(memory) => {
+    //             let mut buffer = [0u8; 64];
+    //             // let ptr: i32 = 1024;
+
+    //             match memory.read(
+    //                 &mut *store,
+    //                 res.unwrap().get(0).unwrap().v.i32 as usize,
+    //                 &mut buffer,
+    //             ) {
+    //                 Err(err) => panic!("error memory access"),
+    //                 Ok(value) => panic!("{:?}", value),
+    //             }
+    //         }
+    //     },
+    // };
+}
+
+pub(crate) unsafe fn sub_call_coraza(
+    plugin: *mut Plugin,
+    func_name: &str,
+    params: Option<Vec<Val>>,
+) -> Option<Vec<ExtismVal>> {
+    if let Some(plugin) = plugin.as_mut() {
+        let _lock = plugin.instance.clone();
+        let mut acquired_lock = _lock.lock().unwrap();
+
+        let mut results = vec![wasmtime::Val::I32(0); 0];
+
+        let res = plugin.raw_call(
+            &mut acquired_lock,
+            func_name,
+            [0; 0],
+            None::<()>,
+            false,
+            params,
+            Some(&mut results),
+        );
+
+        return match res {
+            Err((e, _rc)) => {
+                plugin.current_plugin_mut().extension_error = Some(e);
+                None
+            }
+            Ok(_x) => {
+                let mut v = results
+                    .iter()
+                    .map(|x| ExtismVal::from_val(x, &plugin.store).ok().unwrap()) //  TODO - check if ok().wrap() is legit
+                    .collect::<Vec<ExtismVal>>();
+
+                Some(v)
+            }
+        };
+    }
+
+    None
 }
 
 #[no_mangle]
@@ -516,12 +629,17 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let memories: Vec<WasmMemory> = mems.iter().map(|mem| WasmMemory::new(
-        mem.name.clone(),
-        mem.namespace.clone(),
-        mem.ty.minimum() as u32,
-        mem.ty.maximum().map(|r| r as u32).unwrap_or(0)
-    )).collect::<Vec<WasmMemory>>();
+    let memories: Vec<WasmMemory> = mems
+        .iter()
+        .map(|mem| {
+            WasmMemory::new(
+                mem.name.clone(),
+                mem.namespace.clone(),
+                mem.ty.minimum() as u32,
+                mem.ty.maximum().map(|r| r as u32).unwrap_or(0),
+            )
+        })
+        .collect::<Vec<WasmMemory>>();
 
     let plugin = Plugin::new_with_memories(data, funcs, memories, with_wasi);
     match plugin {

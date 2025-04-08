@@ -40,6 +40,10 @@ public enum TestWasmSources {
         public Path getLogPath() {
             return Paths.get(WASM_LOCATION, "httpwasm/router.wasm");
         }
+
+        public Path getJavyFilePath() { return Paths.get(WASM_LOCATION, "javy/index.wasm"); }
+
+        public Path getCorazaWithoutProxyWasmFilePath() { return Paths.get(WASM_LOCATION, "../../../../../coraza-wasm/nextraw.wasm"); }
     };
 
     public static final String WASM_LOCATION = "src/test/resources";
@@ -50,11 +54,15 @@ public enum TestWasmSources {
 
     public abstract Path getRawAdditionFilePath();
 
+    public abstract Path getJavyFilePath();
+
     public abstract Path getMajorReleasePath();
 
     public abstract Path getOPAPath();
 
     public abstract Path getWasmWebAssemblyFunctionFilePath();
+
+    public abstract Path getCorazaWithoutProxyWasmFilePath();
 
     public PathWasmSource pathWasmSource() {
         return resolvePathWasmSource(getWasmFilePath());
@@ -66,6 +74,14 @@ public enum TestWasmSources {
 
     public PathWasmSource getRawAdditionPath() {
         return resolvePathWasmSource(getRawAdditionFilePath());
+    }
+
+    public PathWasmSource getJavyPath() {
+        return resolvePathWasmSource(getJavyFilePath());
+    }
+
+    public PathWasmSource getCorazaWithoutProxyWasmPath() {
+        return resolvePathWasmSource(getCorazaWithoutProxyWasmFilePath());
     }
 
     public PathWasmSource getMajorRelease() {
