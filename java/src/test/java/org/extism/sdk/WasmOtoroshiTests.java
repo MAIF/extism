@@ -1,21 +1,19 @@
 package org.extism.sdk;
 
-import com.sun.jna.Memory;
-import com.sun.jna.Pointer;
-import org.extism.sdk.coraza.proxywasm.VMData;
-import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
+import com.google.gson.JsonArray;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasmotoroshi.*;
 import org.junit.jupiter.api.Test;
 
-import java.awt.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
 
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.google.gson.JsonObject;
+import com.google.gson.Gson;
 
 public class WasmOtoroshiTests {
 
@@ -244,37 +242,6 @@ public class WasmOtoroshiTests {
     }
 
     @Test
-    public void corazaShouldWorks() {
-        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWaf()), new MemoryOptions(20000));
-
-        Map<String, byte[]> headers = new HashMap<>() {{
-            put("path", "/admin?arg=<script>alert(0)</script>".getBytes(StandardCharsets.UTF_8));
-            put("url_path", "/admin".getBytes(StandardCharsets.UTF_8));
-            put("host", "localhost".getBytes(StandardCharsets.UTF_8));
-            put("scheme", "http".getBytes(StandardCharsets.UTF_8));
-            put("method", "GET".getBytes(StandardCharsets.UTF_8));
-            put("headers", "".getBytes(StandardCharsets.UTF_8));
-            put("referer", "".getBytes(StandardCharsets.UTF_8));
-            put("useragent", "".getBytes(StandardCharsets.UTF_8));
-            put("time", "".getBytes(StandardCharsets.UTF_8));
-            put("id", "x-request-id".getBytes(StandardCharsets.UTF_8));
-            put("protocol", "HTTP/1.1".getBytes(StandardCharsets.UTF_8));
-            put("query", "?arg=<script>alert(0)</script>".getBytes(StandardCharsets.UTF_8));
-        }};
-
-        VMData data = new VMData(headers);
-        var plugin = new ProxyWasmPlugin(manifest, data);
-
-        plugin.start();
-        plugin.run();
-        plugin.plugin.resetCustomMemory();
-        plugin.start();
-        plugin.run();
-
-        plugin.plugin.free();
-    }
-
-    @Test
     public void getEnvMemorySize() {
          var manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
 
@@ -328,52 +295,51 @@ public class WasmOtoroshiTests {
 
     @Test
     public void shouldCorazaWithoutSpecWasmWorks() {
+        var allowedPaths = new HashMap<String, String>();
+        allowedPaths.put("/Users/zwitterion/Documents/opensource/coraza", "/tmp");
+//        allowedPaths.put("/Users/zwitterion/Documents/opensource/coraza/rules", "/tmp/coreruleset");
+//        allowedPaths.put("/Users/zwitterion/Documents/opensource/coraza/rules/crs", "/tmp/coreruleset/rules");
+
         var manifest = new Manifest(Collections.singletonList(CODE.getCorazaWithoutProxyWasmPath()),
-                new MemoryOptions(500));
+                new MemoryOptions(5000), null, null, allowedPaths);
 
-//        int bufferSize = 1 << 20;
-//        Pointer mem = new Memory(bufferSize);
+        var instance = new Plugin(manifest, true, null);
+        instance.initializeCoraza();
 
-//        LibExtism.ExtismVal.ByReference ptr = new LibExtism.ExtismVal.ByReference();
-//        LibExtism.ExtismVal[] values = (LibExtism.ExtismVal[]) ptr.toArray(1);
-//        values[0].t = 0;
-//        values[0].v.setType(java.lang.Long.TYPE);
-//        values[0].v.i64 = Pointer.nativeValue(mem);
-//        var params = new Parameters(1);
-//        params.pushLong(Pointer.nativeValue(mem));
-
-//        var instance = new Plugin(manifest, true, null);
-//        instance.callWithoutParams("_start", 0);
-//        var length = instance.call("foo", params, 1);
-//        var results = LibExtism.INSTANCE.extension_call(
-//                instance.pluginPointer,
-//                "foo",
-//                params.getPtr(),
-//                params.getLength()
-//        );
+//        var forbidden = "{ \"request\": { \"url\": \"/foo\", \"headers\": { \"foo\": \"barasdad\"}, \"method\": \"HEAD\" } }";
+//        var result = instance.newCorazaTransaction(forbidden);
+//        System.out.println(result);
 //
-//        System.out.println("Results : " + results);
+//        var accepted = "{ \"request\": { \"url\": \"/foo\", \"headers\": { \"foo\": \"barasdad\"}, \"method\": \"GET\" } }";
+//        result = instance.newCorazaTransaction(accepted);
+//        System.out.println(result);
 //
-//        System.out.println(
-//                new String(mem.getByteArray(0, 20), StandardCharsets.UTF_8)
-//        );
+//        var test = "{\"request\":{\"url\":\"/\",\"method\":\"GET\",\"headers\":{\"Host\":\"coraza-next.oto.tools:9999\",\"Accept\":\"*/*\",\"User-Agent\":\"curl/8.7.1\",\"Remote-Address\":\"127.0.0.1:50651\",\"Timeout-Access\":\"<function1>\",\"Raw-Request-URI\":\"/\",\"Tls-Session-Info\":\"Session(1744190913083|SSL_NULL_WITH_NULL_NULL)\"}}}";
+//        result = instance.newCorazaTransaction(test);
+//        System.out.println(result);
 
-//        var mem = mem.getString(results.v.i64);
-//        var length = new String(java.util.Arrays.copyOf(mem, size), StandardCharsets.UTF_8);
-//        System.out.println("received: " +  mem);
-//        instance.free();
+        var jsonRequest = new JsonObject();
 
-        var memory = new LinearMemory("memory", "otoroshi", new LinearMemoryOptions(1, Optional.empty()));
+        var request = new JsonObject();
+        request.addProperty("url", "/foo");
+        request.addProperty("method", "POST");
 
-        var instance = new Plugin(manifest, true, null, new LinearMemory[]{memory});
-        LibExtism.INSTANCE.coraza(instance.pluginPointer);
+        var headers = new JsonObject();
+        headers.addProperty("foo", "barasdad");
+        request.add("headers", headers);
 
-//        if (results == null) {
-//            String error = LibExtism.INSTANCE.extension_plugin_error(instance.pluginPointer);
-//            throw new ExtismException(error);
-//            //return new Results(0);
-//        }
+        var bytes = "1%27%20ORDER%20BY%203--%2B".getBytes(StandardCharsets.UTF_8);
+        JsonArray byteArrayJson = new JsonArray();
+        for (byte b : bytes) {
+            byteArrayJson.add((int) b);
+        }
+        request.add("body", byteArrayJson);
 
+        jsonRequest.add("request", request);
+
+        Gson gson = new Gson();
+        var result = instance.newCorazaTransaction(gson.toJson(jsonRequest));
+        System.out.println(result);
 
     }
 }

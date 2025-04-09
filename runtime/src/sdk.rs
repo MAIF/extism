@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{fmt::Display, os::raw::c_char, ptr::null_mut};
+use std::{os::raw::c_char, ptr::null_mut};
 
 use crate::*;
 

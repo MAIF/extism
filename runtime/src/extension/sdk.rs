@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{mem, os::raw::c_char};
+use std::{ffi::CString, io::Write, os::raw::c_char};
 
 use crate::{
     extension::*,
@@ -89,76 +89,67 @@ pub(crate) unsafe extern "C" fn extension_call(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn coraza(plugin: *mut Plugin) {
+pub(crate) unsafe extern "C" fn initialize_coraza(plugin: *mut Plugin) {
     sub_call_coraza(plugin, "_start", None);
+    sub_call_coraza(plugin, "initialize_coraza", None);
+}
 
-    // let mut values: Vec<Val> = Vec::new();
-    // let ptr: i32 = 1024;
-    // values.push(Val::I32(ptr));
-
-    // let _ = match (&mut *linker).get(&mut *store, "otoroshi", "memory") {
-    //     None => Err("memory not found"),
-    //     Some(external) => match external.into_memory() {
-    //         None => Err("cant cast to m"),
-    //         Some(memory) => {
-    //             // let mut buffer = [0u8; 64];
-    //             let ptr: i32 = 1024;
-    //             values.push(Val::I32(ptr));
-    //             Ok(memory.write(&mut *store, ptr as usize, &[0; 64]))
-    //         }
-    //     },
-    // };
-
-    // let params: Option<Vec<Val>> = Some(values);
-    let res = sub_call_coraza(plugin, "foo", None);
-
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_new_transaction(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) -> *mut u8 {
     let plugin = &mut *plugin;
-    // let (linker, store) = plugin.linker_and_store();
 
-    match plugin.current_plugin_mut().memory() {
-        None => panic!("on s'est fait ken"),
-        Some(memory) => {
-            let mut buffer = [0u8; 64];
-            // let ptr: i32 = 1024;
+    sub_call_coraza(plugin, "reset", None);
 
-            match memory.read(
-                &mut plugin.store,
-                res.unwrap().get(0).unwrap().v.i32 as usize,
-                &mut buffer,
-            ) {
-                Err(err) => panic!("error memory access"),
-                Ok(value) => panic!("{:?}", value),
-            }
+    write_coraza_context(plugin, data, data_size);
+
+    sub_call_coraza(plugin, "process_transaction", None);
+
+    read_coraza_stdout_buffer(plugin)
+}
+
+unsafe fn write_coraza_context(plugin: &mut Plugin, data: *const u8, data_size: Size) {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let stdin_result = sub_call_coraza(plugin, "get_stdin", None).unwrap();
+    let stdin_ptr: usize = stdin_result.get(0).unwrap().v.i32 as usize;
+
+    let input = std::slice::from_raw_parts(data, data_size as usize);
+
+    plugin_memory.memory.data_mut(&mut *plugin_memory.store)[stdin_ptr..stdin_ptr + input.len()]
+        .copy_from_slice(input);
+
+    let mut params: Vec<Val> = Vec::new();
+    params.push(Val::I32(input.len() as i32));
+    sub_call_coraza(plugin, "write_stdin", Some(params));
+}
+
+unsafe fn read_coraza_stdout_buffer(plugin: &mut Plugin) -> *mut u8 {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let res = sub_call_coraza(plugin, "get_stdout", None).unwrap();
+    let length: Vec<ExtismVal> = sub_call_coraza(plugin, "stdout_length", None).unwrap();
+
+    let ptr: usize = res.get(0).unwrap().v.i32 as usize;
+    let length: usize = length.get(0).unwrap().v.i32 as usize;
+
+    let content = plugin_memory.memory.data(&mut *plugin_memory.store);
+
+    match std::str::from_utf8(&content[ptr..ptr + length]) {
+        Ok(v) => {
+            let c_string = CString::new(v).expect("{ \"result\": false }");
+            c_string.into_raw() as *mut u8
+        }
+        Err(err) => {
+            let c_string = CString::new("{ \"result\": false }").unwrap();
+            c_string.into_raw() as *mut u8
         }
     }
-
-    // match (&mut *linker).get(&mut *store, "", "memory") {
-    //     None => panic!("memory not found"),
-    //     Some(external) => match external.into_memory() {
-    //         None => panic!("cant cast to m"),
-    //         Some(memory) => panic!("je l'ai trouve")
-    //     }
-    // }
-
-    // match (&mut *linker).get(&mut *store, "env", "memory") {
-    //     None => panic!("memory not found"),
-    //     Some(external) => match external.into_memory() {
-    //         None => panic!("cant cast to m"),
-    //         Some(memory) => {
-    //             let mut buffer = [0u8; 64];
-    //             // let ptr: i32 = 1024;
-
-    //             match memory.read(
-    //                 &mut *store,
-    //                 res.unwrap().get(0).unwrap().v.i32 as usize,
-    //                 &mut buffer,
-    //             ) {
-    //                 Err(err) => panic!("error memory access"),
-    //                 Ok(value) => panic!("{:?}", value),
-    //             }
-    //         }
-    //     },
-    // };
 }
 
 pub(crate) unsafe fn sub_call_coraza(
@@ -188,7 +179,7 @@ pub(crate) unsafe fn sub_call_coraza(
                 None
             }
             Ok(_x) => {
-                let mut v = results
+                let v = results
                     .iter()
                     .map(|x| ExtismVal::from_val(x, &plugin.store).ok().unwrap()) //  TODO - check if ok().wrap() is legit
                     .collect::<Vec<ExtismVal>>();
@@ -475,8 +466,6 @@ pub unsafe extern "C" fn linear_memory_reset_from_plugin(
 
 #[no_mangle]
 pub unsafe extern "C" fn custom_memory_get(plugin: *mut CurrentPlugin) -> *mut u8 {
-    let plugin = &mut *plugin;
-
     let plugin = &mut *plugin;
     let plugin_memory = &mut *plugin.memory_export;
 

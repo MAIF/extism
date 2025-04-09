@@ -270,5 +270,6 @@ public interface LibExtism extends Library {
     int linear_memory_size_from_plugin(Pointer plugin, String namespace, String name);
     Pointer linear_memory_get_from_plugin(Pointer plugin, String namespace, String name);
 
-    void coraza(Pointer plugin);
+    void initialize_coraza(Pointer plugin);
+    String coraza_new_transaction(Pointer plugin, byte[] data, int length);
 }
