@@ -289,12 +289,14 @@ public class Plugin implements AutoCloseable {
         LibExtism.INSTANCE.custom_memory_reset_from_plugin(this.pluginPointer);
     }
 
-    public void initializeCoraza() {
-        LibExtism.INSTANCE.initialize_coraza(this.pluginPointer);
+    public void initializeCoraza(String configuration) {
+        byte[] inputBytes = configuration == null ? null : configuration.getBytes(StandardCharsets.UTF_8);
+        int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
+        LibExtism.INSTANCE.initialize_coraza(this.pluginPointer, inputBytes, inputDataLength);
     }
 
-    public String newCorazaTransaction(String input) {
-        byte[] inputBytes = input == null ? null : input.getBytes(StandardCharsets.UTF_8);
+    public String newCorazaTransaction(String context) {
+        byte[] inputBytes = context == null ? null : context.getBytes(StandardCharsets.UTF_8);
         int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
         return LibExtism.INSTANCE.coraza_new_transaction(this.pluginPointer, inputBytes, inputDataLength);
     }

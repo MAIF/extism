@@ -89,8 +89,14 @@ pub(crate) unsafe extern "C" fn extension_call(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn initialize_coraza(plugin: *mut Plugin) {
+pub(crate) unsafe extern "C" fn initialize_coraza(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) {
+    let plugin = &mut *plugin;
     sub_call_coraza(plugin, "_start", None);
+    write_coraza_buffer(plugin, data, data_size);
     sub_call_coraza(plugin, "initialize_coraza", None);
 }
 
@@ -104,14 +110,52 @@ pub(crate) unsafe extern "C" fn coraza_new_transaction(
 
     sub_call_coraza(plugin, "reset", None);
 
-    write_coraza_context(plugin, data, data_size);
+    write_coraza_buffer(plugin, data, data_size);
 
     sub_call_coraza(plugin, "process_transaction", None);
 
     read_coraza_stdout_buffer(plugin)
 }
 
-unsafe fn write_coraza_context(plugin: &mut Plugin, data: *const u8, data_size: Size) {
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_errors(plugin: *mut Plugin) -> *mut u8 {
+    get_coraza_buffer(plugin, "get_errors", "errors_length")
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_flow(plugin: *mut Plugin) -> *mut u8 {
+    get_coraza_buffer(plugin, "get_flow", "flow_length")
+}
+
+unsafe fn get_coraza_buffer(
+    plugin: *mut Plugin,
+    buffer_name: &str,
+    buffer_offset_name: &str,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let res = sub_call_coraza(plugin, &buffer_name, None).unwrap();
+    let length: Vec<ExtismVal> = sub_call_coraza(plugin, &buffer_offset_name, None).unwrap();
+
+    let ptr: usize = res.get(0).unwrap().v.i32 as usize;
+    let length: usize = length.get(0).unwrap().v.i32 as usize;
+
+    let content = plugin_memory.memory.data(&mut *plugin_memory.store);
+
+    match std::str::from_utf8(&content[ptr..ptr + length]) {
+        Ok(v) => {
+            let c_string = CString::new(v).expect("failed to convert result");
+            c_string.into_raw() as *mut u8
+        }
+        Err(err) => {
+            let c_string = CString::new("failed to convert result").unwrap();
+            c_string.into_raw() as *mut u8
+        }
+    }
+}
+
+unsafe fn write_coraza_buffer(plugin: &mut Plugin, data: *const u8, data_size: Size) {
     let plugin = &mut *plugin;
     let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
 

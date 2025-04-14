@@ -120,9 +120,13 @@ ExtismVal *extension_call(ExtismPlugin *plugin,
                           const ExtismVal *params,
                           ExtismSize n_params);
 
-void initialize_coraza(ExtismPlugin *plugin);
+void initialize_coraza(ExtismPlugin *plugin, const uint8_t *data, ExtismSize data_size);
 
 uint8_t *coraza_new_transaction(ExtismPlugin *plugin, const uint8_t *data, ExtismSize data_size);
+
+uint8_t *coraza_errors(ExtismPlugin *plugin);
+
+uint8_t *coraza_flow(ExtismPlugin *plugin);
 
 ExtismVal *wasm_plugin_call_without_params(ExtismPlugin *plugin_ptr, const char *func_name);
 
