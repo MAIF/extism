@@ -296,7 +296,7 @@ public class WasmOtoroshiTests {
     @Test
     public void shouldCorazaWithoutSpecWasmWorks() {
         var allowedPaths = new HashMap<String, String>();
-        allowedPaths.put("/Users/zwitterion/Documents/opensource/coraza", "/tmp");
+        allowedPaths.put("/tmp", "/tmp");
 
         var manifest = new Manifest(Collections.singletonList(CODE.getCorazaWithoutProxyWasmPath()),
                 new MemoryOptions(5000), null, null, allowedPaths);
@@ -304,15 +304,8 @@ public class WasmOtoroshiTests {
         var instance = new Plugin(manifest, true, null);
 
         JsonObject configuration = new JsonObject();
-        String directives = "SecRuleEngine On\n" +
-                "SecRequestBodyAccess On\n" +
-                "SecResponseBodyAccess On\n" +
-                "Include @coraza\n" +
-                "Include @crs-setup\n" +
-                "Include @owasp_crs/*.conf\n" +
-                "SecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny,msg:'ADMIN PATH forbidden'\"\n" +
-                "SecRule REQUEST_HEADERS:foo \"@streq bar\" \"id:1001,phase:1,deny,status:403,msg:'Header foo cannot be bar'\"\n" +
-                "SecRule REQUEST_METHOD \"@pm HEAD\" \"id:1002,phase:1,deny,status:403,msg:'HTTP METHOD NOT AUTHORIZED'\"";
+        String directives = "SecRuleEngine On\n SecRequestBodyAccess On\n SecResponseBodyAccess On\n Include @coraza\n Include @crs-setup\n Include @owasp_crs/*.conf\n SecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny,msg:'ADMIN PATH forbidden'\"\n SecRule REQUEST_HEADERS:foo \"@streq bar\" \"id:1001,phase:1,deny,status:403,msg:'Header foo cannot be bar'\"\n SecRule REQUEST_METHOD \"@pm HEAD\" \"id:1002,phase:1,deny,status:403,msg:'HTTP METHOD NOT AUTHORIZED'\"";
+//        String directives = "SecRuleEngine On\n SecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny,msg:'ADMIN PATH forbidden'\"\n SecRule REQUEST_HEADERS:foo \"@streq bar\" \"id:1001,phase:1,deny,status:403,msg:'Header foo cannot be bar'\"\n SecRule REQUEST_METHOD \"@pm HEAD\" \"id:1002,phase:1,deny,status:403,msg:'HTTP METHOD NOT AUTHORIZED'\"";
 
         // Add the directives as a property
         configuration.addProperty("directives", directives);
@@ -360,6 +353,6 @@ public class WasmOtoroshiTests {
         var result = instance.newCorazaTransaction(gson.toJson(jsonRequest));
         System.out.println(result);
 
-        System.out.println("ERRORS: " + LibExtism.INSTANCE.coraza_errors(instance.pluginPointer));
+        System.out.println("ERRORS: " + instance.corazaTransactionErrors());
     }
 }
