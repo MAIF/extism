@@ -1,17 +1,12 @@
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: [ main, "v*" ]
     tags:
-      - '*'
+      - 'v*'
 
 name: Release
 
-env:
-  RUNTIME_MANIFEST: runtime/Cargo.toml
-  RUNTIME_CRATE: libextism
-  RUSTFLAGS: -C target-feature=-crt-static
-  ARTIFACT_DIR: release-artifacts
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +16,11 @@ jobs:
   release:
     name: ${{ matrix.os }} ${{ matrix.target }}
     runs-on: ${{ matrix.os }}-latest
+    env:
+      RUNTIME_MANIFEST: runtime/Cargo.toml
+      RUNTIME_CRATE: libextism
+      RUSTFLAGS: -C target-feature=-crt-static
+      ARTIFACT_DIR: release-artifacts-${{ matrix.os }}-${{ matrix.target }}
     strategy:
       matrix:
         include:
@@ -73,13 +73,13 @@ jobs:
             static-dll-artifact: 'libextism.dll.a'
             pc-in: 'extism.pc.in'
             static-pc-in: 'extism-static.pc.in'
-          # - os: 'windows'
-          #   target: 'x86_64-pc-windows-msvc'
-          #   artifact: 'extism.dll'
-          #   static-artifact: 'extism.lib'
-          #   static-dll-artifact: 'extism.dll.lib'
-          #   pc-in: ''
-          #   static-pc-in: ''
+          - os: 'windows'
+            target: 'x86_64-pc-windows-msvc'
+            artifact: 'extism.dll'
+            static-artifact: 'extism.lib'
+            static-dll-artifact: 'extism.dll.lib'
+            pc-in: ''
+            static-pc-in: ''
 
     steps:
       - name: Checkout
@@ -92,7 +92,7 @@ jobs:
           if [[ "$version" = "refs/heads/main" ]]; then
             version="0.0.0-dev"
           else
-            version="${version/refs\/tags\/e/}"
+            version="${version/refs\/tags\/v/}"
           fi
           sed -i -e "s/0.0.0+replaced-by-ci/${version}/g" Cargo.toml
           pyproject="$(cat extism-maturin/pyproject.toml)"
@@ -213,7 +213,6 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: release-artifacts
           pattern: release-artifacts-*
           merge-multiple: true
 
