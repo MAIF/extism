@@ -7,6 +7,12 @@ on:
 
 name: Release
 
+env:
+  RUNTIME_MANIFEST: runtime/Cargo.toml
+  RUNTIME_CRATE: libextism
+  RUSTFLAGS: -C target-feature=-crt-static
+  ARTIFACT_DIR: release-artifacts
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,11 +21,6 @@ jobs:
   release:
     name: ${{ matrix.os }} ${{ matrix.target }}
     runs-on: ${{ matrix.os }}-latest
-    env:
-      RUNTIME_MANIFEST: runtime/Cargo.toml
-      RUNTIME_CRATE: libextism
-      RUSTFLAGS: -C target-feature=-crt-static
-      ARTIFACT_DIR: release-artifacts-${{ matrix.os }}-${{ matrix.target }}
     strategy:
       matrix:
         include:
@@ -72,13 +73,13 @@ jobs:
             static-dll-artifact: 'libextism.dll.a'
             pc-in: 'extism.pc.in'
             static-pc-in: 'extism-static.pc.in'
-          - os: 'windows'
-            target: 'x86_64-pc-windows-msvc'
-            artifact: 'extism.dll'
-            static-artifact: 'extism.lib'
-            static-dll-artifact: 'extism.dll.lib'
-            pc-in: ''
-            static-pc-in: ''
+          # - os: 'windows'
+          #   target: 'x86_64-pc-windows-msvc'
+          #   artifact: 'extism.dll'
+          #   static-artifact: 'extism.lib'
+          #   static-dll-artifact: 'extism.dll.lib'
+          #   pc-in: ''
+          #   static-pc-in: ''
 
     steps:
       - name: Checkout
@@ -191,7 +192,7 @@ jobs:
           ls -ll ${DEST_DIR}
 
       - name: Upload Artifact to Summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACT_DIR }}
           path: ${{ env.ARTIFACT_DIR }}
@@ -210,11 +211,9 @@ jobs:
     needs: [release]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
         with:
-          path: release-artifacts
-          pattern: release-artifacts-*
-          merge-multiple: true
+          name: ${{ env.ARTIFACT_DIR }}
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
