@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::os::raw::c_char;
+use std::{ffi::CString, io::Write, os::raw::c_char};
 
 use crate::{
     extension::*,
@@ -86,6 +86,171 @@ pub(crate) unsafe extern "C" fn extension_call(
         None => std::ptr::null_mut(),
         Some(values) => values,
     }
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn initialize_coraza(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) {
+    let plugin = &mut *plugin;
+    sub_call_coraza(plugin, "_start", None);
+    write_coraza_buffer(plugin, data, data_size);
+    sub_call_coraza(plugin, "initialize_coraza", None);
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_new_transaction(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+
+    sub_call_coraza(plugin, "reset", None);
+
+    write_coraza_buffer(plugin, data, data_size);
+
+    sub_call_coraza(plugin, "process_transaction", None);
+
+    read_coraza_stdout_buffer(plugin)
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn process_response_transaction(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+
+    sub_call_coraza(plugin, "reset", None);
+
+    write_coraza_buffer(plugin, data, data_size);
+
+    sub_call_coraza(plugin, "process_response_transaction", None);
+
+    read_coraza_stdout_buffer(plugin)
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_errors(plugin: *mut Plugin) -> *mut u8 {
+    get_coraza_buffer(plugin, "get_errors", "errors_length")
+}
+
+#[no_mangle]
+pub(crate) unsafe extern "C" fn coraza_flow(plugin: *mut Plugin) -> *mut u8 {
+    get_coraza_buffer(plugin, "get_flow", "flow_length")
+}
+
+unsafe fn get_coraza_buffer(
+    plugin: *mut Plugin,
+    buffer_name: &str,
+    buffer_offset_name: &str,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let res = sub_call_coraza(plugin, &buffer_name, None).unwrap();
+    let length: Vec<ExtismVal> = sub_call_coraza(plugin, &buffer_offset_name, None).unwrap();
+
+    let ptr: usize = res.get(0).unwrap().v.i32 as usize;
+    let length: usize = length.get(0).unwrap().v.i32 as usize;
+
+    let content = plugin_memory.memory.data(&mut *plugin_memory.store);
+
+    match std::str::from_utf8(&content[ptr..ptr + length]) {
+        Ok(v) => {
+            let c_string = CString::new(v).expect("failed to convert result");
+            c_string.into_raw() as *mut u8
+        }
+        Err(err) => {
+            let c_string = CString::new("failed to convert result").unwrap();
+            c_string.into_raw() as *mut u8
+        }
+    }
+}
+
+unsafe fn write_coraza_buffer(plugin: &mut Plugin, data: *const u8, data_size: Size) {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let stdin_result = sub_call_coraza(plugin, "get_stdin", None).unwrap();
+    let stdin_ptr: usize = stdin_result.get(0).unwrap().v.i32 as usize;
+
+    let input = std::slice::from_raw_parts(data, data_size as usize);
+
+    plugin_memory.memory.data_mut(&mut *plugin_memory.store)[stdin_ptr..stdin_ptr + input.len()]
+        .copy_from_slice(input);
+
+    let mut params: Vec<Val> = Vec::new();
+    params.push(Val::I32(input.len() as i32));
+    sub_call_coraza(plugin, "write_stdin", Some(params));
+}
+
+unsafe fn read_coraza_stdout_buffer(plugin: &mut Plugin) -> *mut u8 {
+    let plugin = &mut *plugin;
+    let plugin_memory = &mut *plugin.current_plugin_mut().memory_export;
+
+    let res = sub_call_coraza(plugin, "get_stdout", None).unwrap();
+    let length: Vec<ExtismVal> = sub_call_coraza(plugin, "stdout_length", None).unwrap();
+
+    let ptr: usize = res.get(0).unwrap().v.i32 as usize;
+    let length: usize = length.get(0).unwrap().v.i32 as usize;
+
+    let content = plugin_memory.memory.data(&mut *plugin_memory.store);
+
+    match std::str::from_utf8(&content[ptr..ptr + length]) {
+        Ok(v) => {
+            let c_string = CString::new(v).expect("{ \"result\": false }");
+            c_string.into_raw() as *mut u8
+        }
+        Err(err) => {
+            let c_string = CString::new("{ \"result\": false }").unwrap();
+            c_string.into_raw() as *mut u8
+        }
+    }
+}
+
+pub(crate) unsafe fn sub_call_coraza(
+    plugin: *mut Plugin,
+    func_name: &str,
+    params: Option<Vec<Val>>,
+) -> Option<Vec<ExtismVal>> {
+    if let Some(plugin) = plugin.as_mut() {
+        let _lock = plugin.instance.clone();
+        let mut acquired_lock = _lock.lock().unwrap();
+
+        let mut results = vec![wasmtime::Val::I32(0); 0];
+
+        let res = plugin.raw_call(
+            &mut acquired_lock,
+            func_name,
+            [0; 0],
+            None::<()>,
+            false,
+            params,
+            Some(&mut results),
+        );
+
+        return match res {
+            Err((e, _rc)) => {
+                plugin.current_plugin_mut().extension_error = Some(e);
+                None
+            }
+            Ok(_x) => {
+                let v = results
+                    .iter()
+                    .map(|x| ExtismVal::from_val(x, &plugin.store).ok().unwrap()) //  TODO - check if ok().wrap() is legit
+                    .collect::<Vec<ExtismVal>>();
+
+                Some(v)
+            }
+        };
+    }
+
+    None
 }
 
 #[no_mangle]
@@ -363,8 +528,6 @@ pub unsafe extern "C" fn linear_memory_reset_from_plugin(
 #[no_mangle]
 pub unsafe extern "C" fn custom_memory_get(plugin: *mut CurrentPlugin) -> *mut u8 {
     let plugin = &mut *plugin;
-
-    let plugin = &mut *plugin;
     let plugin_memory = &mut *plugin.memory_export;
 
     plugin_memory
@@ -516,12 +679,17 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         }
     }
 
-    let memories: Vec<WasmMemory> = mems.iter().map(|mem| WasmMemory::new(
-        mem.name.clone(),
-        mem.namespace.clone(),
-        mem.ty.minimum() as u32,
-        mem.ty.maximum().map(|r| r as u32).unwrap_or(0)
-    )).collect::<Vec<WasmMemory>>();
+    let memories: Vec<WasmMemory> = mems
+        .iter()
+        .map(|mem| {
+            WasmMemory::new(
+                mem.name.clone(),
+                mem.namespace.clone(),
+                mem.ty.minimum() as u32,
+                mem.ty.maximum().map(|r| r as u32).unwrap_or(0),
+            )
+        })
+        .collect::<Vec<WasmMemory>>();
 
     let plugin = Plugin::new_with_memories(data, funcs, memories, with_wasi);
     match plugin {

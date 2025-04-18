@@ -1,7 +1,6 @@
 package org.extism.sdk;
 
-import org.extism.sdk.coraza.proxywasm.VMData;
-import org.extism.sdk.coraza.proxywasmhost.ProxyWasmPlugin;
+import com.google.gson.JsonArray;
 import org.extism.sdk.manifest.Manifest;
 import org.extism.sdk.manifest.MemoryOptions;
 import org.extism.sdk.wasmotoroshi.*;
@@ -9,9 +8,12 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.List;
 
 import static org.extism.sdk.TestWasmSources.CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.google.gson.JsonObject;
+import com.google.gson.Gson;
 
 public class WasmOtoroshiTests {
 
@@ -240,37 +242,6 @@ public class WasmOtoroshiTests {
     }
 
     @Test
-    public void corazaShouldWorks() {
-        Manifest manifest = new Manifest(Arrays.asList(CODE.pathWasmWaf()), new MemoryOptions(20000));
-
-        Map<String, byte[]> headers = new HashMap<>() {{
-            put("path", "/admin?arg=<script>alert(0)</script>".getBytes(StandardCharsets.UTF_8));
-            put("url_path", "/admin".getBytes(StandardCharsets.UTF_8));
-            put("host", "localhost".getBytes(StandardCharsets.UTF_8));
-            put("scheme", "http".getBytes(StandardCharsets.UTF_8));
-            put("method", "GET".getBytes(StandardCharsets.UTF_8));
-            put("headers", "".getBytes(StandardCharsets.UTF_8));
-            put("referer", "".getBytes(StandardCharsets.UTF_8));
-            put("useragent", "".getBytes(StandardCharsets.UTF_8));
-            put("time", "".getBytes(StandardCharsets.UTF_8));
-            put("id", "x-request-id".getBytes(StandardCharsets.UTF_8));
-            put("protocol", "HTTP/1.1".getBytes(StandardCharsets.UTF_8));
-            put("query", "?arg=<script>alert(0)</script>".getBytes(StandardCharsets.UTF_8));
-        }};
-
-        VMData data = new VMData(headers);
-        var plugin = new ProxyWasmPlugin(manifest, data);
-
-        plugin.start();
-        plugin.run();
-        plugin.plugin.resetCustomMemory();
-        plugin.start();
-        plugin.run();
-
-        plugin.plugin.free();
-    }
-
-    @Test
     public void getEnvMemorySize() {
          var manifest = new Manifest(Collections.singletonList(CODE.pathWasmWebAssemblyFunctionSource()));
 
@@ -320,5 +291,82 @@ public class WasmOtoroshiTests {
         var mem = linearMemory.getByteArray(0, arraySize);
         var size = lastValidByte(mem);
         assertEquals("", new String(Arrays.copyOf(mem, size), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void shouldCorazaWithoutSpecWasmWorks() {
+        var allowedPaths = new HashMap<String, String>();
+        allowedPaths.put("/tmp", "/tmp");
+
+        var manifest = new Manifest(Collections.singletonList(CODE.getCorazaWithoutProxyWasmPath()),
+                new MemoryOptions(5000), null, null, allowedPaths);
+
+        var instance = new Plugin(manifest, true, null);
+
+        JsonObject configuration = new JsonObject();
+        String directives = "SecRuleEngine On\n SecRequestBodyAccess On\n SecResponseBodyAccess On\n Include @coraza\n Include @crs-setup\n Include @owasp_crs/*.conf\n SecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny,msg:'ADMIN PATH forbidden'\"\n SecRule REQUEST_HEADERS:foo \"@streq bar\" \"id:1001,phase:1,deny,status:403,msg:'Header foo cannot be bar'\"\n SecRule REQUEST_METHOD \"@pm HEAD\" \"id:1002,phase:1,deny,status:403,msg:'HTTP METHOD NOT AUTHORIZED'\"";
+//        String directives = "SecRuleEngine On\n SecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny,msg:'ADMIN PATH forbidden'\"\n SecRule REQUEST_HEADERS:foo \"@streq bar\" \"id:1001,phase:1,deny,status:403,msg:'Header foo cannot be bar'\"\n SecRule REQUEST_METHOD \"@pm HEAD\" \"id:1002,phase:1,deny,status:403,msg:'HTTP METHOD NOT AUTHORIZED'\"";
+
+        // Add the directives as a property
+        configuration.addProperty("directives", directives);
+        configuration.addProperty("inspect_bodies", true);
+
+        Gson gson = new Gson();
+        instance.initializeCoraza(gson.toJson(configuration));
+
+//        var forbidden = "{ \"request\": { \"url\": \"/foo\", \"headers\": { \"foo\": \"barasdad\"}, \"method\": \"HEAD\" } }";
+//        var result = instance.newCorazaTransaction(forbidden);
+//        System.out.println(result);
+//
+//        var accepted = "{ \"request\": { \"url\": \"/foo\", \"headers\": { \"foo\": \"barasdad\"}, \"method\": \"GET\" } }";
+//        result = instance.newCorazaTransaction(accepted);
+//        System.out.println(result);
+//
+//        var test = "{\"request\":{\"url\":\"/\",\"method\":\"GET\",\"headers\":{\"Host\":\"coraza-next.oto.tools:9999\",\"Accept\":\"*/*\",\"User-Agent\":\"curl/8.7.1\",\"Remote-Address\":\"127.0.0.1:50651\",\"Timeout-Access\":\"<function1>\",\"Raw-Request-URI\":\"/\",\"Tls-Session-Info\":\"Session(1744190913083|SSL_NULL_WITH_NULL_NULL)\"}}}";
+//        result = instance.newCorazaTransaction(test);
+//        System.out.println(result);
+
+//        String input = "username=admin&password=%uff41%uff42%uff43";
+        String input = "username=admin&password='<script>alert(1)</script>";
+//        String input = "{\"ok\":true}";
+        byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
+
+        JsonArray byteArrayJson = new JsonArray();
+        for (byte b : bytes) {
+            byteArrayJson.add((int) b);
+        }
+
+        JsonObject headers = new JsonObject();
+//        headers.addProperty("Content-Length", ""+bytes.length);
+//        headers.addProperty("Content-Type", "application/x-www-form-urlencoded");
+        headers.addProperty("Host", "coucou.oto.tools");
+
+        JsonObject request = new JsonObject();
+        request.addProperty("url", "/coucou");
+        request.addProperty("method", "GET");
+        request.add("headers", headers);
+//        request.add("body", byteArrayJson);
+        request.addProperty("proto", "HTTP/1.1");
+        request.addProperty("status", 200);
+
+        JsonObject jsonRequest = new JsonObject();
+        jsonRequest.add("request", request);
+
+
+        JsonObject response = new JsonObject();
+        response.addProperty("proto", "HTTP1/1");
+        response.addProperty("status", 200);
+
+        JsonObject responseHeaders = new JsonObject();
+        response.add("headers", responseHeaders);
+
+        jsonRequest.add("response", response);
+
+        gson = new Gson();
+        var result = instance.newCorazaTransaction(gson.toJson(request));
+//        var result = instance.processResponseTransaction(gson.toJson(jsonRequest));
+        System.out.println(result);
+
+        System.out.println("ERRORS: " + instance.corazaTransactionErrors());
     }
 }

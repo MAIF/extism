@@ -288,4 +288,26 @@ public class Plugin implements AutoCloseable {
     public void resetCustomMemory() {
         LibExtism.INSTANCE.custom_memory_reset_from_plugin(this.pluginPointer);
     }
+
+    public void initializeCoraza(String configuration) {
+        byte[] inputBytes = configuration == null ? null : configuration.getBytes(StandardCharsets.UTF_8);
+        int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
+        LibExtism.INSTANCE.initialize_coraza(this.pluginPointer, inputBytes, inputDataLength);
+    }
+
+    public String newCorazaTransaction(String context) {
+        byte[] inputBytes = context == null ? null : context.getBytes(StandardCharsets.UTF_8);
+        int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
+        return LibExtism.INSTANCE.coraza_new_transaction(this.pluginPointer, inputBytes, inputDataLength);
+    }
+
+    public String corazaTransactionErrors() {
+        return LibExtism.INSTANCE.coraza_errors(this.pluginPointer);
+    }
+
+    public String processResponseTransaction(String context) {
+        byte[] inputBytes = context == null ? null : context.getBytes(StandardCharsets.UTF_8);
+        int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
+        return LibExtism.INSTANCE.process_response_transaction(this.pluginPointer, inputBytes, inputDataLength);
+    }
 }
