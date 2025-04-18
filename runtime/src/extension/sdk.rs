@@ -118,6 +118,23 @@ pub(crate) unsafe extern "C" fn coraza_new_transaction(
 }
 
 #[no_mangle]
+pub(crate) unsafe extern "C" fn process_response_transaction(
+    plugin: *mut Plugin,
+    data: *const u8,
+    data_size: Size,
+) -> *mut u8 {
+    let plugin = &mut *plugin;
+
+    sub_call_coraza(plugin, "reset", None);
+
+    write_coraza_buffer(plugin, data, data_size);
+
+    sub_call_coraza(plugin, "process_response_transaction", None);
+
+    read_coraza_stdout_buffer(plugin)
+}
+
+#[no_mangle]
 pub(crate) unsafe extern "C" fn coraza_errors(plugin: *mut Plugin) -> *mut u8 {
     get_coraza_buffer(plugin, "get_errors", "errors_length")
 }

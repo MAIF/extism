@@ -328,6 +328,7 @@ public class WasmOtoroshiTests {
 
 //        String input = "username=admin&password=%uff41%uff42%uff43";
         String input = "username=admin&password='<script>alert(1)</script>";
+//        String input = "{\"ok\":true}";
         byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
 
         JsonArray byteArrayJson = new JsonArray();
@@ -336,21 +337,34 @@ public class WasmOtoroshiTests {
         }
 
         JsonObject headers = new JsonObject();
-        headers.addProperty("Content-Length", ""+bytes.length);
-        headers.addProperty("Content-Type", "application/x-www-form-urlencoded");
+//        headers.addProperty("Content-Length", ""+bytes.length);
+//        headers.addProperty("Content-Type", "application/x-www-form-urlencoded");
         headers.addProperty("Host", "coucou.oto.tools");
 
         JsonObject request = new JsonObject();
         request.addProperty("url", "/coucou");
-        request.addProperty("method", "POST");
+        request.addProperty("method", "GET");
         request.add("headers", headers);
-        request.add("body", byteArrayJson);
+//        request.add("body", byteArrayJson);
+        request.addProperty("proto", "HTTP/1.1");
+        request.addProperty("status", 200);
 
         JsonObject jsonRequest = new JsonObject();
         jsonRequest.add("request", request);
 
+
+        JsonObject response = new JsonObject();
+        response.addProperty("proto", "HTTP1/1");
+        response.addProperty("status", 200);
+
+        JsonObject responseHeaders = new JsonObject();
+        response.add("headers", responseHeaders);
+
+        jsonRequest.add("response", response);
+
         gson = new Gson();
-        var result = instance.newCorazaTransaction(gson.toJson(jsonRequest));
+        var result = instance.newCorazaTransaction(gson.toJson(request));
+//        var result = instance.processResponseTransaction(gson.toJson(jsonRequest));
         System.out.println(result);
 
         System.out.println("ERRORS: " + instance.corazaTransactionErrors());

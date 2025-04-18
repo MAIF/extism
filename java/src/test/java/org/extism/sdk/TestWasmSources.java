@@ -43,7 +43,7 @@ public enum TestWasmSources {
 
         public Path getJavyFilePath() { return Paths.get(WASM_LOCATION, "javy/index.wasm"); }
 
-        public Path getCorazaWithoutProxyWasmFilePath() { return Paths.get(WASM_LOCATION, "../../../../../coraza/corazanext.wasm"); }
+        public Path getCorazaWithoutProxyWasmFilePath() { return Paths.get(WASM_LOCATION, "../../../../../coraza/coraza.wasm"); }
     };
 
     public static final String WASM_LOCATION = "src/test/resources";

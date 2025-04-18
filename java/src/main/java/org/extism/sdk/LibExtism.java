@@ -272,6 +272,7 @@ public interface LibExtism extends Library {
 
     void initialize_coraza(Pointer plugin, byte[] configuration, int configurationLength);
     String coraza_new_transaction(Pointer plugin, byte[] context, int contextLength);
+    String process_response_transaction(Pointer plugin, byte[] context, int contextLength);
     String coraza_errors(Pointer plugin);
 
     // debug purpose

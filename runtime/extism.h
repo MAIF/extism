@@ -124,6 +124,10 @@ void initialize_coraza(ExtismPlugin *plugin, const uint8_t *data, ExtismSize dat
 
 uint8_t *coraza_new_transaction(ExtismPlugin *plugin, const uint8_t *data, ExtismSize data_size);
 
+uint8_t *process_response_transaction(ExtismPlugin *plugin,
+                                      const uint8_t *data,
+                                      ExtismSize data_size);
+
 uint8_t *coraza_errors(ExtismPlugin *plugin);
 
 uint8_t *coraza_flow(ExtismPlugin *plugin);

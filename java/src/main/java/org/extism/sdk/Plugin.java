@@ -304,4 +304,10 @@ public class Plugin implements AutoCloseable {
     public String corazaTransactionErrors() {
         return LibExtism.INSTANCE.coraza_errors(this.pluginPointer);
     }
+
+    public String processResponseTransaction(String context) {
+        byte[] inputBytes = context == null ? null : context.getBytes(StandardCharsets.UTF_8);
+        int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
+        return LibExtism.INSTANCE.process_response_transaction(this.pluginPointer, inputBytes, inputDataLength);
+    }
 }
