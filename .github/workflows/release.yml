@@ -1,12 +1,11 @@
 on:
   workflow_dispatch:
   push:
-    branches: [ main, "v*" ]
+    branches: [ "main" ]
     tags:
-      - 'v*'
+      - '*'
 
 name: Release
-
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -92,7 +91,7 @@ jobs:
           if [[ "$version" = "refs/heads/main" ]]; then
             version="0.0.0-dev"
           else
-            version="${version/refs\/tags\/v/}"
+            version="${version/refs\/tags\/e/}"
           fi
           sed -i -e "s/0.0.0+replaced-by-ci/${version}/g" Cargo.toml
           pyproject="$(cat extism-maturin/pyproject.toml)"
@@ -213,6 +212,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          path: release-artifacts
           pattern: release-artifacts-*
           merge-multiple: true
 
