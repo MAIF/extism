@@ -1,6 +1,8 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{os::raw::c_char, ptr::null_mut};
+use std::{mem, os::raw::c_char, ptr::null_mut};
+
+use wasi_common::snapshots;
 
 use crate::*;
 
@@ -710,6 +712,48 @@ struct CVoidContainer(*mut std::ffi::c_void);
 unsafe impl Send for CVoidContainer {}
 unsafe impl Sync for CVoidContainer {}
 
+#[repr(C)]
+pub struct Buffer {
+    pub(crate) ptr: *mut u8,
+    pub(crate) len: usize,
+}
+
+// #[no_mangle]
+// pub unsafe extern "C" fn extism_get_memory_snapshot(plugin: *mut Plugin) -> *mut Buffer {
+//     let plugin = &mut *plugin;
+
+//     let plugin_memory = &mut *plugin.current_plugin().memory_export;
+
+//     let store = plugin_memory.store;
+//     let memory = plugin_memory.memory.data(&mut *store).to_vec().clone();
+
+//     let len = memory.len();
+//     let ptr = memory.as_ptr() as *mut u8;
+
+//     println!("vec of length {:?}", len);
+
+//     Box::into_raw(Box::new(Buffer { ptr, len }))
+// }
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_restore_memory_snapshot(plugin: *mut Plugin) {
+    let plugin = &mut *plugin;
+    
+    println!("reset extism_restore_memory_snapshot");
+
+    let plugin_memory = &mut *plugin.linker_and_store().1.data().memory_export;
+    let data: &mut [u8] = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
+
+    let snapshot = &mut *plugin.linker_and_store().1.data().memory_snapshot;
+    println!("vec of length recevied {:?}", snapshot.len);
+
+    let snap = std::slice::from_raw_parts(snapshot.ptr, snapshot.len);
+    data[..snap.len()].copy_from_slice(snap);
+
+    // let snapshot = Box::from_raw(snapshot);
+    // drop(snapshot)
+}
+
 /// Call a function with host context.
 ///
 /// `func_name`: is the function to call
@@ -728,8 +772,8 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
         return -1;
     }
 
-    let plugin = &mut *plugin;
-    let lock = plugin.instance.clone();
+    let mutable_plugin = &mut *plugin;
+    let lock = mutable_plugin.instance.clone();
     let mut lock = lock.lock().unwrap();
 
     // Get function name
@@ -737,27 +781,50 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
     let name = match name.to_str() {
         Ok(name) => name,
         Err(e) => {
-            plugin.error_msg = Some(make_error_msg(e.to_string()));
+            mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
             return -1;
         }
     };
 
     trace!(
-        plugin = plugin.id.to_string(),
+        plugin = mutable_plugin.id.to_string(),
         "calling function {} using extism_plugin_call",
         name
     );
+
     let input = std::slice::from_raw_parts(data, data_len as usize);
     let r = if host_context.is_null() {
         None
     } else {
         Some(CVoidContainer(host_context))
     };
-    let res = plugin.raw_call(&mut lock, name, input, r, true, None, None);
+
+    let res = mutable_plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None);
+
     match res {
         Err((e, rc)) => {
-            plugin.error_msg = Some(make_error_msg(e.to_string()));
-            rc
+            println!("something failed again {:?}", e.to_string());
+            mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
+            -1
+            // mutable_plugin.store_needs_reset = true;
+            // let _ = mutable_plugin.reset_store(&mut lock);
+            // println!("call again after reset store");
+
+            // let res = mutable_plugin.raw_call(&mut lock, name, input, r, true, None, None);
+            // match res {
+            //     Err((e, rc)) => {
+            //         println!("{:?}", e);
+            //         -1
+            //     },
+            //     Ok(x) => x,
+            // }
+
+            // -1
+            // if e.to_string() == "oom" {
+            //     -1
+            // } else {
+            //     rc
+            // }
         }
         Ok(x) => x,
     }
@@ -1005,10 +1072,27 @@ pub unsafe extern "C" fn extism_plugin_reset(plugin: *mut Plugin) -> bool {
                 e.to_string()
             );
         }
-        false
-    } else {
-        true
+        return false;
     }
+
+    extism_restore_memory_snapshot(plugin);
+
+    if let Some(limiter) = &mut plugin.current_plugin_mut().memory_limiter {
+        limiter.reset();
+    }
+
+    // let memory = &mut *plugin.current_plugin_mut().memory_export;
+    // let current_pages = memory.size();
+
+    // println!("current pages {:?}", current_pages);
+    // plugin_memory.reset();
+    // let data = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
+    // data.
+    // for byte in data.iter_mut() {
+    //     *byte = 0;
+    // }
+
+    true
 }
 
 /// Get the Extism version string

@@ -117,6 +117,8 @@ public class Plugin implements AutoCloseable {
 
         int inputDataLength = inputData == null ? 0 : inputData.length;
         int exitCode = LibExtism.INSTANCE.extism_plugin_call(this.pluginPointer, functionName, inputData, inputDataLength);
+
+        // TODO - stop throw exception
         if (exitCode == -1) {
             String error = this.error();
             throw new ExtismException(error);
@@ -309,5 +311,13 @@ public class Plugin implements AutoCloseable {
         byte[] inputBytes = context == null ? null : context.getBytes(StandardCharsets.UTF_8);
         int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
         return LibExtism.INSTANCE.process_response_transaction(this.pluginPointer, inputBytes, inputDataLength);
+    }
+
+//    Pointer extism_get_memory_snapshot() {
+//        return LibExtism.INSTANCE.extism_get_memory_snapshot(this.pluginPointer);
+//    }
+
+    void restore_memory_snapshot() {
+        LibExtism.INSTANCE.extism_restore_memory_snapshot(this.pluginPointer);
     }
 }

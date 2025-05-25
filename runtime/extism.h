@@ -358,6 +358,8 @@ int32_t extism_plugin_call(ExtismPlugin *plugin,
                            const uint8_t *data,
                            ExtismSize data_len);
 
+void extism_restore_memory_snapshot(ExtismPlugin *plugin);
+
 /**
  * Call a function with host context.
  *

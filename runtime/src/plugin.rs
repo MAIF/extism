@@ -7,8 +7,7 @@ use anyhow::Context;
 use plugin_builder::PluginBuilderOptions;
 
 use crate::{
-    extension::{custom_memory::PluginMemory, WasmMemory},
-    *,
+    extension::{custom_memory::PluginMemory, WasmMemory}, sdk::Buffer, *
 };
 
 pub const EXTISM_ENV_MODULE: &str = "extism:host/env";
@@ -53,6 +52,15 @@ impl CompiledPlugin {
     /// Create a new pre-compiled plugin
     pub fn new(builder: PluginBuilder) -> Result<CompiledPlugin, Error> {
         let mut config = builder.config.unwrap_or_default();
+
+        // let mut pool = wasmtime::PoolingAllocationConfig::default();
+        // pool.total_memories(100);
+        // pool.max_memory_size(1 << 31); // 2 GiB
+        // pool.total_tables(100);
+        // pool.max_tables_per_module(20);
+        // pool.table_elements(5000);
+        // pool.total_core_instances(100);
+
         config
             .async_support(false)
             .epoch_interruption(true)
@@ -62,6 +70,8 @@ impl CompiledPlugin {
             .wasm_tail_call(true)
             .wasm_function_references(true)
             .wasm_gc(true);
+            // .memory_init_cow(true)
+            // .allocation_strategy(InstanceAllocationStrategy::Pooling(pool));
 
         if builder.options.fuel.is_some() {
             config.consume_fuel(true);
@@ -563,6 +573,12 @@ impl Plugin {
 
         if let Some(memory) = instance.get_memory(&mut self.store, "memory") {
             let store = &mut self.store as *mut _;
+            
+            let snapshot = memory.data(&mut self.store).to_vec().clone();
+
+            let len = snapshot.len();
+            let ptr = snapshot.as_ptr() as *mut u8;
+            self.current_plugin_mut().memory_snapshot = Box::into_raw(Box::new(Buffer { ptr, len }));
             self.current_plugin_mut().memory_export =
                 Box::into_raw(Box::new(PluginMemory::new(store, memory)));
         }

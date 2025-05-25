@@ -17,6 +17,10 @@ public enum TestWasmSources {
             return Paths.get(WASM_LOCATION, "code.wasm");
         }
 
+        public Path getTransformerGetToPostPath() {
+            return Paths.get(WASM_LOCATION, "transformer-1.0.0-dev.wasm");
+        }
+
         public Path getWasmFunctionsFilePath() {
             return Paths.get(WASM_LOCATION, "code-functions.wasm");
         }
@@ -50,6 +54,8 @@ public enum TestWasmSources {
 
     public abstract Path getWasmFilePath();
 
+    public abstract Path getTransformerGetToPostPath();
+
     public abstract Path getWasmFunctionsFilePath();
 
     public abstract Path getRawAdditionFilePath();
@@ -66,6 +72,10 @@ public enum TestWasmSources {
 
     public PathWasmSource pathWasmSource() {
         return resolvePathWasmSource(getWasmFilePath());
+    }
+
+    public PathWasmSource pathTransformerGetToPost() {
+        return resolvePathWasmSource(getTransformerGetToPostPath());
     }
 
     public PathWasmSource pathWasmFunctionsSource() {

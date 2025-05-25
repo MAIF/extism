@@ -1,6 +1,6 @@
 use anyhow::Context;
 
-use crate::*;
+use crate::{sdk::Buffer, *};
 
 use self::extension::custom_memory::PluginMemory;
 
@@ -21,6 +21,7 @@ pub struct CurrentPlugin {
     pub(crate) memory_limiter: Option<MemoryLimiter>,
     pub(crate) id: uuid::Uuid,
     pub(crate) memory_export: *mut PluginMemory,
+    pub(crate) memory_snapshot: *mut Buffer,
     pub(crate) extension_error: Option<Error>,
     pub(crate) start_time: std::time::Instant,
 }
@@ -402,6 +403,7 @@ impl CurrentPlugin {
             linker: std::ptr::null_mut(),
             store: std::ptr::null_mut(),
             memory_export: std::ptr::null_mut(),
+            memory_snapshot: std::ptr::null_mut(),
             available_pages,
             memory_limiter,
             id,
