@@ -1,6 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{ffi::CString, io::Write, os::raw::c_char};
+use std::{ffi::CString, os::raw::c_char};
 
 use crate::{
     extension::*,
@@ -165,7 +165,7 @@ unsafe fn get_coraza_buffer(
             let c_string = CString::new(v).expect("failed to convert result");
             c_string.into_raw() as *mut u8
         }
-        Err(err) => {
+        Err(_err) => {
             let c_string = CString::new("failed to convert result").unwrap();
             c_string.into_raw() as *mut u8
         }
@@ -206,7 +206,7 @@ unsafe fn read_coraza_stdout_buffer(plugin: &mut Plugin) -> *mut u8 {
             let c_string = CString::new(v).expect("{ \"result\": false }");
             c_string.into_raw() as *mut u8
         }
-        Err(err) => {
+        Err(_err) => {
             let c_string = CString::new("{ \"result\": false }").unwrap();
             c_string.into_raw() as *mut u8
         }

@@ -1,8 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{mem, os::raw::c_char, ptr::null_mut};
-
-use wasi_common::snapshots;
+use std::{os::raw::c_char, ptr::null_mut};
 
 use crate::*;
 
@@ -701,7 +699,14 @@ pub unsafe extern "C" fn extism_plugin_call(
     data: *const u8,
     data_len: Size,
 ) -> i32 {
-    extism_plugin_call_with_host_context(plugin, func_name, data, data_len, std::ptr::null_mut())
+    extism_plugin_call_with_host_context(
+        plugin,
+        func_name,
+        data,
+        data_len,
+        std::ptr::null_mut(),
+        false,
+    )
 }
 
 #[derive(Clone)]
@@ -711,54 +716,6 @@ struct CVoidContainer(*mut std::ffi::c_void);
 // "You break it, you buy it."
 unsafe impl Send for CVoidContainer {}
 unsafe impl Sync for CVoidContainer {}
-
-#[repr(C)]
-pub struct Buffer {
-    pub(crate) ptr: *mut u8,
-    pub(crate) len: usize,
-}
-
-// #[no_mangle]
-// pub unsafe extern "C" fn extism_get_memory_snapshot(plugin: *mut Plugin) -> *mut Buffer {
-//     let plugin = &mut *plugin;
-
-//     let plugin_memory = &mut *plugin.current_plugin().memory_export;
-
-//     let store = plugin_memory.store;
-//     let memory = plugin_memory.memory.data(&mut *store).to_vec().clone();
-
-//     let len = memory.len();
-//     let ptr = memory.as_ptr() as *mut u8;
-
-//     println!("vec of length {:?}", len);
-
-//     Box::into_raw(Box::new(Buffer { ptr, len }))
-// }
-
-// #[no_mangle]
-// pub unsafe extern "C" fn extism_restore_memory_snapshot(plugin: *mut Plugin) {
-//     let plugin = &mut *plugin;
-
-//     let plugin_memory = &mut *plugin.linker_and_store().1.data().memory_export;
-//     let data: &mut [u8] = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
-
-//     let snapshot = &mut *plugin.linker_and_store().1.data().memory_snapshot;
-//     println!("reset extism_restore_memory_snapshot {:?} {:?}", snapshot.ptr, snapshot.len);
-
-//     let snap = std::slice::from_raw_parts(snapshot.ptr, snapshot.len);
-//     data[..snap.len()].copy_from_slice(snap);
-
-//     plugin.restore_table();
-
-// FEAT: reset instance slow ~100ms
-// let lock = plugin.instance.clone();
-// let mut lock = lock.lock().unwrap();
-// let snap = &mut *plugin.linker_and_store().1.data().instance_snapshot;
-// *lock = Some(*snap);
-
-// let snapshot = Box::from_raw(snapshot);
-// drop(snapshot)
-// }
 
 /// Call a function with host context.
 ///
@@ -773,27 +730,31 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
     data: *const u8,
     data_len: Size,
     host_context: *mut std::ffi::c_void,
+    retry: bool,
 ) -> i32 {
     if plugin.is_null() {
         return -1;
     }
 
-    let mutable_plugin = &mut *plugin;
-    let lock = mutable_plugin.instance.clone();
-    let mut lock = lock.lock().unwrap();
+    let raw_plugin = plugin;
+
+    let plugin = &mut *plugin;
+
+    let binding = plugin.instance.clone();
+    let mut lock = binding.lock().unwrap();
 
     // Get function name
     let name = std::ffi::CStr::from_ptr(func_name);
     let name = match name.to_str() {
         Ok(name) => name,
         Err(e) => {
-            mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
+            plugin.error_msg = Some(make_error_msg(e.to_string()));
             return -1;
         }
     };
 
     trace!(
-        plugin = mutable_plugin.id.to_string(),
+        plugin = plugin.id.to_string(),
         "calling function {} using extism_plugin_call",
         name
     );
@@ -805,49 +766,53 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
         Some(CVoidContainer(host_context))
     };
 
-    let res = mutable_plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None);
+    // if let Some(binding) = *lock {
+    //     let exports = binding.exports(&mut *mutable_plugin.current_plugin_mut().store);
+
+    //     for export in exports {
+    //         if let Extern::Memory(mem) = export.into_extern() {
+    //             get_memory_page(&mem, plugin)
+    //         }
+    //     }
+    // }
+
+    let res = plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None);
 
     match res {
-        Err((e, rc)) => {
-            // mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
-
-            // if e.to_string().contains("resource limit exceeded") {
-                println!("Obligé de régler ca soi meme à cause de ces iench");
-                mutable_plugin.reset_store(&mut lock);
-
-                extism_plugin_call_with_host_context(
-                    plugin,
-                    func_name,
-                    data,
-                    data_len,
-                    host_context,
-                )
-            // } else {
-            //     println!("something failed again and not fix it {:?}", e.to_string());
-            //     -1
-            // }
-            // mutable_plugin.store_needs_reset = true;
-            // let _ = mutable_plugin.reset_store(&mut lock);
-            // println!("call again after reset store");
-
-            // let res = mutable_plugin.raw_call(&mut lock, name, input, r, true, None, None);
-            // match res {
-            //     Err((e, rc)) => {
-            //         println!("{:?}", e);
-            //         -1
-            //     },
-            //     Ok(x) => x,
-            // }
-
-            // -1
-            // if e.to_string() == "oom" {
-            //     -1
-            // } else {
-            //     rc
-            // }
+        Err((e, _rc)) => {
+            if !retry {
+                match Plugin::new_from_compiled(&plugin.compiled) {
+                    Ok(res) => {
+                        *raw_plugin = res;
+                        extism_plugin_call_with_host_context(
+                            raw_plugin,
+                            func_name,
+                            data,
+                            data_len,
+                            host_context,
+                            true,
+                        )
+                    }
+                    Err(_) => {
+                        plugin.error_msg = Some(make_error_msg(e.to_string()));
+                        -1
+                    }
+                }
+            } else {
+                plugin.error_msg = Some(make_error_msg(e.to_string()));
+                -1
+            }
         }
         Ok(x) => x,
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_reset_store(plugin: *mut Plugin) {
+    let plugin = &mut *plugin;
+    let lock = plugin.instance.clone();
+    let mut lock = lock.lock().unwrap();
+    let _ = plugin.reset_store(&mut lock);
 }
 
 /// Get the error associated with a `Plugin`
@@ -1095,45 +1060,27 @@ pub unsafe extern "C" fn extism_plugin_reset(raw_plugin: *mut Plugin) -> bool {
         return false;
     }
 
-    // extism_restore_memory_snapshot(plugin);
+    // let instance = plugin.instance.lock().unwrap().unwrap();
+    // let exports = instance.exports(&mut *plugin.current_plugin_mut().store);
 
-    // if let Some(limiter) = &mut plugin.current_plugin_mut().memory_limiter {
-    //     limiter.reset();
+    // for export in exports {
+    //     if let Extern::Memory(mem) = export.into_extern() {
+    //         get_memory_page(&mem, raw_plugin)
+    //     }
     // }
-
-    let instance = plugin.instance.lock().unwrap().unwrap();
-    let exports = instance.exports(&mut *plugin.current_plugin_mut().store);
-
-    for export in exports {
-        if let Extern::Memory(mem) = export.into_extern() {
-            get_memory_page(&mem, raw_plugin)
-        }
-    }
-
-    // let memory = &mut *plugin.current_plugin_mut().memory_export;
-    // let current_pages = memory.size();
-
-    // println!("current pages {:?}", current_pages);
-    // plugin_memory.reset();
-    // let data = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
-    // data.
-    // for byte in data.iter_mut() {
-    //     *byte = 0;
-    // }
-
     true
 }
 
-unsafe fn get_memory_page(mem: &Memory, plugin: *mut Plugin) {
-    let plugin = &mut *plugin;
-    let page_size =
-        wasmtime::Memory::page_size(&mem, &mut *plugin.current_plugin_mut().store) as usize;
+// unsafe fn get_memory_page(mem: &Memory, plugin: *mut Plugin) {
+//     let plugin = &mut *plugin;
+//     let page_size =
+//         wasmtime::Memory::page_size(&mem, &mut *plugin.current_plugin_mut().store) as usize;
 
-    let pages = mem.size(&mut *plugin.current_plugin_mut().store);
-    let total_bytes = pages as usize * page_size;
+//     let pages = mem.size(&mut *plugin.current_plugin_mut().store);
+//     let total_bytes = pages as usize * page_size;
 
-    println!("Memory usage: {} pages ({} bytes)", pages, total_bytes);
-}
+//     println!("Memory usage: {} pages ({} bytes)", pages, total_bytes);
+// }
 
 /// Get the Extism version string
 #[no_mangle]

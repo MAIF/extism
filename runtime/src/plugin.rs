@@ -1,4 +1,3 @@
-use core::num;
 use std::{
     any::Any,
     collections::{BTreeMap, BTreeSet},
@@ -9,7 +8,6 @@ use plugin_builder::PluginBuilderOptions;
 
 use crate::{
     extension::{custom_memory::PluginMemory, WasmMemory},
-    sdk::Buffer,
     *,
 };
 
@@ -165,30 +163,9 @@ pub struct Plugin {
     pub(crate) fuel: Option<u64>,
 
     pub(crate) host_context: Rooted<ExternRef>,
+
+    pub(crate) compiled: CompiledPlugin,
 }
-
-// #[derive(Clone)]
-// pub enum TableEntry {
-//     Func(Option<Func>),
-//     Extern(Option<Rooted<ExternRef>>),
-//     None,
-// }
-
-// #[derive(Clone)]
-// pub struct TableSnapshot {
-//     elements: Vec<TableEntry>,
-// }
-
-// #[derive()]
-// pub struct Snapshot {
-//     pub index: usize,
-//     pub elements: Vec<SnapshotElement>,
-// }
-
-// pub enum SnapshotElement {
-//     Ref(Option<Ref>), // for tables, e.g., function references or nulls
-//     Val(Val),         // for globals, scalar values
-// }
 
 unsafe impl Send for Plugin {}
 unsafe impl Sync for Plugin {}
@@ -518,6 +495,7 @@ impl Plugin {
             error_msg: None,
             fuel: compiled.options.fuel,
             host_context,
+            compiled: compiled.clone(),
         };
 
         plugin.current_plugin_mut().store = &mut plugin.store;
@@ -538,126 +516,53 @@ impl Plugin {
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
     ) -> Result<(), Error> {
         // if self.store_needs_reset {
-            let engine = self.store.engine().clone();
-            let internal = self.current_plugin_mut();
-            let with_wasi = internal.wasi.is_some();
-            self.store = Store::new(
-                &engine,
-                CurrentPlugin::new(
-                    internal.manifest.clone(),
-                    internal.wasi.is_some(),
-                    internal.available_pages,
-                    internal.http_headers.is_some(),
-                    self.id,
-                )?,
-            );
-            // self.store.set_epoch_deadline(1);
+        let engine = self.store.engine().clone();
+        let internal = self.current_plugin_mut();
+        let with_wasi = internal.wasi.is_some();
+        self.store = Store::new(
+            &engine,
+            CurrentPlugin::new(
+                internal.manifest.clone(),
+                internal.wasi.is_some(),
+                internal.available_pages,
+                internal.http_headers.is_some(),
+                self.id,
+            )?,
+        );
+        // self.store.set_epoch_deadline(1);
 
-            if let Some(fuel) = self.fuel {
-                self.store.set_fuel(fuel)?;
-            }
+        if let Some(fuel) = self.fuel {
+            self.store.set_fuel(fuel)?;
+        }
 
-            let (instance_pre, linker, host_context) = relink(
-                &engine,
-                &mut self.store,
-                &self._functions,
-                &self.modules,
-                with_wasi,
-                vec![],
-            )?;
-            self.linker = linker;
-            self.instance_pre = instance_pre;
-            self.host_context = host_context;
-            let store = &mut self.store as *mut _;
-            let linker = &mut self.linker as *mut _;
+        let (instance_pre, linker, host_context) = relink(
+            &engine,
+            &mut self.store,
+            &self._functions,
+            &self.modules,
+            with_wasi,
+            vec![],
+        )?;
+        self.linker = linker;
+        self.instance_pre = instance_pre;
+        self.host_context = host_context;
+        let store = &mut self.store as *mut _;
+        let linker = &mut self.linker as *mut _;
 
-            let current_plugin = self.current_plugin_mut();
-            current_plugin.store = store;
-            current_plugin.linker = linker;
-            if current_plugin.available_pages.is_some() {
-                self.store
-                    .limiter(|internal| internal.memory_limiter.as_mut().unwrap());
-            }
+        let current_plugin = self.current_plugin_mut();
+        current_plugin.store = store;
+        current_plugin.linker = linker;
+        if current_plugin.available_pages.is_some() {
+            self.store
+                .limiter(|internal| internal.memory_limiter.as_mut().unwrap());
+        }
 
-            self.instantiations = 0;
-            **instance_lock = None;
-            self.store_needs_reset = false;
+        // self.instantiations = 0;
+        **instance_lock = None;
+        // self.store_needs_reset = false;
         // }
         Ok(())
     }
-
-    // pub(crate) fn snapshot_table(&mut self, instance: &Instance) -> Vec<Snapshot> {
-    //     let mut snapshots = Vec::new();
-
-    //     let exports: Vec<Extern> = instance
-    //         .exports(&mut self.store)
-    //         .map(|e| e.into_extern())
-    //         .collect();
-
-    //     for (i, export) in exports.into_iter().enumerate() {
-    //         if let Extern::Table(table) = export {
-    //             snapshots.push(self.snapshot_table_elem(&table, i))
-    //         } else if let Extern::Global(global) = export {
-    //             let val = global.get(&mut self.store);
-    //             snapshots.push(Snapshot {
-    //                 index: i,
-    //                 elements: vec![SnapshotElement::Val(val)],
-    //             });
-    //         }
-    //     }
-
-    //     snapshots
-    // }
-
-    // fn snapshot_table_elem(&mut self, table: &Table, i: usize) -> Snapshot {
-    //     let size = table.size(&self.store);
-    //     let mut elements = Vec::with_capacity(size as usize);
-    //     for j in 0..size {
-    //         elements.push(SnapshotElement::Ref(table.get(&mut self.store, j)));
-    //     }
-
-    //     Snapshot {
-    //         index: i,
-    //         elements: elements,
-    //     }
-    // }
-
-    // pub(crate) unsafe fn restore_table(&mut self) {
-    //     let snapshots = &mut *self.current_plugin_mut().table_snapshot;
-
-    //     let store = &mut self.store;
-
-    //     let exports: Vec<Extern> = self
-    //         .instance
-    //         .lock()
-    //         .unwrap()
-    //         .unwrap()
-    //         .exports(&mut *store)
-    //         .map(|e| e.into_extern())
-    //         .collect();
-
-    //     for snap in snapshots {
-    //         let export = exports.get(snap.index).unwrap();
-
-    //         match export {
-    //             Extern::Table(table) => {
-    //                 for (idx, elem) in snap.elements.iter().enumerate() {
-    //                     if let SnapshotElement::Ref(ref_opt) = elem {
-    //                         if let Some(reference) = ref_opt {
-    //                             table.set(&mut *store, idx as u64, reference.clone());
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //             Extern::Global(global) => {
-    //                 if let SnapshotElement::Val(val) = &snap.elements[0] {
-    //                     global.set(&mut *store, val.clone());
-    //                 }
-    //             }
-    //             _ => (),
-    //         };
-    //     }
-    // }
 
     // Instantiate the module. This is done lazily to avoid running any code outside of the `call` function,
     // since wasmtime may execute a start function (if configured) at instantiation time,
@@ -674,19 +579,6 @@ impl Plugin {
         if let Some(memory) = instance.get_memory(&mut self.store, "memory") {
             let store = &mut self.store as *mut _;
 
-            let snapshot = memory.data(&mut self.store).to_vec().clone();
-
-            let len = snapshot.len();
-            let ptr = snapshot.as_ptr() as *mut u8;
-
-            // let table_snapshot = self.snapshot_table(&instance);
-
-            // self.current_plugin_mut().table_snapshot = Box::into_raw(Box::new(table_snapshot));
-            // // self.current_plugin_mut().table_export = Box::into_raw(Box::new(table));
-
-            // self.current_plugin_mut().instance_snapshot = Box::into_raw(Box::new(instance));
-            self.current_plugin_mut().memory_snapshot =
-                Box::into_raw(Box::new(Buffer { ptr, len }));
             self.current_plugin_mut().memory_export =
                 Box::into_raw(Box::new(PluginMemory::new(store, memory)));
         }

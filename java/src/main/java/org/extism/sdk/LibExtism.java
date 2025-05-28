@@ -277,7 +277,4 @@ public interface LibExtism extends Library {
 
     // debug purpose
     String coraza_flow(Pointer plugin);
-
-//    Pointer extism_get_memory_snapshot(Pointer plugin);
-    void extism_restore_memory_snapshot(Pointer plugin);
 }

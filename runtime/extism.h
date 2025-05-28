@@ -370,7 +370,10 @@ int32_t extism_plugin_call_with_host_context(ExtismPlugin *plugin,
                                              const char *func_name,
                                              const uint8_t *data,
                                              ExtismSize data_len,
-                                             void *host_context);
+                                             void *host_context,
+                                             bool retry);
+
+void extism_reset_store(ExtismPlugin *plugin);
 
 /**
  * Get the error associated with a `Plugin`

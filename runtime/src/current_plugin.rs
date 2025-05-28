@@ -1,6 +1,6 @@
 use anyhow::Context;
 
-use crate::{sdk::Buffer, *};
+use crate::*;
 
 use self::extension::custom_memory::PluginMemory;
 
@@ -21,11 +21,6 @@ pub struct CurrentPlugin {
     pub(crate) memory_limiter: Option<MemoryLimiter>,
     pub(crate) id: uuid::Uuid,
     pub(crate) memory_export: *mut PluginMemory,
-    pub(crate) memory_snapshot: *mut Buffer,
-    // pub(crate) instance_snapshot: *mut Instance,
-
-    // pub(crate) table_export: *mut Table,
-    // pub(crate) table_snapshot: *mut Vec<Snapshot>,
     pub(crate) extension_error: Option<Error>,
     pub(crate) start_time: std::time::Instant,
 }
@@ -34,7 +29,7 @@ unsafe impl Send for CurrentPlugin {}
 
 pub(crate) struct MemoryLimiter {
     bytes_left: usize,
-    max_bytes: usize,
+    max_bytes: usize
 }
 
 impl MemoryLimiter {
@@ -51,7 +46,8 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
         maximum: Option<usize>,
     ) -> Result<bool> {
         if let Some(max) = maximum {
-            if desired > max { // TODO - >= failed comparing 65536 and 65536 value
+            if desired > max {
+                // TODO - >= failed comparing 65536 and 65536 value
                 return Err(Error::msg("oom"));
             }
         }
@@ -71,11 +67,16 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
         desired: usize,
         maximum: Option<usize>,
     ) -> Result<bool> {
+
         if let Some(max) = maximum {
             return Ok(desired <= max);
         }
 
         Ok(true)
+    }
+
+    fn tables(&self) -> usize {
+        return 1000000
     }
 }
 
@@ -407,10 +408,6 @@ impl CurrentPlugin {
             linker: std::ptr::null_mut(),
             store: std::ptr::null_mut(),
             memory_export: std::ptr::null_mut(),
-            // table_export: std::ptr::null_mut(),
-            memory_snapshot: std::ptr::null_mut(),
-            // instance_snapshot: std::ptr::null_mut(),
-            // table_snapshot: std::ptr::null_mut(),
             available_pages,
             memory_limiter,
             id,

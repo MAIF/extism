@@ -98,7 +98,7 @@ impl Timer {
 
                 let mut timeout: Option<std::time::Duration> = None;
 
-                plugins.retain(|_k, (engine, end)| {
+                plugins.retain(|_k, (_engine, end)| {
                     if let Some(end) = end {
                         let now = std::time::Instant::now();
                         if *end <= now {

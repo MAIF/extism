@@ -458,7 +458,7 @@ public class WasmOtoroshiTests {
 
 //        final Pointer[] snapshot = {null};
         var instance = new Plugin(manifest, true, functions);
-        for (int i = 0; i < 5000; i++) {
+        for (int i = 0; i < 50000; i++) {
             long start = System.nanoTime();
             var result = instance.call(functionName, input);
             instance.reset();
@@ -467,7 +467,8 @@ public class WasmOtoroshiTests {
             long elapsedNanos = end - start;
             double elapsedMillis = elapsedNanos / 1_000_000.0;
 
-            System.out.println(i + " Elapsed time: " + elapsedMillis + " ms");
+            if(elapsedMillis > 2)
+                System.out.println(i + " Elapsed time: " + elapsedMillis + " ms");
 
             String method = JsonParser.parseString(result).getAsJsonObject().get("method").getAsString();
 

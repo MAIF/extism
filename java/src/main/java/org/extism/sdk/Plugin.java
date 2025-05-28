@@ -313,12 +313,4 @@ public class Plugin implements AutoCloseable {
         int inputDataLength = inputBytes == null ? 0 : inputBytes.length;
         return LibExtism.INSTANCE.process_response_transaction(this.pluginPointer, inputBytes, inputDataLength);
     }
-
-//    Pointer extism_get_memory_snapshot() {
-//        return LibExtism.INSTANCE.extism_get_memory_snapshot(this.pluginPointer);
-//    }
-
-    void restore_memory_snapshot() {
-        LibExtism.INSTANCE.extism_restore_memory_snapshot(this.pluginPointer);
-    }
 }
