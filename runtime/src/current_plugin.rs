@@ -22,6 +22,10 @@ pub struct CurrentPlugin {
     pub(crate) id: uuid::Uuid,
     pub(crate) memory_export: *mut PluginMemory,
     pub(crate) memory_snapshot: *mut Buffer,
+    // pub(crate) instance_snapshot: *mut Instance,
+
+    // pub(crate) table_export: *mut Table,
+    // pub(crate) table_snapshot: *mut Vec<Snapshot>,
     pub(crate) extension_error: Option<Error>,
     pub(crate) start_time: std::time::Instant,
 }
@@ -403,7 +407,10 @@ impl CurrentPlugin {
             linker: std::ptr::null_mut(),
             store: std::ptr::null_mut(),
             memory_export: std::ptr::null_mut(),
+            // table_export: std::ptr::null_mut(),
             memory_snapshot: std::ptr::null_mut(),
+            // instance_snapshot: std::ptr::null_mut(),
+            // table_snapshot: std::ptr::null_mut(),
             available_pages,
             memory_limiter,
             id,

@@ -358,8 +358,6 @@ int32_t extism_plugin_call(ExtismPlugin *plugin,
                            const uint8_t *data,
                            ExtismSize data_len);
 
-void extism_restore_memory_snapshot(ExtismPlugin *plugin);
-
 /**
  * Call a function with host context.
  *
@@ -417,7 +415,7 @@ void extism_log_drain(ExtismLogDrainFunctionType handler);
 /**
  * Reset the Extism runtime, this will invalidate all allocated memory
  */
-bool extism_plugin_reset(ExtismPlugin *plugin);
+bool extism_plugin_reset(ExtismPlugin *raw_plugin);
 
 /**
  * Get the Extism version string

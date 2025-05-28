@@ -735,24 +735,30 @@ pub struct Buffer {
 //     Box::into_raw(Box::new(Buffer { ptr, len }))
 // }
 
-#[no_mangle]
-pub unsafe extern "C" fn extism_restore_memory_snapshot(plugin: *mut Plugin) {
-    let plugin = &mut *plugin;
-    
-    println!("reset extism_restore_memory_snapshot");
+// #[no_mangle]
+// pub unsafe extern "C" fn extism_restore_memory_snapshot(plugin: *mut Plugin) {
+//     let plugin = &mut *plugin;
 
-    let plugin_memory = &mut *plugin.linker_and_store().1.data().memory_export;
-    let data: &mut [u8] = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
+//     let plugin_memory = &mut *plugin.linker_and_store().1.data().memory_export;
+//     let data: &mut [u8] = plugin_memory.memory.data_mut(&mut *plugin_memory.store);
 
-    let snapshot = &mut *plugin.linker_and_store().1.data().memory_snapshot;
-    println!("vec of length recevied {:?}", snapshot.len);
+//     let snapshot = &mut *plugin.linker_and_store().1.data().memory_snapshot;
+//     println!("reset extism_restore_memory_snapshot {:?} {:?}", snapshot.ptr, snapshot.len);
 
-    let snap = std::slice::from_raw_parts(snapshot.ptr, snapshot.len);
-    data[..snap.len()].copy_from_slice(snap);
+//     let snap = std::slice::from_raw_parts(snapshot.ptr, snapshot.len);
+//     data[..snap.len()].copy_from_slice(snap);
 
-    // let snapshot = Box::from_raw(snapshot);
-    // drop(snapshot)
-}
+//     plugin.restore_table();
+
+// FEAT: reset instance slow ~100ms
+// let lock = plugin.instance.clone();
+// let mut lock = lock.lock().unwrap();
+// let snap = &mut *plugin.linker_and_store().1.data().instance_snapshot;
+// *lock = Some(*snap);
+
+// let snapshot = Box::from_raw(snapshot);
+// drop(snapshot)
+// }
 
 /// Call a function with host context.
 ///
@@ -803,9 +809,23 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
 
     match res {
         Err((e, rc)) => {
-            println!("something failed again {:?}", e.to_string());
-            mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
-            -1
+            // mutable_plugin.error_msg = Some(make_error_msg(e.to_string()));
+
+            // if e.to_string().contains("resource limit exceeded") {
+                println!("Obligé de régler ca soi meme à cause de ces iench");
+                mutable_plugin.reset_store(&mut lock);
+
+                extism_plugin_call_with_host_context(
+                    plugin,
+                    func_name,
+                    data,
+                    data_len,
+                    host_context,
+                )
+            // } else {
+            //     println!("something failed again and not fix it {:?}", e.to_string());
+            //     -1
+            // }
             // mutable_plugin.store_needs_reset = true;
             // let _ = mutable_plugin.reset_store(&mut lock);
             // println!("call again after reset store");
@@ -1056,8 +1076,8 @@ impl std::io::Write for LogBuffer {
 
 /// Reset the Extism runtime, this will invalidate all allocated memory
 #[no_mangle]
-pub unsafe extern "C" fn extism_plugin_reset(plugin: *mut Plugin) -> bool {
-    let plugin = &mut *plugin;
+pub unsafe extern "C" fn extism_plugin_reset(raw_plugin: *mut Plugin) -> bool {
+    let plugin = &mut *raw_plugin;
 
     if let Err(e) = plugin.reset() {
         error!(
@@ -1075,10 +1095,19 @@ pub unsafe extern "C" fn extism_plugin_reset(plugin: *mut Plugin) -> bool {
         return false;
     }
 
-    extism_restore_memory_snapshot(plugin);
+    // extism_restore_memory_snapshot(plugin);
 
-    if let Some(limiter) = &mut plugin.current_plugin_mut().memory_limiter {
-        limiter.reset();
+    // if let Some(limiter) = &mut plugin.current_plugin_mut().memory_limiter {
+    //     limiter.reset();
+    // }
+
+    let instance = plugin.instance.lock().unwrap().unwrap();
+    let exports = instance.exports(&mut *plugin.current_plugin_mut().store);
+
+    for export in exports {
+        if let Extern::Memory(mem) = export.into_extern() {
+            get_memory_page(&mem, raw_plugin)
+        }
     }
 
     // let memory = &mut *plugin.current_plugin_mut().memory_export;
@@ -1093,6 +1122,17 @@ pub unsafe extern "C" fn extism_plugin_reset(plugin: *mut Plugin) -> bool {
     // }
 
     true
+}
+
+unsafe fn get_memory_page(mem: &Memory, plugin: *mut Plugin) {
+    let plugin = &mut *plugin;
+    let page_size =
+        wasmtime::Memory::page_size(&mem, &mut *plugin.current_plugin_mut().store) as usize;
+
+    let pages = mem.size(&mut *plugin.current_plugin_mut().store);
+    let total_bytes = pages as usize * page_size;
+
+    println!("Memory usage: {} pages ({} bytes)", pages, total_bytes);
 }
 
 /// Get the Extism version string

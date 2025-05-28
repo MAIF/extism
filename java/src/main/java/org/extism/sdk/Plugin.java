@@ -126,6 +126,7 @@ public class Plugin implements AutoCloseable {
 
         int length = LibExtism.INSTANCE.extism_plugin_output_length(this.pluginPointer);
         Pointer output = LibExtism.INSTANCE.extism_plugin_output_data(this.pluginPointer);
+
         return output.getByteArray(0, length);
     }
 

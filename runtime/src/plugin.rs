@@ -1,3 +1,4 @@
+use core::num;
 use std::{
     any::Any,
     collections::{BTreeMap, BTreeSet},
@@ -7,7 +8,9 @@ use anyhow::Context;
 use plugin_builder::PluginBuilderOptions;
 
 use crate::{
-    extension::{custom_memory::PluginMemory, WasmMemory}, sdk::Buffer, *
+    extension::{custom_memory::PluginMemory, WasmMemory},
+    sdk::Buffer,
+    *,
 };
 
 pub const EXTISM_ENV_MODULE: &str = "extism:host/env";
@@ -56,7 +59,7 @@ impl CompiledPlugin {
         // let mut pool = wasmtime::PoolingAllocationConfig::default();
         // pool.total_memories(100);
         // pool.max_memory_size(1 << 31); // 2 GiB
-        // pool.total_tables(100);
+        // pool.total_tables(1000);
         // pool.max_tables_per_module(20);
         // pool.table_elements(5000);
         // pool.total_core_instances(100);
@@ -70,8 +73,8 @@ impl CompiledPlugin {
             .wasm_tail_call(true)
             .wasm_function_references(true)
             .wasm_gc(true);
-            // .memory_init_cow(true)
-            // .allocation_strategy(InstanceAllocationStrategy::Pooling(pool));
+        // .memory_init_cow(true)
+        // .allocation_strategy(InstanceAllocationStrategy::Pooling(pool));
 
         if builder.options.fuel.is_some() {
             config.consume_fuel(true);
@@ -163,6 +166,29 @@ pub struct Plugin {
 
     pub(crate) host_context: Rooted<ExternRef>,
 }
+
+// #[derive(Clone)]
+// pub enum TableEntry {
+//     Func(Option<Func>),
+//     Extern(Option<Rooted<ExternRef>>),
+//     None,
+// }
+
+// #[derive(Clone)]
+// pub struct TableSnapshot {
+//     elements: Vec<TableEntry>,
+// }
+
+// #[derive()]
+// pub struct Snapshot {
+//     pub index: usize,
+//     pub elements: Vec<SnapshotElement>,
+// }
+
+// pub enum SnapshotElement {
+//     Ref(Option<Ref>), // for tables, e.g., function references or nulls
+//     Val(Val),         // for globals, scalar values
+// }
 
 unsafe impl Send for Plugin {}
 unsafe impl Sync for Plugin {}
@@ -458,6 +484,7 @@ impl Plugin {
                 id,
             )?,
         );
+
         store.set_epoch_deadline(1);
         if let Some(fuel) = compiled.options.fuel {
             store.set_fuel(fuel)?;
@@ -510,7 +537,7 @@ impl Plugin {
         &mut self,
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
     ) -> Result<(), Error> {
-        if self.store_needs_reset {
+        // if self.store_needs_reset {
             let engine = self.store.engine().clone();
             let internal = self.current_plugin_mut();
             let with_wasi = internal.wasi.is_some();
@@ -555,9 +582,82 @@ impl Plugin {
             self.instantiations = 0;
             **instance_lock = None;
             self.store_needs_reset = false;
-        }
+        // }
         Ok(())
     }
+
+    // pub(crate) fn snapshot_table(&mut self, instance: &Instance) -> Vec<Snapshot> {
+    //     let mut snapshots = Vec::new();
+
+    //     let exports: Vec<Extern> = instance
+    //         .exports(&mut self.store)
+    //         .map(|e| e.into_extern())
+    //         .collect();
+
+    //     for (i, export) in exports.into_iter().enumerate() {
+    //         if let Extern::Table(table) = export {
+    //             snapshots.push(self.snapshot_table_elem(&table, i))
+    //         } else if let Extern::Global(global) = export {
+    //             let val = global.get(&mut self.store);
+    //             snapshots.push(Snapshot {
+    //                 index: i,
+    //                 elements: vec![SnapshotElement::Val(val)],
+    //             });
+    //         }
+    //     }
+
+    //     snapshots
+    // }
+
+    // fn snapshot_table_elem(&mut self, table: &Table, i: usize) -> Snapshot {
+    //     let size = table.size(&self.store);
+    //     let mut elements = Vec::with_capacity(size as usize);
+    //     for j in 0..size {
+    //         elements.push(SnapshotElement::Ref(table.get(&mut self.store, j)));
+    //     }
+
+    //     Snapshot {
+    //         index: i,
+    //         elements: elements,
+    //     }
+    // }
+
+    // pub(crate) unsafe fn restore_table(&mut self) {
+    //     let snapshots = &mut *self.current_plugin_mut().table_snapshot;
+
+    //     let store = &mut self.store;
+
+    //     let exports: Vec<Extern> = self
+    //         .instance
+    //         .lock()
+    //         .unwrap()
+    //         .unwrap()
+    //         .exports(&mut *store)
+    //         .map(|e| e.into_extern())
+    //         .collect();
+
+    //     for snap in snapshots {
+    //         let export = exports.get(snap.index).unwrap();
+
+    //         match export {
+    //             Extern::Table(table) => {
+    //                 for (idx, elem) in snap.elements.iter().enumerate() {
+    //                     if let SnapshotElement::Ref(ref_opt) = elem {
+    //                         if let Some(reference) = ref_opt {
+    //                             table.set(&mut *store, idx as u64, reference.clone());
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //             Extern::Global(global) => {
+    //                 if let SnapshotElement::Val(val) = &snap.elements[0] {
+    //                     global.set(&mut *store, val.clone());
+    //                 }
+    //             }
+    //             _ => (),
+    //         };
+    //     }
+    // }
 
     // Instantiate the module. This is done lazily to avoid running any code outside of the `call` function,
     // since wasmtime may execute a start function (if configured) at instantiation time,
@@ -565,20 +665,28 @@ impl Plugin {
         &mut self,
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
     ) -> Result<(), Error> {
-        if instance_lock.is_some() {
-            return Ok(());
-        }
+        // if instance_lock.is_some() {
+        //     return Ok(());
+        // }
 
         let instance = self.instance_pre.instantiate(&mut self.store)?;
 
         if let Some(memory) = instance.get_memory(&mut self.store, "memory") {
             let store = &mut self.store as *mut _;
-            
+
             let snapshot = memory.data(&mut self.store).to_vec().clone();
 
             let len = snapshot.len();
             let ptr = snapshot.as_ptr() as *mut u8;
-            self.current_plugin_mut().memory_snapshot = Box::into_raw(Box::new(Buffer { ptr, len }));
+
+            // let table_snapshot = self.snapshot_table(&instance);
+
+            // self.current_plugin_mut().table_snapshot = Box::into_raw(Box::new(table_snapshot));
+            // // self.current_plugin_mut().table_export = Box::into_raw(Box::new(table));
+
+            // self.current_plugin_mut().instance_snapshot = Box::into_raw(Box::new(instance));
+            self.current_plugin_mut().memory_snapshot =
+                Box::into_raw(Box::new(Buffer { ptr, len }));
             self.current_plugin_mut().memory_export =
                 Box::into_raw(Box::new(PluginMemory::new(store, memory)));
         }
@@ -906,7 +1014,7 @@ impl Plugin {
                 self.store.set_fuel(fuel).map_err(|x| (x, -1))?;
             }
 
-            catch_out_of_fuel!(&self.store, self.reset_store(lock)).map_err(|x| (x, -1))?;
+            // catch_out_of_fuel!(&self.store, self.reset_store(lock)).map_err(|x| (x, -1))?;
         }
 
         self.instantiate(lock).map_err(|e| (e, -1))?;
@@ -1021,6 +1129,7 @@ impl Plugin {
                     offset: self.output.error_offset,
                     length: self.output.error_length,
                 };
+
                 match self.current_plugin_mut().memory_str(handle) {
                     Ok(e) => {
                         let x = e.to_string();
@@ -1041,7 +1150,7 @@ impl Plugin {
                         )));
                     }
                 }
-            // on wasmtime error
+                // on wasmtime error
             }
             //  else if let Err(e) = &res {
             //     if e.is::<wasmtime::Trap>() {
@@ -1052,7 +1161,6 @@ impl Plugin {
             //     output_res?;
             // }
         }
-
         match res {
             Ok(()) => Ok(rc),
             Err(e) => {
