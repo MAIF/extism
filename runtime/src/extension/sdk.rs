@@ -44,7 +44,7 @@ unsafe fn extension_plugin_call_native(
             false,
             params,
             Some(&mut results),
-            false
+            false,
         );
 
         return match res {
@@ -108,6 +108,8 @@ pub(crate) unsafe extern "C" fn coraza_new_transaction(
     data_size: Size,
 ) -> *mut u8 {
     let plugin = &mut *plugin;
+
+    plugin.current_plugin_mut().extension_error = None;
 
     sub_call_coraza(plugin, "reset", None);
 
@@ -233,12 +235,12 @@ pub(crate) unsafe fn sub_call_coraza(
             false,
             params,
             Some(&mut results),
-            true
+            true,
         );
 
         return match res {
             Err((e, _rc)) => {
-                panic!("{}", e);
+                println!("{}", e);
                 plugin.current_plugin_mut().extension_error = Some(e);
                 None
             }
@@ -417,14 +419,16 @@ pub unsafe extern "C" fn extension_plugin_error(plugin: *mut Plugin) -> *const c
     let _lock = _lock.lock().unwrap();
 
     // panic!("{:?}", plugin.current_plugin_mut().extension_error);
-    let err = plugin
-        .current_plugin_mut()
-        .extension_error
-        .as_mut()
-        .unwrap();
-    let backtrace_string = format!("{:?}", err);
-    let c_string = std::ffi::CString::new(backtrace_string).unwrap();
-    c_string.into_raw()
+
+    match plugin.current_plugin_mut().extension_error.as_mut() {
+        Some(err) => {
+            let backtrace_string = format!("{:?}", err);
+            let c_string = std::ffi::CString::new(backtrace_string).unwrap();
+            c_string.into_raw()
+        }
+        None => std::ptr::null(),
+    }
+
     // .backtrace()
     // .as_ptr() as *const _
 }

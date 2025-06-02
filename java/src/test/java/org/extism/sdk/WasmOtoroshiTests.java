@@ -313,7 +313,7 @@ public class WasmOtoroshiTests {
 
         // Add the directives as a property
         configuration.addProperty("directives", directives);
-        configuration.addProperty("inspect_bodies", true);
+        configuration.addProperty("inspect_input_bodies", true);
 
         Gson gson = new Gson();
         instance.initializeCoraza(gson.toJson(configuration));
@@ -342,8 +342,8 @@ public class WasmOtoroshiTests {
 
         JsonObject headers = new JsonObject();
 //        headers.addProperty("Content-Length", ""+bytes.length);
-//        headers.addProperty("Content-Type", "application/x-www-form-urlencoded");
-        headers.addProperty("Host", "coucou.oto.tools");
+        headers.addProperty("Content-Type", "application/x-www-form-urlencoded");
+//        headers.addProperty("Host", "coucou.oto.tools");
 
         JsonObject request = new JsonObject();
         request.addProperty("url", "/coucou");

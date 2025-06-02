@@ -167,7 +167,7 @@ public class Plugin implements AutoCloseable {
         );
 
         if (results == null && resultsLength > 0) {
-             String error = LibExtism.INSTANCE.extension_plugin_error(this.pluginPointer);
+             String error = getExtensionPluginError();
              throw new ExtismException(error);
              //return new Results(0);
         }
@@ -178,6 +178,11 @@ public class Plugin implements AutoCloseable {
             return new Results(results, resultsLength);
         }
     }
+
+    public String getExtensionPluginError() {
+        return LibExtism.INSTANCE.extension_plugin_error(this.pluginPointer);
+    }
+
     /**
      * Frees a plugin from memory
      */
