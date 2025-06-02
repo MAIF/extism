@@ -41,7 +41,7 @@ fn test_issue_775() {
     // Call test method
     let lock = plugin.instance.clone();
     let mut lock = lock.lock().unwrap();
-    let res = plugin.raw_call(&mut lock, "do_unreachable", b"", None::<()>);
+    let res = plugin.raw_call(&mut lock, "do_unreachable", b"", None::<()>, false);
     let p = match res {
         Err(e) => {
             if e.1 == 0 {

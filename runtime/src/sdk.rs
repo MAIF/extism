@@ -776,7 +776,7 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
     //     }
     // }
 
-    let res = plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None);
+    let res = plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None, false);
 
     match res {
         Err((e, _rc)) => {

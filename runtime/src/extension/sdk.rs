@@ -44,6 +44,7 @@ unsafe fn extension_plugin_call_native(
             false,
             params,
             Some(&mut results),
+            false
         );
 
         return match res {
@@ -232,10 +233,12 @@ pub(crate) unsafe fn sub_call_coraza(
             false,
             params,
             Some(&mut results),
+            true
         );
 
         return match res {
             Err((e, _rc)) => {
+                panic!("{}", e);
                 plugin.current_plugin_mut().extension_error = Some(e);
                 None
             }

@@ -569,10 +569,15 @@ impl Plugin {
     pub(crate) fn instantiate(
         &mut self,
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
+        is_coraza_call: bool
     ) -> Result<(), Error> {
         // if instance_lock.is_some() {
         //     return Ok(());
         // }
+
+        if is_coraza_call && instance_lock.is_some() {
+            return Ok(())
+        }
 
         let instance = self.instance_pre.instantiate(&mut self.store)?;
 
@@ -897,6 +902,7 @@ impl Plugin {
         use_extism: bool,
         params: Option<Vec<Val>>,
         raw_results: Option<&mut Vec<Val>>,
+        is_coraza_call: bool
     ) -> Result<i32, (Error, i32)> {
         let name = name.as_ref();
         let input = input.as_ref();
@@ -909,7 +915,7 @@ impl Plugin {
             // catch_out_of_fuel!(&self.store, self.reset_store(lock)).map_err(|x| (x, -1))?;
         }
 
-        self.instantiate(lock).map_err(|e| (e, -1))?;
+        self.instantiate(lock, is_coraza_call).map_err(|e| (e, -1))?;
 
         if use_extism {
             // Set host context
@@ -1166,7 +1172,7 @@ impl Plugin {
         let lock = self.instance.clone();
         let mut lock = lock.lock().unwrap();
         let data = input.to_bytes()?;
-        self.raw_call(&mut lock, name, data, None::<()>, true, None, None)
+        self.raw_call(&mut lock, name, data, None::<()>, true, None, None, false)
             .map_err(|e| e.0)
             .and_then(move |rc| {
                 if rc != 0 {
@@ -1192,7 +1198,7 @@ impl Plugin {
         let mut lock = lock.lock().unwrap();
         let data = input.to_bytes()?;
         let ctx = ExternRef::new(&mut self.store, host_context)?;
-        self.raw_call(&mut lock, name, data, Some(ctx), true, None, None)
+        self.raw_call(&mut lock, name, data, Some(ctx), true, None, None, false)
             .map_err(|e| e.0)
             .and_then(move |_| self.output())
     }
@@ -1211,7 +1217,7 @@ impl Plugin {
         let lock = self.instance.clone();
         let mut lock = lock.lock().unwrap();
         let data = input.to_bytes().map_err(|e| (e, -1))?;
-        self.raw_call(&mut lock, name, data, None::<()>, true, None, None)
+        self.raw_call(&mut lock, name, data, None::<()>, true, None, None, false)
             .and_then(move |_| self.output().map_err(|e| (e, -1)))
     }
 
