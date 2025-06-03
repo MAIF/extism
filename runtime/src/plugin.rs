@@ -569,14 +569,14 @@ impl Plugin {
     pub(crate) fn instantiate(
         &mut self,
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
-        is_coraza_call: bool
+        is_immortal: bool,
     ) -> Result<(), Error> {
         // if instance_lock.is_some() {
         //     return Ok(());
         // }
 
-        if is_coraza_call && instance_lock.is_some() {
-            return Ok(())
+        if is_immortal && instance_lock.is_some() {
+            return Ok(());
         }
 
         let instance = self.instance_pre.instantiate(&mut self.store)?;
@@ -902,7 +902,7 @@ impl Plugin {
         use_extism: bool,
         params: Option<Vec<Val>>,
         raw_results: Option<&mut Vec<Val>>,
-        is_coraza_call: bool
+        is_immortal: bool,
     ) -> Result<i32, (Error, i32)> {
         let name = name.as_ref();
         let input = input.as_ref();
@@ -915,7 +915,7 @@ impl Plugin {
             // catch_out_of_fuel!(&self.store, self.reset_store(lock)).map_err(|x| (x, -1))?;
         }
 
-        self.instantiate(lock, is_coraza_call).map_err(|e| (e, -1))?;
+        self.instantiate(lock, is_immortal).map_err(|e| (e, -1))?;
 
         if use_extism {
             // Set host context

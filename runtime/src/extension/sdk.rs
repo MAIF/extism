@@ -44,7 +44,7 @@ unsafe fn extension_plugin_call_native(
             false,
             params,
             Some(&mut results),
-            false,
+            true,
         );
 
         return match res {
