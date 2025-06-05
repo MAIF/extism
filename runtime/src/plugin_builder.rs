@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use wasmtime_wasi::p2::pipe::{MemoryInputPipe, MemoryOutputPipe};
+
 use crate::{extension::WasmMemory, plugin::WasmInput, *};
 
 #[derive(Clone)]
@@ -202,8 +204,12 @@ impl<'a> PluginBuilder<'a> {
     }
 
     /// Generate a new plugin with the configured settings
-    pub fn build(self) -> Result<Plugin, Error> {
-        Plugin::new_from_compiled(&CompiledPlugin::new(self)?)
+    pub fn build(
+        self,
+        stdin_pipe: MemoryInputPipe,
+        stdout_pipe: MemoryOutputPipe,
+    ) -> Result<Plugin, Error> {
+        Plugin::new_from_compiled(&CompiledPlugin::new(self)?, stdin_pipe, stdout_pipe)
     }
 
     /// Build new `CompiledPlugin`

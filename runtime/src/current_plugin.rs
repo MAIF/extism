@@ -1,4 +1,9 @@
 use anyhow::Context;
+use wasmtime::component::ResourceTable;
+use wasmtime_wasi::p2::{
+    pipe::{MemoryInputPipe, MemoryOutputPipe},
+    WasiCtx, WasiCtxBuilder,
+};
 
 use crate::*;
 
@@ -14,7 +19,7 @@ pub struct CurrentPlugin {
     pub(crate) manifest: extism_manifest::Manifest,
     pub(crate) store: *mut Store<CurrentPlugin>,
     pub(crate) linker: *mut wasmtime::Linker<CurrentPlugin>,
-    pub(crate) wasi: Option<Wasi>,
+    // pub(crate) wasi: Option<Wasi>,
     pub(crate) http_status: u16,
     pub(crate) http_headers: Option<std::collections::BTreeMap<String, String>>,
     pub(crate) available_pages: Option<u32>,
@@ -23,13 +28,16 @@ pub struct CurrentPlugin {
     pub(crate) memory_export: *mut PluginMemory,
     pub(crate) extension_error: Option<Error>,
     pub(crate) start_time: std::time::Instant,
+
+    pub wasi_ctx: WasiCtx,
+    pub resource_table: ResourceTable,
 }
 
 unsafe impl Send for CurrentPlugin {}
 
 pub(crate) struct MemoryLimiter {
     bytes_left: usize,
-    max_bytes: usize
+    max_bytes: usize,
 }
 
 impl MemoryLimiter {
@@ -67,7 +75,6 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
         desired: usize,
         maximum: Option<usize>,
     ) -> Result<bool> {
-
         if let Some(max) = maximum {
             return Ok(desired <= max);
         }
@@ -76,7 +83,7 @@ impl wasmtime::ResourceLimiter for MemoryLimiter {
     }
 
     fn tables(&self) -> usize {
-        return 1000000
+        return 1000000;
     }
 }
 
@@ -350,45 +357,64 @@ impl CurrentPlugin {
         available_pages: Option<u32>,
         allow_http_response_headers: bool,
         id: uuid::Uuid,
+        stdin_pipe: MemoryInputPipe,
+        stdout_pipe: MemoryOutputPipe,
     ) -> Result<Self, Error> {
-        let wasi = if wasi {
-            let auth = wasi_common::sync::ambient_authority();
-            let random = wasi_common::sync::random_ctx();
-            let clocks = wasi_common::sync::clocks_ctx();
-            let sched = wasi_common::sync::sched_ctx();
-            let table = wasi_common::Table::new();
-            let ctx = wasi_common::WasiCtx::new(random, clocks, sched, table);
+        // let wasi = if wasi {
+        // let auth = wasi_common::sync::ambient_authority();
+        // let random = wasi_common::sync::random_ctx();
+        // let clocks = wasi_common::sync::clocks_ctx();
+        // let sched = wasi_common::sync::sched_ctx();
+        // let table = wasi_common::Table::new();
+        // let ctx = wasi_common::WasiCtx::new(random, clocks, sched, table);
 
-            if let Some(a) = &manifest.allowed_paths {
-                for (k, v) in a.iter() {
-                    let readonly = k.starts_with("ro:");
+        // let t = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
 
-                    let dir_path = if readonly { &k[3..] } else { k };
+        // let ctx = WasiCtxBuilder::new()
+        //     .inherit_stdio()
+        //     .stdin(stdin_pipe)
+        //     .stdout(stdout_pipe)
+        //     .build();
 
-                    let dir = wasi_common::sync::dir::Dir::from_cap_std(
-                        wasi_common::sync::Dir::open_ambient_dir(dir_path, auth)?,
-                    );
+        // ctx.set_stdin(Box::new(stdin_pipe));
+        // ctx.set_stdout(Box::new(stdout_pipe));
 
-                    let file: Box<dyn wasi_common::dir::WasiDir> = if readonly {
-                        Box::new(readonly_dir::ReadOnlyDir::new(dir))
-                    } else {
-                        Box::new(dir)
-                    };
+        // if let Some(a) = &manifest.allowed_paths {
+        //     for (k, v) in a.iter() {
+        //         let readonly = k.starts_with("ro:");
 
-                    ctx.push_preopened_dir(file, v)?;
-                }
-            }
+        //         let dir_path = if readonly { &k[3..] } else { k };
 
-            // Enable WASI output, typically used for debugging purposes
-            if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {
-                ctx.set_stderr(Box::new(wasi_common::sync::stdio::stderr()));
-                ctx.set_stdout(Box::new(wasi_common::sync::stdio::stdout()));
-            }
+        //         let dir = wasi_common::sync::dir::Dir::from_cap_std(
+        //             wasi_common::sync::Dir::open_ambient_dir(dir_path, auth)?,
+        //         );
 
-            Some(Wasi { ctx })
-        } else {
-            None
-        };
+        //         let file: Box<dyn wasi_common::dir::WasiDir> = if readonly {
+        //             Box::new(readonly_dir::ReadOnlyDir::new(dir))
+        //         } else {
+        //             Box::new(dir)
+        //         };
+
+        //         ctx.push_preopened_dir(file, v)?;
+        //     }
+        // }
+
+        // Enable WASI output, typically used for debugging purposes
+        // if std::env::var("EXTISM_ENABLE_WASI_OUTPUT").is_ok() {
+        //     ctx.set_stderr(Box::new(wasi_common::sync::stdio::stderr()));
+        //     ctx.set_stdout(Box::new(wasi_common::sync::stdio::stdout()));
+        // }
+
+        //     Some(Wasi { ctx })
+        // } else {
+        //     None
+        // };
+
+        let ctx = WasiCtxBuilder::new()
+            .inherit_stdio()
+            .stdin(stdin_pipe)
+            .stdout(stdout_pipe)
+            .build();
 
         let memory_limiter = if let Some(pgs) = available_pages {
             let n = pgs as usize * 65536;
@@ -401,7 +427,8 @@ impl CurrentPlugin {
         };
 
         Ok(CurrentPlugin {
-            wasi,
+            // wasi: Some(internal::Wasi { ctx: ctx.clone() }),
+            wasi_ctx: ctx,
             manifest,
             http_status: 0,
             vars: BTreeMap::new(),
@@ -418,6 +445,7 @@ impl CurrentPlugin {
             } else {
                 None
             },
+            resource_table: ResourceTable::new(),
         })
     }
 

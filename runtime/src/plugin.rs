@@ -5,6 +5,14 @@ use std::{
 
 use anyhow::Context;
 use plugin_builder::PluginBuilderOptions;
+use wasmtime_wasi::{
+    p2::{
+        add_to_linker_sync,
+        pipe::{MemoryInputPipe, MemoryOutputPipe},
+    },
+    I32Exit,
+};
+// use wasi_common::pipe::{ReadPipe, WritePipe};
 
 use crate::{
     extension::{custom_memory::PluginMemory, WasmMemory},
@@ -118,7 +126,7 @@ pub struct Plugin {
     pub id: uuid::Uuid,
 
     /// Wasmtime linker
-    pub(crate) linker: Linker<CurrentPlugin>,
+    pub(crate) linker: wasmtime::component::Linker<CurrentPlugin>,
 
     /// Wasmtime store
     pub(crate) store: Store<CurrentPlugin>,
@@ -185,7 +193,7 @@ impl Internal for Plugin {
         &mut self.store
     }
 
-    fn linker_and_store(&mut self) -> (&mut Linker<CurrentPlugin>, &mut Store<CurrentPlugin>) {
+    fn linker_and_store(&mut self) -> (&mut wasmtime::component::Linker<CurrentPlugin>, &mut Store<CurrentPlugin>) {
         (&mut self.linker, &mut self.store)
     }
 }
@@ -259,7 +267,7 @@ impl<'a> From<&'a Vec<u8>> for WasmInput<'a> {
 
 fn add_module<T: 'static>(
     store: &mut Store<T>,
-    linker: &mut Linker<T>,
+    linker: &mut wasmtime::component::Linker<T>,
     linked: &mut BTreeSet<String>,
     modules: &BTreeMap<String, Module>,
     name: String,
@@ -307,12 +315,12 @@ fn relink(
 ) -> Result<
     (
         InstancePre<CurrentPlugin>,
-        Linker<CurrentPlugin>,
+        wasmtime::component::Linker<CurrentPlugin>,
         Rooted<ExternRef>,
     ),
     Error,
 > {
-    let mut linker = Linker::new(engine);
+    let mut linker = wasmtime::component::Linker::new(engine);
     linker.allow_shadowing(true);
 
     // Define PDK functions
@@ -376,12 +384,14 @@ fn relink(
     linker.module(&mut store, EXTISM_ENV_MODULE, &modules[EXTISM_ENV_MODULE])?;
     linked.insert(EXTISM_ENV_MODULE.to_string());
 
+    wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+    // add_to_linker_sync(&mut linker)?;
     // If wasi is enabled then add it to the linker
-    if with_wasi {
-        wasi_common::sync::add_to_linker(&mut linker, |x: &mut CurrentPlugin| {
-            &mut x.wasi.as_mut().unwrap().ctx
-        })?;
-    }
+    // if with_wasi {
+    //     wasi_common::sync::add_to_linker(&mut linker, |x: &mut CurrentPlugin| {
+    //         &mut x.wasi.as_mut().unwrap().ctx
+    //     })?;
+    // }
 
     for f in imports {
         let name = f.name();
@@ -422,13 +432,19 @@ impl Plugin {
         imports: impl IntoIterator<Item = Function>,
         memories: impl IntoIterator<Item = WasmMemory>,
         with_wasi: bool,
+        stdin_pipe: MemoryInputPipe,
+        stdout_pipe: MemoryOutputPipe,
     ) -> Result<Plugin, Error> {
-        Self::new_from_compiled(&CompiledPlugin::new(
-            PluginBuilder::new(wasm)
-                .with_functions(imports)
-                .with_memories(memories)
-                .with_wasi(with_wasi),
-        )?)
+        Self::new_from_compiled(
+            &CompiledPlugin::new(
+                PluginBuilder::new(wasm)
+                    .with_functions(imports)
+                    .with_memories(memories)
+                    .with_wasi(with_wasi),
+            )?,
+            stdin_pipe,
+            stdout_pipe,
+        )
     }
 
     /// Create a new plugin from a Manifest or WebAssembly module, and host functions. The `with_wasi`
@@ -437,16 +453,26 @@ impl Plugin {
         wasm: impl Into<WasmInput<'a>>,
         imports: impl IntoIterator<Item = Function>,
         with_wasi: bool,
+        stdin_pipe: MemoryInputPipe,
+        stdout_pipe: MemoryOutputPipe,
     ) -> Result<Plugin, Error> {
-        Self::new_from_compiled(&CompiledPlugin::new(
-            PluginBuilder::new(wasm)
-                .with_functions(imports)
-                .with_wasi(with_wasi),
-        )?)
+        Self::new_from_compiled(
+            &CompiledPlugin::new(
+                PluginBuilder::new(wasm)
+                    .with_functions(imports)
+                    .with_wasi(with_wasi),
+            )?,
+            stdin_pipe,
+            stdout_pipe,
+        )
     }
 
     /// Create a new plugin from a pre-compiled plugin
-    pub fn new_from_compiled(compiled: &CompiledPlugin) -> Result<Plugin, Error> {
+    pub fn new_from_compiled(
+        compiled: &CompiledPlugin,
+        stdin_pipe: MemoryInputPipe,
+        stdout_pipe: MemoryOutputPipe,
+    ) -> Result<Plugin, Error> {
         let available_pages = compiled.manifest.memory.max_pages;
         debug!("Available pages: {available_pages:?}");
 
@@ -459,6 +485,8 @@ impl Plugin {
                 available_pages,
                 compiled.options.http_response_headers,
                 id,
+                stdin_pipe,
+                stdout_pipe,
             )?,
         );
 
@@ -511,72 +539,72 @@ impl Plugin {
     }
 
     // Resets the store and linker to avoid running into Wasmtime memory limits
-    pub(crate) fn reset_store(
-        &mut self,
-        instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
-    ) -> Result<(), Error> {
-        // if self.store_needs_reset {
-        let engine = self.store.engine().clone();
-        let internal = self.current_plugin_mut();
-        let with_wasi = internal.wasi.is_some();
-        self.store = Store::new(
-            &engine,
-            CurrentPlugin::new(
-                internal.manifest.clone(),
-                internal.wasi.is_some(),
-                internal.available_pages,
-                internal.http_headers.is_some(),
-                self.id,
-            )?,
-        );
-        // self.store.set_epoch_deadline(1);
+    // pub(crate) fn reset_store(
+    //     &mut self,
+    //     instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
+    // ) -> Result<(), Error> {
+    //     // if self.store_needs_reset {
+    //     let engine = self.store.engine().clone();
+    //     let internal = self.current_plugin_mut();
+    //     let with_wasi = internal.wasi.is_some();
+    //     self.store = Store::new(
+    //         &engine,
+    //         CurrentPlugin::new(
+    //             internal.manifest.clone(),
+    //             internal.wasi.is_some(),
+    //             internal.available_pages,
+    //             internal.http_headers.is_some(),
+    //             self.id,
+    //         )?,
+    //     );
+    //     // self.store.set_epoch_deadline(1);
 
-        if let Some(fuel) = self.fuel {
-            self.store.set_fuel(fuel)?;
-        }
+    //     if let Some(fuel) = self.fuel {
+    //         self.store.set_fuel(fuel)?;
+    //     }
 
-        let (instance_pre, linker, host_context) = relink(
-            &engine,
-            &mut self.store,
-            &self._functions,
-            &self.modules,
-            with_wasi,
-            vec![],
-        )?;
-        self.linker = linker;
-        self.instance_pre = instance_pre;
-        self.host_context = host_context;
-        let store = &mut self.store as *mut _;
-        let linker = &mut self.linker as *mut _;
+    //     let (instance_pre, linker, host_context) = relink(
+    //         &engine,
+    //         &mut self.store,
+    //         &self._functions,
+    //         &self.modules,
+    //         with_wasi,
+    //         vec![],
+    //     )?;
+    //     self.linker = linker;
+    //     self.instance_pre = instance_pre;
+    //     self.host_context = host_context;
+    //     let store = &mut self.store as *mut _;
+    //     let linker = &mut self.linker as *mut _;
 
-        let current_plugin = self.current_plugin_mut();
-        current_plugin.store = store;
-        current_plugin.linker = linker;
-        if current_plugin.available_pages.is_some() {
-            self.store
-                .limiter(|internal| internal.memory_limiter.as_mut().unwrap());
-        }
+    //     let current_plugin = self.current_plugin_mut();
+    //     current_plugin.store = store;
+    //     current_plugin.linker = linker;
+    //     if current_plugin.available_pages.is_some() {
+    //         self.store
+    //             .limiter(|internal| internal.memory_limiter.as_mut().unwrap());
+    //     }
 
-        // self.instantiations = 0;
-        **instance_lock = None;
-        // self.store_needs_reset = false;
-        // }
-        Ok(())
-    }
+    //     // self.instantiations = 0;
+    //     **instance_lock = None;
+    //     // self.store_needs_reset = false;
+    //     // }
+    //     Ok(())
+    // }
 
     // Instantiate the module. This is done lazily to avoid running any code outside of the `call` function,
     // since wasmtime may execute a start function (if configured) at instantiation time,
     pub(crate) fn instantiate(
         &mut self,
         instance_lock: &mut std::sync::MutexGuard<Option<Instance>>,
-        is_coraza_call: bool
+        is_coraza_call: bool,
     ) -> Result<(), Error> {
         // if instance_lock.is_some() {
         //     return Ok(());
         // }
 
         if is_coraza_call && instance_lock.is_some() {
-            return Ok(())
+            return Ok(());
         }
 
         let instance = self.instance_pre.instantiate(&mut self.store)?;
@@ -714,7 +742,8 @@ impl Plugin {
 
     /// Determine if wasi is enabled
     pub fn has_wasi(&self) -> bool {
-        self.current_plugin().wasi.is_some()
+        // self.current_plugin().wasi.is_some()
+        true
     }
 
     // Do a best-effort attempt to detect any guest runtime.
@@ -902,7 +931,7 @@ impl Plugin {
         use_extism: bool,
         params: Option<Vec<Val>>,
         raw_results: Option<&mut Vec<Val>>,
-        is_coraza_call: bool
+        is_coraza_call: bool,
     ) -> Result<i32, (Error, i32)> {
         let name = name.as_ref();
         let input = input.as_ref();
@@ -915,7 +944,8 @@ impl Plugin {
             // catch_out_of_fuel!(&self.store, self.reset_store(lock)).map_err(|x| (x, -1))?;
         }
 
-        self.instantiate(lock, is_coraza_call).map_err(|e| (e, -1))?;
+        self.instantiate(lock, is_coraza_call)
+            .map_err(|e| (e, -1))?;
 
         if use_extism {
             // Set host context
@@ -1104,7 +1134,7 @@ impl Plugin {
                     }
                 }
 
-                let wasi_exit_code = e.downcast_ref::<wasi_common::I32Exit>().map(|e| e.0);
+                let wasi_exit_code = e.downcast_ref::<I32Exit>().map(|e| e.0);
                 if let Some(exit_code) = wasi_exit_code {
                     debug!(
                         plugin = self.id.to_string(),

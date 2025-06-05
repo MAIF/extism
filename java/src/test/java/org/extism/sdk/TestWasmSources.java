@@ -45,7 +45,7 @@ public enum TestWasmSources {
             return Paths.get(WASM_LOCATION, "httpwasm/router.wasm");
         }
 
-        public Path getJavyFilePath() { return Paths.get(WASM_LOCATION, "javy/index.wasm"); }
+        public Path getJavyFilePath() { return Paths.get(WASM_LOCATION, "../../../../../wasm-witout-extism/fuck_extism-1.0.0-dev.wasm"); }
 
         public Path getCorazaWithoutProxyWasmFilePath() { return Paths.get(WASM_LOCATION, "../../../../../coraza/coraza.wasm"); }
     };

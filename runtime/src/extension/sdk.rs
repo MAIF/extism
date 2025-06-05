@@ -2,6 +2,8 @@
 
 use std::{ffi::CString, os::raw::c_char};
 
+use wasmtime_wasi::p2::pipe::{MemoryInputPipe, MemoryOutputPipe};
+
 use crate::{
     extension::*,
     function,
@@ -10,6 +12,11 @@ use crate::{
 };
 
 use super::wasm_memory::ExtismMemory;
+
+#[no_mangle]
+unsafe fn raw_call(plugin: *mut Plugin, func_name: *const c_char) -> Option<*mut ExtismVal> {
+    return None;
+}
 
 #[no_mangle]
 unsafe fn extension_plugin_call_native(
@@ -698,7 +705,10 @@ pub(crate) unsafe extern "C" fn extension_extism_plugin_new_with_memories(
         })
         .collect::<Vec<WasmMemory>>();
 
-    let plugin = Plugin::new_with_memories(data, funcs, memories, with_wasi);
+    let stdin = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
+    let stdout = MemoryOutputPipe::new(1024);
+
+    let plugin = Plugin::new_with_memories(data, funcs, memories, with_wasi, stdin, stdout);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {

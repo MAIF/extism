@@ -2,6 +2,8 @@
 
 use std::{os::raw::c_char, ptr::null_mut};
 
+use wasmtime_wasi::p2::pipe::{MemoryInputPipe, MemoryOutputPipe};
+
 use crate::*;
 
 pub type ExtismMemoryHandle = u64;
@@ -433,7 +435,10 @@ pub unsafe extern "C" fn extism_plugin_new(
         funcs
     };
 
-    Plugin::new(data, funcs, with_wasi)
+    let stdin = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
+    let stdout = MemoryOutputPipe::new(1024);
+
+    Plugin::new(data, funcs, with_wasi, stdin, stdout)
         .map(|v| Box::into_raw(Box::new(v)))
         .unwrap_or_else(|e| {
             if !errmsg.is_null() {
@@ -454,7 +459,10 @@ pub unsafe extern "C" fn extism_plugin_new_from_compiled(
     compiled: *const CompiledPlugin,
     errmsg: *mut *mut std::ffi::c_char,
 ) -> *mut Plugin {
-    let plugin = Plugin::new_from_compiled(&*compiled);
+    let stdin = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
+    let stdout = MemoryOutputPipe::new(1024);
+
+    let plugin = Plugin::new_from_compiled(&*compiled, stdin, stdout);
     match plugin {
         Err(e) => {
             if !errmsg.is_null() {
@@ -540,7 +548,10 @@ pub unsafe extern "C" fn extism_plugin_new_with_fuel_limit(
         }
     };
 
-    let plugin = Plugin::new_from_compiled(&compiled);
+    let stdin = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
+    let stdout = MemoryOutputPipe::new(1024);
+
+    let plugin = Plugin::new_from_compiled(&compiled, stdin, stdout);
 
     match plugin {
         Err(e) => {
@@ -778,10 +789,13 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
 
     let res = plugin.raw_call(&mut lock, name, input, r.clone(), true, None, None, false);
 
+    let stdin = MemoryInputPipe::new(b"Hello, WASI!".to_vec());
+    let stdout = MemoryOutputPipe::new(1024);
+
     match res {
         Err((e, _rc)) => {
             if !retry {
-                match Plugin::new_from_compiled(&plugin.compiled) {
+                match Plugin::new_from_compiled(&plugin.compiled, stdin, stdout) {
                     Ok(res) => {
                         *raw_plugin = res;
                         extism_plugin_call_with_host_context(
@@ -807,13 +821,13 @@ pub unsafe extern "C" fn extism_plugin_call_with_host_context(
     }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn extism_reset_store(plugin: *mut Plugin) {
-    let plugin = &mut *plugin;
-    let lock = plugin.instance.clone();
-    let mut lock = lock.lock().unwrap();
-    let _ = plugin.reset_store(&mut lock);
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn extism_reset_store(plugin: *mut Plugin) {
+//     let plugin = &mut *plugin;
+//     let lock = plugin.instance.clone();
+//     let mut lock = lock.lock().unwrap();
+//     let _ = plugin.reset_store(&mut lock);
+// }
 
 /// Get the error associated with a `Plugin`
 #[no_mangle]

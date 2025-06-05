@@ -373,8 +373,6 @@ int32_t extism_plugin_call_with_host_context(ExtismPlugin *plugin,
                                              void *host_context,
                                              bool retry);
 
-void extism_reset_store(ExtismPlugin *plugin);
-
 /**
  * Get the error associated with a `Plugin`
  */

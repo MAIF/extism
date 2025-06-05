@@ -1,6 +1,7 @@
 package org.extism.sdk;
 
 import com.sun.jna.*;
+import org.extism.sdk.wasmotoroshi.Results;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -15,6 +16,8 @@ public interface LibExtism extends Library {
      * Resolves the extism library based on the resolution algorithm defined in {@link com.sun.jna.NativeLibrary}.
      */
     LibExtism INSTANCE = Native.load("extism", LibExtism.class);
+
+    LibExtism.ExtismVal.ByReference raw_call(Pointer plugin, String functionName);
 
     interface InternalExtismFunction extends Callback {
         void invoke(
